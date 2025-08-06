@@ -1,0 +1,282 @@
+[
+  {
+    "id": "1",
+    "name": "Stanford University",
+    "location": "Stanford, California",
+    "tuition": 56000,
+    "acceptanceRate": 4,
+    "averageGPA": 3.96,
+    "studentPopulation": 17000,
+    "personalityMatch": "analytical",
+    "strongPrograms": ["Computer Science", "Engineering", "Business", "Psychology"],
+    "housing": {
+      "onCampus": true,
+      "averageCost": 15000,
+      "options": ["Dorms", "Apartments", "Greek Housing"]
+    },
+    "scheduling": {
+      "quarterSystem": true,
+      "classSize": "Small to Medium",
+      "flexibility": "High"
+    },
+    "demographics": {
+      "internationalStudents": 23,
+      "diversityIndex": 85,
+      "genderRatio": "50/50"
+    },
+    "image": "https://images.unsplash.com/photo-1562774053-701939374585?w=400",
+    "description": "Stanford University is a private research university known for its academic achievements, wealth, and close proximity to Silicon Valley."
+  },
+  {
+    "id": "2",
+    "name": "Harvard University",
+    "location": "Cambridge, Massachusetts",
+    "tuition": 54000,
+    "acceptanceRate": 5,
+    "averageGPA": 3.94,
+    "studentPopulation": 31000,
+    "personalityMatch": "ambitious",
+    "strongPrograms": ["Business", "Law", "Medicine", "Arts", "Sciences"],
+    "housing": {
+      "onCampus": true,
+      "averageCost": 16000,
+      "options": ["Houses", "Dorms", "Apartments"]
+    },
+    "scheduling": {
+      "quarterSystem": false,
+      "classSize": "Small",
+      "flexibility": "Medium"
+    },
+    "demographics": {
+      "internationalStudents": 25,
+      "diversityIndex": 80,
+      "genderRatio": "48/52"
+    },
+    "image": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=400",
+    "description": "Harvard University is a private Ivy League research university, one of the most prestigious institutions in the world."
+  },
+  {
+    "id": "3",
+    "name": "University of California, Berkeley",
+    "location": "Berkeley, California",
+    "tuition": 44000,
+    "acceptanceRate": 15,
+    "averageGPA": 3.89,
+    "studentPopulation": 42000,
+    "personalityMatch": "progressive",
+    "strongPrograms": ["Engineering", "Computer Science", "Environmental Science", "Social Sciences"],
+    "housing": {
+      "onCampus": true,
+      "averageCost": 18000,
+      "options": ["Dorms", "Apartments", "Co-ops"]
+    },
+    "scheduling": {
+      "quarterSystem": true,
+      "classSize": "Large",
+      "flexibility": "Medium"
+    },
+    "demographics": {
+      "internationalStudents": 15,
+      "diversityIndex": 90,
+      "genderRatio": "52/48"
+    },
+    "image": "https://images.unsplash.com/photo-1523050854058-8df90110c9d1?w=400",
+    "description": "UC Berkeley is a public research university and a founding member of the University of California system."
+  },
+  {
+    "id": "4",
+    "name": "MIT",
+    "location": "Cambridge, Massachusetts",
+    "tuition": 55000,
+    "acceptanceRate": 7,
+    "averageGPA": 3.96,
+    "studentPopulation": 11500,
+    "personalityMatch": "analytical",
+    "strongPrograms": ["Engineering", "Computer Science", "Physics", "Mathematics"],
+    "housing": {
+      "onCampus": true,
+      "averageCost": 17000,
+      "options": ["Dorms", "Living Groups", "Apartments"]
+    },
+    "scheduling": {
+      "quarterSystem": false,
+      "classSize": "Small",
+      "flexibility": "High"
+    },
+    "demographics": {
+      "internationalStudents": 30,
+      "diversityIndex": 75,
+      "genderRatio": "55/45"
+    },
+    "image": "https://images.unsplash.com/photo-1562774053-701939374585?w=400",
+    "description": "MIT is a private research university known for its research and education in physical sciences and engineering."
+  },
+  {
+    "id": "5",
+    "name": "University of Michigan",
+    "location": "Ann Arbor, Michigan",
+    "tuition": 52000,
+    "acceptanceRate": 23,
+    "averageGPA": 3.88,
+    "studentPopulation": 48000,
+    "personalityMatch": "balanced",
+    "strongPrograms": ["Engineering", "Business", "Medicine", "Arts", "Law"],
+    "housing": {
+      "onCampus": true,
+      "averageCost": 12000,
+      "options": ["Dorms", "Apartments", "Greek Housing"]
+    },
+    "scheduling": {
+      "quarterSystem": false,
+      "classSize": "Medium to Large",
+      "flexibility": "Medium"
+    },
+    "demographics": {
+      "internationalStudents": 18,
+      "diversityIndex": 85,
+      "genderRatio": "50/50"
+    },
+    "image": "https://images.unsplash.com/photo-1523050854058-8df90110c9d1?w=400",
+    "description": "University of Michigan is a public research university and one of the top public universities in the United States."
+  },
+  {
+    "id": "6",
+    "name": "New York University",
+    "location": "New York, New York",
+    "tuition": 56000,
+    "acceptanceRate": 16,
+    "averageGPA": 3.71,
+    "studentPopulation": 52000,
+    "personalityMatch": "creative",
+    "strongPrograms": ["Arts", "Business", "Law", "Media", "Psychology"],
+    "housing": {
+      "onCampus": true,
+      "averageCost": 20000,
+      "options": ["Dorms", "Apartments", "Off-campus"]
+    },
+    "scheduling": {
+      "quarterSystem": false,
+      "classSize": "Medium",
+      "flexibility": "High"
+    },
+    "demographics": {
+      "internationalStudents": 20,
+      "diversityIndex": 95,
+      "genderRatio": "45/55"
+    },
+    "image": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=400",
+    "description": "NYU is a private research university located in the heart of New York City, known for its arts and business programs."
+  },
+  {
+    "id": "7",
+    "name": "University of Texas at Austin",
+    "location": "Austin, Texas",
+    "tuition": 38000,
+    "acceptanceRate": 32,
+    "averageGPA": 3.83,
+    "studentPopulation": 51000,
+    "personalityMatch": "social",
+    "strongPrograms": ["Engineering", "Business", "Computer Science", "Communications"],
+    "housing": {
+      "onCampus": true,
+      "averageCost": 11000,
+      "options": ["Dorms", "Apartments", "Greek Housing"]
+    },
+    "scheduling": {
+      "quarterSystem": false,
+      "classSize": "Large",
+      "flexibility": "Medium"
+    },
+    "demographics": {
+      "internationalStudents": 12,
+      "diversityIndex": 80,
+      "genderRatio": "48/52"
+    },
+    "image": "https://images.unsplash.com/photo-1523050854058-8df90110c9d1?w=400",
+    "description": "UT Austin is a public research university and the flagship institution of the University of Texas System."
+  },
+  {
+    "id": "8",
+    "name": "University of Florida",
+    "location": "Gainesville, Florida",
+    "tuition": 28000,
+    "acceptanceRate": 30,
+    "averageGPA": 4.42,
+    "studentPopulation": 52000,
+    "personalityMatch": "social",
+    "strongPrograms": ["Engineering", "Agriculture", "Business", "Health Sciences"],
+    "housing": {
+      "onCampus": true,
+      "averageCost": 10000,
+      "options": ["Dorms", "Apartments", "Greek Housing"]
+    },
+    "scheduling": {
+      "quarterSystem": false,
+      "classSize": "Large",
+      "flexibility": "Medium"
+    },
+    "demographics": {
+      "internationalStudents": 8,
+      "diversityIndex": 75,
+      "genderRatio": "45/55"
+    },
+    "image": "https://images.unsplash.com/photo-1523050854058-8df90110c9d1?w=400",
+    "description": "University of Florida is a public research university and a member of the State University System of Florida."
+  },
+  {
+    "id": "9",
+    "name": "University of Washington",
+    "location": "Seattle, Washington",
+    "tuition": 39000,
+    "acceptanceRate": 52,
+    "averageGPA": 3.8,
+    "studentPopulation": 48000,
+    "personalityMatch": "progressive",
+    "strongPrograms": ["Computer Science", "Engineering", "Medicine", "Environmental Science"],
+    "housing": {
+      "onCampus": true,
+      "averageCost": 14000,
+      "options": ["Dorms", "Apartments", "Off-campus"]
+    },
+    "scheduling": {
+      "quarterSystem": true,
+      "classSize": "Large",
+      "flexibility": "Medium"
+    },
+    "demographics": {
+      "internationalStudents": 16,
+      "diversityIndex": 85,
+      "genderRatio": "50/50"
+    },
+    "image": "https://images.unsplash.com/photo-1523050854058-8df90110c9d1?w=400",
+    "description": "University of Washington is a public research university and one of the oldest universities on the West Coast."
+  },
+  {
+    "id": "10",
+    "name": "University of North Carolina at Chapel Hill",
+    "location": "Chapel Hill, North Carolina",
+    "tuition": 36000,
+    "acceptanceRate": 23,
+    "averageGPA": 4.39,
+    "studentPopulation": 30000,
+    "personalityMatch": "balanced",
+    "strongPrograms": ["Business", "Medicine", "Journalism", "Arts", "Sciences"],
+    "housing": {
+      "onCampus": true,
+      "averageCost": 12000,
+      "options": ["Dorms", "Apartments", "Greek Housing"]
+    },
+    "scheduling": {
+      "quarterSystem": false,
+      "classSize": "Medium",
+      "flexibility": "Medium"
+    },
+    "demographics": {
+      "internationalStudents": 10,
+      "diversityIndex": 80,
+      "genderRatio": "60/40"
+    },
+    "image": "https://images.unsplash.com/photo-1523050854058-8df90110c9d1?w=400",
+    "description": "UNC Chapel Hill is a public research university and the flagship of the University of North Carolina system."
+  }
+] 
