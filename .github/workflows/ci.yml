@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: matcher
+          POSTGRES_PASSWORD: matcher
+          POSTGRES_DB: matcher
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U matcher -d matcher"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgresql+asyncpg://matcher:matcher@localhost:5432/matcher
+      LLM_MODE: replay
+      REQUIRE_DB: "1"
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: uv sync --locked
+      - name: Enable pgvector
+        run: |
+          PGPASSWORD=matcher psql -h localhost -U matcher -d matcher \
+            -c "CREATE EXTENSION IF NOT EXISTS vector;"
+      - name: Ruff
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Mypy
+        run: uv run mypy app
+      - name: Pytest
+        run: uv run pytest -q
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config -q
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for web app
+        id: check
+        run: echo "exists=${{ hashFiles('web/package.json') != '' }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.exists == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        if: steps.check.outputs.exists == 'true'
+        working-directory: web
+        run: npm ci
+      - name: Lint
+        if: steps.check.outputs.exists == 'true'
+        working-directory: web
+        run: npm run lint
+      - name: Build
+        if: steps.check.outputs.exists == 'true'
+        working-directory: web
+        run: npm run build
