@@ -14,6 +14,7 @@ dependencies = [
     "alembic",
     "structlog",
     "httpx",
+    "websockets",
     "anthropic",
     "fastembed",
     "pyyaml",
