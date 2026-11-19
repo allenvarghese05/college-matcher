@@ -62,7 +62,7 @@ export function Talk() {
         setSessionId(s.id);
         setTurns([{ idx: 0, role: "counselor", text: GREETING }]);
       })
-      .catch(() => setError("I couldn't reach the counselor. Is the backend running?"));
+      .catch(() => setError("I can't reach the counselor right now. Check your connection and reload."));
     return () => {
       cancelled = true;
     };
@@ -173,9 +173,11 @@ export function Talk() {
             ) : (
               <Orb state={orb} size={112} />
             )}
-            <MonoLabel as="p" className="h-4" aria-live="polite">
-              {VOICE_AVAILABLE ? STATUS[orb] : orb === "idle" ? "Voice isn't connected yet" : STATUS[orb]}
-            </MonoLabel>
+            <p aria-live="polite" className="h-4">
+              <MonoLabel>
+                {VOICE_AVAILABLE ? STATUS[orb] : orb === "idle" ? "Voice isn't connected yet" : STATUS[orb]}
+              </MonoLabel>
+            </p>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto [mask-image:linear-gradient(to_bottom,transparent,black_32px)]">

@@ -57,7 +57,7 @@ export function ProfilePanel({ profile, justLearned, onShowMatches, className }:
         </p>
         <Link
           to="/quiz"
-          className="self-center rounded-sm text-ink-muted underline decoration-line-strong underline-offset-4 transition-colors hover:text-ink"
+          className="self-center rounded-sm py-2 text-ink-muted underline decoration-line-strong underline-offset-4 transition-colors hover:text-ink"
         >
           Take the 2-minute interest quiz
         </Link>
@@ -110,7 +110,7 @@ function ProfileRow({
       >
         <MonoLabel>
           {label}
-          {field.confidence < READY_CONFIDENCE && <span className="text-ink-faint"> · unsure</span>}
+          {field.confidence < READY_CONFIDENCE && <span> · unsure</span>}
         </MonoLabel>
         <span className="text-ink">{value}</span>
       </button>

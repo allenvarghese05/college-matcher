@@ -59,7 +59,7 @@
   --fs-display: clamp(2.75rem, 1.6rem + 4.6vw, 5.75rem);
   --fs-title: 1.375rem;
   --fs-body: 1rem;
-  --fs-label: 0.6875rem;
+  --fs-label: 0.75rem;
 
   /* Radius */
   --r-sm: 10px;
