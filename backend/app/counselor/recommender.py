@@ -14,8 +14,10 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, get_args
 
+from pydantic import BaseModel, ValidationError
+
 from app.core.config import get_settings
-from app.core.llm import Effort, LLMClient
+from app.core.llm import Effort, LLMClient, LLMOutputError
 from app.core.logging import Stage, get_logger
 from app.counselor.context import compact_profile
 from app.counselor.prompts import load_prompt
@@ -100,8 +102,29 @@ def build_user_message(profile: StudentProfile, candidates: list[Candidate], k: 
     )
 
 
+class _WireClaim(BaseModel):
+    field: ClaimField
+    value: str
+
+
+class _WireRec(BaseModel):
+    unitid: int
+    cip4: str
+    reasons: list[str]
+    claims: list[_WireClaim]
+
+
+class _WireOut(BaseModel):
+    recommendations: list[_WireRec]
+
+
 def finalize(raw: dict[str, Any], candidates: list[Candidate], k: int) -> list[Recommendation]:
-    """Pin to real candidates, copy admission band, dedupe schools, rank 1..n."""
+    """Validate the wire output, pin to real candidates, copy admission band, dedupe
+    schools, rank 1..n. Malformed output raises ``LLMOutputError`` (never a 500)."""
+    try:
+        wire = _WireOut.model_validate(raw)
+    except ValidationError as exc:
+        raise LLMOutputError(f"recommendation output failed validation: {exc}") from exc
     by_pair = {(c.unitid, c.cip4): c for c in candidates}
     best_by_unitid: dict[int, Candidate] = {}
     for c in sorted(candidates, key=lambda c: c.scores.total, reverse=True):
@@ -109,14 +132,14 @@ def finalize(raw: dict[str, Any], candidates: list[Candidate], k: int) -> list[R
 
     out: list[Recommendation] = []
     seen: set[int] = set()
-    for item in raw.get("recommendations", []):
-        unitid = int(item["unitid"])
+    for item in wire.recommendations:
+        unitid = item.unitid
         if unitid in seen or unitid not in best_by_unitid:
             continue
-        cand = by_pair.get((unitid, item.get("cip4") or None)) or best_by_unitid[unitid]
+        cand = by_pair.get((unitid, item.cip4 or None)) or best_by_unitid[unitid]
         claims = [
-            Claim(unitid=cand.unitid, field=cl["field"], cip4=cand.cip4, value=str(cl["value"]))
-            for cl in item.get("claims", [])
+            Claim(unitid=cand.unitid, field=cl.field, cip4=cand.cip4, value=cl.value)
+            for cl in item.claims
         ]
         out.append(
             Recommendation(
@@ -124,7 +147,7 @@ def finalize(raw: dict[str, Any], candidates: list[Candidate], k: int) -> list[R
                 cip4=cand.cip4,
                 rank=len(out) + 1,
                 admission_band=cand.admission_band,
-                reasons=[str(r) for r in item.get("reasons", [])],
+                reasons=list(item.reasons),
                 claims=claims,
             )
         )

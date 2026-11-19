@@ -36,7 +36,7 @@ from app.core.config import get_settings
 from app.core.llm import Effort, LLMClient, LLMError, LLMRefusalError
 from app.core.logging import TurnLogger, get_logger
 from app.counselor.context import HistoryTurn, plan_next_topic, profile_json
-from app.counselor.extractor import Extractor
+from app.counselor.extractor import ExtractionOutcome, Extractor, add_extra_evidence
 from app.counselor.facts import load_db_facts
 from app.counselor.groundedness import FactIndex, GroundednessReport, check, has_digit
 from app.counselor.prompts import load_prompt
@@ -53,7 +53,6 @@ from app.db.models import (
 from app.schemas import (
     Candidate,
     EvidenceSource,
-    ExtractionResult,
     NextTopic,
     RecommendationOut,
     RecommendationSet,
@@ -273,10 +272,12 @@ class CounselorOrchestrator:
         tl = TurnLogger(session_id=str(session_id), turn_id=str(user_turn_id))
         extractor = self.extractor
 
-        async def run_extraction() -> ExtractionResult:
+        async def run_extraction() -> ExtractionOutcome:
             with tl.stage("extract") as st:
                 try:
-                    return await extractor.extract(history, text, prev_profile, stage=st)
+                    return await extractor.extract_with_evidence(
+                        history, text, prev_profile, stage=st
+                    )
                 except LLMRefusalError as exc:
                     st.set(refusals=1, refusal=exc.category)
                     raise
@@ -343,9 +344,10 @@ class CounselorOrchestrator:
         profile = prev_profile
         snapshot: tuple[StudentProfile, NextTopic] | None = None
         try:
-            result = await extract_task
-            profile = apply_delta(prev_profile, result.delta, user_idx, source)
-            snapshot = (profile, result.next_topic)
+            outcome = await extract_task
+            profile = apply_delta(prev_profile, outcome.result.delta, user_idx, source)
+            profile = add_extra_evidence(profile, outcome.extra_quotes, user_idx, source)
+            snapshot = (profile, outcome.result.next_topic)
         except Exception as exc:
             log.error("extract_failed", error=type(exc).__name__)
 

@@ -274,3 +274,20 @@ def test_finalize_pins_claims_to_parent_recommendation() -> None:
 
 def test_count_digit_reasons() -> None:
     assert count_digit_reasons(["no numbers here", "top 10 school", "class of 2028"]) == 2
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        {"recs": []},
+        {"recommendations": [{"unitid": 1}]},
+        {"recommendations": [{"unitid": 1, "cip4": "1107", "reasons": [],
+                              "claims": [{"field": "tuition", "value": "$1"}]}]},
+    ],
+)  # fmt: skip
+def test_finalize_malformed_output_is_llm_output_error(raw: dict) -> None:  # type: ignore[type-arg]
+    from app.core.llm import LLMOutputError
+    from app.counselor.recommender import finalize
+
+    with pytest.raises(LLMOutputError):
+        finalize(raw, [_cand(unitid=1)], k=3)

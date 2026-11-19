@@ -13,16 +13,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Institution, Program
+from app.retrieval.sql_filters import net_price_column
 
 BACHELORS = 3
-
-NET_PRICE_COLUMN = {
-    "0-30k": "net_price_0_30k",
-    "30-48k": "net_price_30_48k",
-    "48-75k": "net_price_48_75k",
-    "75-110k": "net_price_75_110k",
-    "110k+": "net_price_110k_plus",
-}
 
 
 def _range(lo: int | None, hi: int | None) -> str | None:
@@ -30,8 +23,7 @@ def _range(lo: int | None, hi: int | None) -> str | None:
 
 
 def institution_facts(inst: Institution, income_bracket: str | None) -> dict[str, Any]:
-    col = NET_PRICE_COLUMN.get(income_bracket or "")
-    net_price = getattr(inst, col) if col else inst.avg_net_price
+    net_price = getattr(inst, net_price_column(income_bracket))
     return {
         "net_price": net_price,
         "admission_rate": inst.admission_rate,

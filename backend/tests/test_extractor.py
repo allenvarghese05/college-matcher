@@ -71,7 +71,7 @@ async def test_extract_returns_delta_and_next_topic_with_sonnet_params(tmp_path:
     content = kw["messages"][0]["content"]
     assert LATEST in content and "counselor: Nice! Where do you live?" in content
     assert '"interests"' in content  # previous profile is in context
-    assert st.extra["next_topic"] == "money" and st.extra["prompt"] == "extractor.v2"
+    assert st.extra["next_topic"] == "money" and st.extra["prompt"] == "extractor.v3"
     assert st.input_tokens > 0
 
 
@@ -84,7 +84,7 @@ async def test_schema_invalid_output_is_llm_output_error(tmp_path: Path) -> None
     assert st.input_tokens > 0  # usage still recorded
 
 
-def test_extractor_prompt_v2_describes_wire_and_region_vocabulary() -> None:
+def test_extractor_prompt_describes_wire_region_vocabulary_and_budget_rule() -> None:
     from app.counselor.prompts import load_prompt
 
     text = load_prompt("extractor").text
@@ -93,6 +93,7 @@ def test_extractor_prompt_v2_describes_wire_and_region_vocabulary() -> None:
     assert "add no update for that field" in text
     assert "0.8 or higher" in text  # corrections rubric
     assert "Update format" in text and "null" not in text
+    assert "add no budget_cap update" in text
 
 
 def test_build_user_message_marks_start_of_conversation() -> None:
@@ -121,7 +122,8 @@ def test_wire_to_delta_types_and_sentinels() -> None:
             quote="q",
         ),
     )
-    delta, dropped = wire_to_delta(wire)
+    conv = wire_to_delta(wire, "q")
+    delta, dropped = conv.delta, conv.dropped
     assert delta.gpa == Update(value=3.7, confidence=0.95, quote="q")
     assert delta.sat is not None and delta.sat.value == 1310
     assert delta.income_bracket is not None and delta.income_bracket.value == "48-75k"
@@ -141,7 +143,8 @@ def test_wire_to_delta_drops_empty_and_invalid_values() -> None:
         wire_update("home_zip", "", 0.9, "q"),
         wire_update("priorities", ["fame"], 0.9, "q"),  # no valid items
     )
-    delta, dropped = wire_to_delta(wire)
+    conv = wire_to_delta(wire, "q")
+    delta, dropped = conv.delta, conv.dropped
     assert delta == ProfileDelta()
     assert sorted(dropped) == ["home_zip", "income_bracket", "priorities", "sat"]
 
@@ -153,8 +156,10 @@ def test_wire_to_delta_repeated_fields() -> None:
         wire_update("home_state", "OH", 0.9, "c"),
         wire_update("home_state", "MI", 0.5, "d"),
     )
-    delta, _ = wire_to_delta(wire)
+    conv = wire_to_delta(wire, "a b c d")
+    delta = conv.delta
     assert delta.interests is not None and delta.interests.value == ["coding", "art"]
+    assert conv.extra_quotes == {"interests": ["b"]}
     assert delta.interests.confidence == 0.9
     assert delta.home_state is not None and delta.home_state.value == "OH"
 
@@ -243,3 +248,55 @@ async def test_extract_replays_from_committed_cassette() -> None:
     t = SCENARIO[0]
     res = await Extractor(llm).extract([], t.student, StudentProfile())
     assert res == t.extraction
+
+
+ROBOTICS = "I love robotics and I hate math."
+
+
+def test_invented_quote_cannot_ride_along_in_a_merged_list_field() -> None:
+    wire = _wire(
+        wire_update("interests", ["robotics"], 0.9, "I love robotics"),
+        wire_update("interests", ["marine biology"], 0.95, "I adore marine biology"),
+    )
+    conv = wire_to_delta(wire, ROBOTICS)
+    assert conv.delta.interests == Update(
+        value=["robotics"], confidence=0.9, quote="I love robotics"
+    )
+    assert conv.dropped == ["interests"] and conv.extra_quotes == {}
+
+
+def test_invented_high_confidence_scalar_does_not_displace_valid_one() -> None:
+    msg = "I think my GPA is around 3.4 or so."
+    wire = _wire(
+        wire_update("gpa", 3.4, 0.7, "my GPA is around 3.4"),
+        wire_update("gpa", 4.0, 0.99, "I have a perfect 4.0"),
+    )
+    conv = wire_to_delta(wire, msg)
+    assert conv.delta.gpa == Update(value=3.4, confidence=0.7, quote="my GPA is around 3.4")
+    assert conv.dropped == ["gpa"]
+
+
+async def test_merged_list_keeps_evidence_for_each_surviving_quote(tmp_path: Path) -> None:
+    from app.counselor.extractor import add_extra_evidence
+    from app.schemas import apply_delta
+
+    fake = ScriptedAnthropic()
+    fake.add_parse(
+        "ExtractionWire",
+        ScriptedParse(
+            output=_wire(
+                wire_update("interests", ["robotics"], 0.9, "I love robotics"),
+                wire_update("interests", ["math"], 0.6, "I hate math"),  # odd but quoted
+                wire_update("interests", ["marine biology"], 0.95, "I adore marine biology"),
+            )
+        ),
+    )
+    out = await Extractor(_client(fake, tmp_path)).extract_with_evidence(
+        [], ROBOTICS, StudentProfile()
+    )
+    assert out.result.delta.interests is not None
+    assert out.result.delta.interests.value == ["robotics", "math"]
+    assert out.extra_quotes == {"interests": ["I hate math"]}
+    prof = apply_delta(StudentProfile(), out.result.delta, 4, "chat")
+    prof = add_extra_evidence(prof, out.extra_quotes, 4, "chat")
+    assert [e.quote for e in prof.interests.evidence] == ["I love robotics", "I hate math"]

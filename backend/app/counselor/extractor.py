@@ -38,6 +38,8 @@ from app.counselor.prompts import load_prompt
 from app.schemas import (
     LIST_FIELDS,
     Activity,
+    Evidence,
+    EvidenceSource,
     ExtractionResult,
     NextTopic,
     ProfileDelta,
@@ -158,15 +160,31 @@ def _validate_one(name: str, value: Any, confidence: float, quote: str) -> Updat
         return None
 
 
-def wire_to_delta(wire: ExtractionWire) -> tuple[ProfileDelta, list[str]]:
-    """Convert wire updates to a validated ``ProfileDelta``; returns dropped field names.
+@dataclass
+class WireConversion:
+    delta: ProfileDelta
+    dropped: list[str]
+    # Further surviving quotes for merged list fields (the delta keeps the first one);
+    # the orchestrator appends them as evidence so every accepted value is backed.
+    extra_quotes: dict[str, list[str]] = field(default_factory=dict)
 
-    Enum lists keep their valid items only. Repeated fields: lists are concatenated,
-    scalars keep the highest-confidence update.
+
+def wire_to_delta(wire: ExtractionWire, latest: str) -> WireConversion:
+    """Convert wire updates to a validated ``ProfileDelta``.
+
+    Every update is checked against the latest message FIRST (its quote must be an
+    exact, word-bounded span); only survivors are validated and merged, so an update
+    with an invented quote can never ride along with a genuine one. Enum lists keep
+    their valid items only. Repeated fields: lists are concatenated (each surviving
+    quote is kept as evidence), scalars keep the highest-confidence survivor.
     """
     out: dict[str, Update[Any]] = {}
+    extra: dict[str, list[str]] = {}
     dropped: list[str] = []
     for u in wire.updates:
+        if not quote_in(u.quote, latest):
+            dropped.append(u.field)
+            continue
         value = _wire_value(u)
         if value is None:
             dropped.append(u.field)
@@ -182,15 +200,18 @@ def wire_to_delta(wire: ExtractionWire) -> tuple[ProfileDelta, list[str]]:
             continue
         prev = out.get(u.field)
         if prev is not None and u.field in LIST_FIELDS:
-            upd = Update(
+            out[u.field] = Update(
                 value=list(prev.value) + list(upd.value),
                 confidence=max(prev.confidence, upd.confidence),
                 quote=prev.quote,
             )
-        elif prev is not None and prev.confidence > upd.confidence:
+            if upd.quote != prev.quote and upd.quote not in extra.get(u.field, []):
+                extra.setdefault(u.field, []).append(upd.quote)
+            continue
+        if prev is not None and prev.confidence >= upd.confidence:
             continue
         out[u.field] = upd
-    return ProfileDelta(**out), dropped
+    return WireConversion(ProfileDelta(**out), dropped, extra)
 
 
 # ---------------------------------------------------------------------- guards
@@ -263,6 +284,29 @@ def sanitize(delta: ProfileDelta, latest: str) -> tuple[ProfileDelta, list[str]]
 
 
 @dataclass
+class ExtractionOutcome:
+    result: ExtractionResult
+    extra_quotes: dict[str, list[str]] = field(default_factory=dict)
+
+
+def add_extra_evidence(
+    profile: StudentProfile,
+    extra_quotes: dict[str, list[str]],
+    turn_idx: int,
+    source: EvidenceSource,
+) -> StudentProfile:
+    """Append one Evidence per extra quote (after ``apply_delta``); returns a copy."""
+    if not extra_quotes:
+        return profile
+    out = profile.model_copy(deep=True)
+    for name, quotes in extra_quotes.items():
+        pf = getattr(out, name)
+        for q in quotes:
+            pf.evidence.append(Evidence(quote=q, turn_idx=turn_idx, source=source))
+    return out
+
+
+@dataclass
 class Extractor:
     llm: LLMClient
     model: str = field(default_factory=lambda: get_settings().MODEL_FAST)
@@ -279,6 +323,17 @@ class Extractor:
         stage: Stage | None = None,
     ) -> ExtractionResult:
         """``history`` = turns before the latest student message (oldest first)."""
+        return (await self.extract_with_evidence(history, latest, profile, stage=stage)).result
+
+    async def extract_with_evidence(
+        self,
+        history: list[HistoryTurn],
+        latest: str,
+        profile: StudentProfile,
+        *,
+        stage: Stage | None = None,
+    ) -> ExtractionOutcome:
+        """Like :meth:`extract`, plus extra evidence quotes for merged list fields."""
         context = history[-self.context_turns :]
         prompt = load_prompt("extractor")
         wire = await self.llm.parse(
@@ -290,11 +345,12 @@ class Extractor:
             max_tokens=self.max_tokens,
             stage=stage,
         )
-        delta, invalid = wire_to_delta(wire)
-        delta, dropped = sanitize(delta, latest)
-        dropped = invalid + dropped
+        conv = wire_to_delta(wire, latest)
+        delta, dropped = sanitize(conv.delta, latest)
+        dropped = conv.dropped + dropped
+        extra = {k: v for k, v in conv.extra_quotes.items() if getattr(delta, k) is not None}
         if stage is not None:
             stage.set(prompt=prompt.id, dropped_fields=dropped, next_topic=wire.next_topic)
         if dropped:
             log.info("extract_dropped_fields", fields=dropped)
-        return ExtractionResult(delta=delta, next_topic=wire.next_topic)
+        return ExtractionOutcome(ExtractionResult(delta=delta, next_topic=wire.next_topic), extra)
