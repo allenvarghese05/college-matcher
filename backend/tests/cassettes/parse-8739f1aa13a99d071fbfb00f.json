@@ -1,0 +1,736 @@
+{
+  "key": "8739f1aa13a99d071fbfb00f",
+  "kind": "parse",
+  "request": {
+    "model": "claude-sonnet-5-5",
+    "system": "You extract facts about a high school student from a college-counseling chat, for a college-matching app. You return a JSON object with a profile delta and the next topic to ask about.\n\nWhat to extract\n- Read the conversation context, but extract ONLY what the student states in the LATEST student message. Earlier messages are context for resolving short answers (for example \"Ohio\" answering \"What state do you live in?\").\n- Leave every field null unless the latest message gives it. Never carry over, restate or guess values that are already in the current profile.\n- Never infer what was not said. Do not derive a major from a hobby, an income bracket from a school name, or a state from a city unless the student names it. If a student says they have no GPA or no test scores, or doesn't want to share them, leave that field null. Never invent a number.\n- quote: copy the student's exact words from the latest message (a short contiguous span that supports the value). Do not paraphrase, fix spelling, or join separate spans.\n\nField formats\n- home_state: two-letter USPS code (\"OH\"). home_zip: five digits as a string.\n- gpa: unweighted 0-4 scale as given; if the student gives a weighted GPA above 4 or a different scale, leave it null. sat: composite 400-1600. act: composite 1-36.\n- income_bracket: one of \"0-30k\", \"30-48k\", \"48-75k\", \"75-110k\", \"110k+\" (annual household income). Map clear statements (\"my parents make about 60 thousand\" -> \"48-75k\"). Leave null if vague (\"we're not rich\").\n- budget_cap: dollars per year the family can pay, as an integer.\n- interests, strengths, favorite_subjects, intended_majors: short lowercase phrases in the student's own terms (\"marine biology\", \"drawing\", \"fixing cars\").\n- dream_without_money: the student's answer to \"If money weren't involved and you weren't getting paid, what would you happily do for the rest of your life?\", in a short phrase close to their words.\n- activities: one entry per activity with name, and role / years / hours_per_week only if stated.\n- work_values: only from \"achievement\", \"independence\", \"recognition\", \"relationships\", \"support\", \"working_conditions\", and only when the student clearly expresses that value.\n- riasec: leave null; it comes from a quiz, not chat.\n- max_distance_miles: integer miles if the student gives a distance (\"within a couple hours drive\" -> about 120).\n- regions: lowercase codes from this fixed list only:\n  census regions: northeast, midwest, south, west;\n  census divisions: new_england, mid_atlantic, east_north_central, west_north_central, south_atlantic, east_south_central, west_south_central, mountain, pacific;\n  special: out_of_state (the student wants to leave their home state or go far from home).\n  Map phrases: \"somewhere on the West Coast\" -> pacific, \"New England\" -> new_england, \"the South\" -> south, \"anywhere but here\" or \"far from home\" -> out_of_state. A specific state the student names goes in regions as its two-letter USPS code (\"CA\"). Never invent other region names.\n- size_pref: \"small\", \"medium\", \"large\" or \"any\". setting_pref: \"city\", \"suburb\", \"town\", \"rural\" or \"any\".\n- priorities: from \"cost\", \"outcomes\", \"prestige\", \"location\", \"fit\".\n\nConfidence rubric (0 to 1)\n- 0.9-1.0: explicit, unambiguous statement (\"I live in Ohio\", \"my SAT was 1310\").\n- 0.7-0.8: clear but slightly hedged or approximate (\"probably around a 3.5\", \"maybe something with computers\").\n- 0.5-0.6: implied by a direct answer that needs the previous question to interpret, or tentative (\"I guess biology?\").\n- below 0.5: weak or speculative; usually prefer leaving the field null instead.\n- Corrections: if the student corrects something they said before (\"actually it's Michigan, not Ohio\", \"sorry, I meant 1350\"), extract the corrected value with confidence 0.8 or higher so it replaces the old one.\n\nnext_topic\nPick the single most useful thing for the counselor to ask about next, considering the current profile plus what the latest message added. Follow this order and skip what is already known: dream_without_money, interests, strengths, favorite_subjects, activities, work_values, academics, money, location, size_setting, priorities. Prefer topics needed for recommendations (location for home state, money for income bracket, interests) once the conversation is under way. Use ready_to_recommend when home state, income bracket and interests or intended majors are all known and most other topics are covered.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "<current_profile>\n{\"dream_without_money\": {\"confidence\": 0.9, \"value\": \"make story-driven video games\"}, \"home_state\": {\"confidence\": 0.95, \"value\": \"OH\"}, \"interests\": {\"confidence\": 0.9, \"value\": [\"coding\", \"building games\"]}}\n</current_profile>\n\n<recent_conversation>\nstudent: Hi! I'm a junior and honestly kind of stressed about college. I really love coding and building little games on my computer.\ncounselor: Hi! It's completely normal to feel stressed about college, and you're starting early, which is great. Building your own games is a fantastic skill. If money weren't involved and you weren't getting paid, what would you happily do for the rest of your life?\nstudent: I live in Ohio, near Columbus. If money didn't matter I'd make video games all day, like the kind with really good stories.\ncounselor: Story-driven games are such a cool mix of creativity and technical skill, and Ohio gives you lots of options. To figure out what college would really cost your family, roughly which income range is your household in: under $30k, $30-48k, $48-75k, $75-110k, or over $110k?\n</recent_conversation>\n\n<latest_student_message>\nMy parents make around 60 thousand a year together. I have a 3.7 GPA and got a 1310 on the SAT.\n</latest_student_message>\n\nExtract only what the latest student message states, then choose next_topic."
+      }
+    ],
+    "schema": {
+      "$defs": {
+        "Activity": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "role": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Role"
+            },
+            "years": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Years"
+            },
+            "hours_per_week": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Hours Per Week"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "title": "Activity",
+          "type": "object"
+        },
+        "ProfileDelta": {
+          "additionalProperties": false,
+          "description": "Only fields changed by this turn are non-null. Mirrors StudentProfile field names.",
+          "properties": {
+            "home_state": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_str_"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "home_zip": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_str_"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "gpa": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_float_"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "sat": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_int_"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "act": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_int_"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "income_bracket": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_Literal__0-30k____30-48k____48-75k____75-110k____110k____"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "budget_cap": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_int_"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "interests": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_list_str__"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "dream_without_money": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_str_"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "intended_majors": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_list_str__"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "riasec": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_Riasec_"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "strengths": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_list_str__"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "favorite_subjects": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_list_str__"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "activities": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_list_Activity__"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "work_values": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_list_Literal__achievement____independence____recognition____relationships____support____working_conditions____"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "max_distance_miles": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_int_"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "regions": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_list_str__"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "size_pref": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_Literal__small____medium____large____any___"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "setting_pref": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_Literal__city____suburb____town____rural____any___"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "priorities": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Update_list_Literal__cost____outcomes____prestige____location____fit____"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "title": "ProfileDelta",
+          "type": "object"
+        },
+        "Riasec": {
+          "additionalProperties": false,
+          "description": "Holland interest profile, each dimension 0..1.",
+          "properties": {
+            "R": {
+              "maximum": 1,
+              "minimum": 0,
+              "title": "R",
+              "type": "number"
+            },
+            "I": {
+              "maximum": 1,
+              "minimum": 0,
+              "title": "I",
+              "type": "number"
+            },
+            "A": {
+              "maximum": 1,
+              "minimum": 0,
+              "title": "A",
+              "type": "number"
+            },
+            "S": {
+              "maximum": 1,
+              "minimum": 0,
+              "title": "S",
+              "type": "number"
+            },
+            "E": {
+              "maximum": 1,
+              "minimum": 0,
+              "title": "E",
+              "type": "number"
+            },
+            "C": {
+              "maximum": 1,
+              "minimum": 0,
+              "title": "C",
+              "type": "number"
+            }
+          },
+          "required": [
+            "R",
+            "I",
+            "A",
+            "S",
+            "E",
+            "C"
+          ],
+          "title": "Riasec",
+          "type": "object"
+        },
+        "Update_Literal__0-30k____30-48k____48-75k____75-110k____110k____": {
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "enum": [
+                "0-30k",
+                "30-48k",
+                "48-75k",
+                "75-110k",
+                "110k+"
+              ],
+              "title": "Value",
+              "type": "string"
+            },
+            "confidence": {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "quote": {
+              "description": "Exact words from the latest student message (or resume).",
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "confidence",
+            "quote"
+          ],
+          "title": "Update[Literal['0-30k', '30-48k', '48-75k', '75-110k', '110k+']]",
+          "type": "object"
+        },
+        "Update_Literal__city____suburb____town____rural____any___": {
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "enum": [
+                "city",
+                "suburb",
+                "town",
+                "rural",
+                "any"
+              ],
+              "title": "Value",
+              "type": "string"
+            },
+            "confidence": {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "quote": {
+              "description": "Exact words from the latest student message (or resume).",
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "confidence",
+            "quote"
+          ],
+          "title": "Update[Literal['city', 'suburb', 'town', 'rural', 'any']]",
+          "type": "object"
+        },
+        "Update_Literal__small____medium____large____any___": {
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "enum": [
+                "small",
+                "medium",
+                "large",
+                "any"
+              ],
+              "title": "Value",
+              "type": "string"
+            },
+            "confidence": {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "quote": {
+              "description": "Exact words from the latest student message (or resume).",
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "confidence",
+            "quote"
+          ],
+          "title": "Update[Literal['small', 'medium', 'large', 'any']]",
+          "type": "object"
+        },
+        "Update_Riasec_": {
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "$ref": "#/$defs/Riasec"
+            },
+            "confidence": {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "quote": {
+              "description": "Exact words from the latest student message (or resume).",
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "confidence",
+            "quote"
+          ],
+          "title": "Update[Riasec]",
+          "type": "object"
+        },
+        "Update_float_": {
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "title": "Value",
+              "type": "number"
+            },
+            "confidence": {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "quote": {
+              "description": "Exact words from the latest student message (or resume).",
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "confidence",
+            "quote"
+          ],
+          "title": "Update[float]",
+          "type": "object"
+        },
+        "Update_int_": {
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "title": "Value",
+              "type": "integer"
+            },
+            "confidence": {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "quote": {
+              "description": "Exact words from the latest student message (or resume).",
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "confidence",
+            "quote"
+          ],
+          "title": "Update[int]",
+          "type": "object"
+        },
+        "Update_list_Activity__": {
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "items": {
+                "$ref": "#/$defs/Activity"
+              },
+              "title": "Value",
+              "type": "array"
+            },
+            "confidence": {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "quote": {
+              "description": "Exact words from the latest student message (or resume).",
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "confidence",
+            "quote"
+          ],
+          "title": "Update[list[Activity]]",
+          "type": "object"
+        },
+        "Update_list_Literal__achievement____independence____recognition____relationships____support____working_conditions____": {
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "items": {
+                "enum": [
+                  "achievement",
+                  "independence",
+                  "recognition",
+                  "relationships",
+                  "support",
+                  "working_conditions"
+                ],
+                "type": "string"
+              },
+              "title": "Value",
+              "type": "array"
+            },
+            "confidence": {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "quote": {
+              "description": "Exact words from the latest student message (or resume).",
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "confidence",
+            "quote"
+          ],
+          "title": "Update[list[Literal['achievement', 'independence', 'recognition', 'relationships', 'support', 'working_conditions']]]",
+          "type": "object"
+        },
+        "Update_list_Literal__cost____outcomes____prestige____location____fit____": {
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "items": {
+                "enum": [
+                  "cost",
+                  "outcomes",
+                  "prestige",
+                  "location",
+                  "fit"
+                ],
+                "type": "string"
+              },
+              "title": "Value",
+              "type": "array"
+            },
+            "confidence": {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "quote": {
+              "description": "Exact words from the latest student message (or resume).",
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "confidence",
+            "quote"
+          ],
+          "title": "Update[list[Literal['cost', 'outcomes', 'prestige', 'location', 'fit']]]",
+          "type": "object"
+        },
+        "Update_list_str__": {
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Value",
+              "type": "array"
+            },
+            "confidence": {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "quote": {
+              "description": "Exact words from the latest student message (or resume).",
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "confidence",
+            "quote"
+          ],
+          "title": "Update[list[str]]",
+          "type": "object"
+        },
+        "Update_str_": {
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "title": "Value",
+              "type": "string"
+            },
+            "confidence": {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "quote": {
+              "description": "Exact words from the latest student message (or resume).",
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "confidence",
+            "quote"
+          ],
+          "title": "Update[str]",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "delta": {
+          "$ref": "#/$defs/ProfileDelta"
+        },
+        "next_topic": {
+          "enum": [
+            "dream_without_money",
+            "interests",
+            "strengths",
+            "favorite_subjects",
+            "activities",
+            "work_values",
+            "academics",
+            "money",
+            "location",
+            "size_setting",
+            "priorities",
+            "ready_to_recommend"
+          ],
+          "title": "Next Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "delta",
+        "next_topic"
+      ],
+      "title": "ExtractionResult",
+      "type": "object"
+    },
+    "params": {
+      "effort": "medium",
+      "max_tokens": 8000
+    }
+  },
+  "response": {
+    "text": "{\"delta\":{\"home_state\":null,\"home_zip\":null,\"gpa\":{\"value\":3.7,\"confidence\":0.95,\"quote\":\"I have a 3.7 GPA\"},\"sat\":{\"value\":1310,\"confidence\":0.95,\"quote\":\"got a 1310 on the SAT\"},\"act\":null,\"income_bracket\":{\"value\":\"48-75k\",\"confidence\":0.85,\"quote\":\"My parents make around 60 thousand a year\"},\"budget_cap\":null,\"interests\":null,\"dream_without_money\":null,\"intended_majors\":null,\"riasec\":null,\"strengths\":null,\"favorite_subjects\":null,\"activities\":null,\"work_values\":null,\"max_distance_miles\":null,\"regions\":null,\"size_pref\":null,\"setting_pref\":null,\"priorities\":null},\"next_topic\":\"size_setting\"}",
+    "stop_reason": "end_turn",
+    "refusal_category": null,
+    "usage": {
+      "input_tokens": 1200,
+      "output_tokens": 350,
+      "cache_read_input_tokens": 1800,
+      "cache_creation_input_tokens": 0
+    }
+  }
+}
