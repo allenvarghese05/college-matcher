@@ -1,0 +1,489 @@
+"""Claude client with record / replay (SPEC §10 replay mode, §12 observability).
+
+Every Claude call in the app goes through :class:`LLMClient`:
+
+* ``stream_text`` — streamed text reply (``client.messages.stream``).
+* ``parse`` — structured output (``client.messages.parse``) against a Pydantic model
+  or a raw JSON schema (sent as ``output_config.format``).
+
+Modes (``LLM_MODE``):
+
+* ``live``   — call the Anthropic API.
+* ``record`` — call the API and save each exchange as a JSON cassette.
+* ``replay`` — never touch the network; answer from cassettes. A miss raises
+  :class:`ReplayMissError` naming the request hash.
+
+Cassettes live under ``LLM_CASSETTE_DIR`` (env var; default ``<repo>/evals/recordings``)
+as ``<kind>-<hash>.json``. The hash is a SHA-256 over the canonical JSON of
+(kind, model, system, messages, schema, params), so any prompt change is a new key.
+
+Usage (input, output, cache read, cache creation) and cost are recorded into the
+:class:`~app.core.logging.Stage` passed in (or the one bound with :func:`use_stage`).
+The stable system prompt is sent as a cached block (``cache_control: ephemeral``).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextvars
+import hashlib
+import json
+import os
+import time
+from collections.abc import AsyncIterator, Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Literal, TypeVar, overload
+
+import anthropic
+from pydantic import BaseModel
+
+from app.core.config import LLMMode, get_settings
+from app.core.cost import cost_usd
+from app.core.logging import Stage, get_logger
+
+log = get_logger(__name__)
+
+Effort = Literal["low", "medium", "high", "xhigh", "max"]
+M = TypeVar("M", bound=BaseModel)
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_CASSETTE_DIR = REPO_ROOT / "evals" / "recordings"
+CACHE_WRITE_MULTIPLIER = 1.25  # 5-minute ephemeral cache writes bill at 1.25x input
+
+_current_stage: contextvars.ContextVar[Stage | None] = contextvars.ContextVar(
+    "llm_stage", default=None
+)
+
+
+@contextmanager
+def use_stage(stage: Stage) -> Iterator[Stage]:
+    """Bind ``stage`` so LLM calls without an explicit ``stage=`` record into it."""
+    token = _current_stage.set(stage)
+    try:
+        yield stage
+    finally:
+        _current_stage.reset(token)
+
+
+# ---------------------------------------------------------------------- errors
+
+
+class LLMError(Exception):
+    """Base class. ``retryable`` tells callers whether a later retry may succeed."""
+
+    retryable: bool = False
+
+
+class ReplayMissError(LLMError):
+    def __init__(self, key: str, kind: str, model: str, directory: Path):
+        self.key = key
+        super().__init__(
+            f"replay miss: no cassette {kind}-{key}.json for model={model} in {directory}. "
+            "Record it with LLM_MODE=record (live API) or add the cassette."
+        )
+
+
+class LLMRefusalError(LLMError):
+    """The model declined (stop_reason == 'refusal')."""
+
+    def __init__(self, category: str | None = None):
+        self.category = category
+        super().__init__(f"model refused the request (category={category})")
+
+
+class LLMRateLimitError(LLMError):
+    retryable = True
+
+
+class LLMUnavailableError(LLMError):
+    """Connection failure, timeout, or 5xx/529 after SDK retries."""
+
+    retryable = True
+
+
+class LLMRequestError(LLMError):
+    """Non-retryable API error (400/401/403/404/...)."""
+
+
+class LLMOutputError(LLMError):
+    """Response could not be parsed into the requested schema (e.g. max_tokens)."""
+
+
+def _translate(exc: Exception) -> LLMError:
+    """Map SDK exceptions to app errors, most specific first."""
+    if isinstance(exc, anthropic.RateLimitError):
+        return LLMRateLimitError(f"rate limited: {exc.message}")
+    if isinstance(exc, anthropic.APIStatusError):
+        if exc.status_code >= 500:
+            return LLMUnavailableError(f"API error {exc.status_code}: {exc.message}")
+        return LLMRequestError(f"API error {exc.status_code}: {exc.message}")
+    if isinstance(exc, anthropic.APIConnectionError):  # includes APITimeoutError
+        return LLMUnavailableError(f"connection error: {exc}")
+    return LLMError(str(exc))
+
+
+# ----------------------------------------------------------------------- usage
+
+
+@dataclass
+class Usage:
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_creation_tokens: int = 0
+
+    @classmethod
+    def from_api(cls, u: Any) -> Usage:
+        return cls(
+            input_tokens=int(getattr(u, "input_tokens", 0) or 0),
+            output_tokens=int(getattr(u, "output_tokens", 0) or 0),
+            cache_read_tokens=int(getattr(u, "cache_read_input_tokens", 0) or 0),
+            cache_creation_tokens=int(getattr(u, "cache_creation_input_tokens", 0) or 0),
+        )
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> Usage:
+        return cls(
+            input_tokens=int(d.get("input_tokens", 0)),
+            output_tokens=int(d.get("output_tokens", 0)),
+            cache_read_tokens=int(d.get("cache_read_input_tokens", 0)),
+            cache_creation_tokens=int(d.get("cache_creation_input_tokens", 0)),
+        )
+
+    def to_dict(self) -> dict[str, int]:
+        return {
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "cache_read_input_tokens": self.cache_read_tokens,
+            "cache_creation_input_tokens": self.cache_creation_tokens,
+        }
+
+    def cost(self, model: str) -> float | None:
+        try:
+            base = cost_usd(model, self.input_tokens, self.output_tokens, self.cache_read_tokens)
+            write = cost_usd(model, input_tokens=self.cache_creation_tokens)
+        except KeyError:
+            return None
+        return base + write * CACHE_WRITE_MULTIPLIER
+
+
+def _record(stage: Stage | None, model: str, usage: Usage) -> None:
+    st = stage or _current_stage.get()
+    if st is None:
+        return
+    st.record_usage(
+        model=model,
+        input_tokens=usage.input_tokens,
+        output_tokens=usage.output_tokens,
+        cache_read_tokens=usage.cache_read_tokens,
+        cost=usage.cost(model),
+    )
+    st.extra["cache_creation_tokens"] = (
+        int(st.extra.get("cache_creation_tokens", 0)) + usage.cache_creation_tokens
+    )
+
+
+# -------------------------------------------------------------------- cassettes
+
+
+def request_key(kind: str, request: dict[str, Any]) -> str:
+    canonical = json.dumps(
+        {"kind": kind, **request}, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
+    return hashlib.sha256(canonical.encode()).hexdigest()[:24]
+
+
+class CassetteStore:
+    def __init__(self, directory: Path):
+        self.directory = directory
+
+    def path(self, kind: str, key: str) -> Path:
+        return self.directory / f"{kind}-{key}.json"
+
+    def load(self, kind: str, key: str) -> dict[str, Any] | None:
+        p = self.path(kind, key)
+        if not p.exists():
+            return None
+        data: dict[str, Any] = json.loads(p.read_text())
+        return data
+
+    def save(self, kind: str, key: str, request: dict[str, Any], response: dict[str, Any]) -> Path:
+        self.directory.mkdir(parents=True, exist_ok=True)
+        p = self.path(kind, key)
+        payload = {"key": key, "kind": kind, "request": request, "response": response}
+        p.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+        return p
+
+
+# --------------------------------------------------------------------- streams
+
+
+class TextStream:
+    """Async iterator of text chunks; after exhaustion exposes text/usage/ttft."""
+
+    def __init__(self, gen: AsyncIterator[str]):
+        self._gen = gen
+        self.text = ""
+        self.usage = Usage()
+        self.stop_reason: str | None = None
+        self.ttft_ms: float | None = None
+        self._t0 = time.perf_counter()
+
+    def __aiter__(self) -> TextStream:
+        return self
+
+    async def __anext__(self) -> str:
+        chunk = await self._gen.__anext__()
+        if self.ttft_ms is None:
+            self.ttft_ms = round((time.perf_counter() - self._t0) * 1000, 2)
+        self.text += chunk
+        return chunk
+
+    async def aclose(self) -> None:
+        aclose = getattr(self._gen, "aclose", None)
+        if aclose is not None:
+            await aclose()
+
+
+# ---------------------------------------------------------------------- client
+
+
+@dataclass
+class LLMClient:
+    """Wraps ``anthropic.AsyncAnthropic`` with record/replay and usage accounting."""
+
+    mode: LLMMode = "replay"
+    cassette_dir: Path = field(default_factory=lambda: DEFAULT_CASSETTE_DIR)
+    anthropic_client: Any = None  # AsyncAnthropic or a test double with .messages
+    replay_chunk_delay_s: float = 0.0
+
+    def __post_init__(self) -> None:
+        self.store = CassetteStore(Path(self.cassette_dir))
+
+    @classmethod
+    def from_settings(cls) -> LLMClient:
+        s = get_settings()
+        directory = Path(os.environ.get("LLM_CASSETTE_DIR") or DEFAULT_CASSETTE_DIR)
+        return cls(mode=s.LLM_MODE, cassette_dir=directory)
+
+    # -- plumbing
+
+    def _api(self) -> Any:
+        if self.mode == "replay":
+            raise RuntimeError("LLMClient in replay mode must not call the API")
+        if self.anthropic_client is None:
+            key = get_settings().ANTHROPIC_API_KEY
+            self.anthropic_client = anthropic.AsyncAnthropic(
+                api_key=key.get_secret_value() if key else None
+            )
+        return self.anthropic_client
+
+    @staticmethod
+    def system_blocks(system: str) -> list[dict[str, Any]]:
+        """Stable system prompt as one cached block (prefix caching, SPEC §12)."""
+        return [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
+
+    # -- streaming text
+
+    def stream_text(
+        self,
+        model: str,
+        system: str,
+        messages: list[dict[str, Any]],
+        *,
+        effort: Effort,
+        max_tokens: int,
+        stage: Stage | None = None,
+    ) -> TextStream:
+        request = {
+            "model": model,
+            "system": system,
+            "messages": messages,
+            "schema": None,
+            "params": {"effort": effort, "max_tokens": max_tokens},
+        }
+        key = request_key("stream", request)
+        holder: list[TextStream] = []
+
+        async def gen() -> AsyncIterator[str]:
+            ts = holder[0]
+            if self.mode == "replay":
+                cas = self.store.load("stream", key)
+                if cas is None:
+                    raise ReplayMissError(key, "stream", model, self.store.directory)
+                resp = cas["response"]
+                if resp.get("stop_reason") == "refusal":
+                    raise LLMRefusalError(resp.get("refusal_category"))
+                for chunk in resp["chunks"]:
+                    await asyncio.sleep(self.replay_chunk_delay_s)
+                    yield chunk
+                ts.stop_reason = resp.get("stop_reason")
+                ts.usage = Usage.from_dict(resp.get("usage", {}))
+                _record(stage, model, ts.usage)
+                return
+
+            chunks: list[str] = []
+            try:
+                async with self._api().messages.stream(
+                    model=model,
+                    max_tokens=max_tokens,
+                    system=self.system_blocks(system),
+                    messages=messages,
+                    output_config={"effort": effort},
+                ) as s:
+                    async for text in s.text_stream:
+                        chunks.append(text)
+                        yield text
+                    final = await s.get_final_message()
+            except anthropic.APIError as exc:
+                raise _translate(exc) from exc
+            ts.stop_reason = final.stop_reason
+            ts.usage = Usage.from_api(final.usage)
+            _record(stage, model, ts.usage)
+            category = _refusal_category(final)
+            if self.mode == "record":
+                self.store.save(
+                    "stream",
+                    key,
+                    request,
+                    {
+                        "chunks": chunks,
+                        "stop_reason": final.stop_reason,
+                        "refusal_category": category,
+                        "usage": ts.usage.to_dict(),
+                    },
+                )
+            if final.stop_reason == "refusal":
+                raise LLMRefusalError(category)
+
+        ts = TextStream(gen())
+        holder.append(ts)
+        return ts
+
+    # -- structured output
+
+    @overload
+    async def parse(
+        self,
+        model: str,
+        system: str,
+        messages: list[dict[str, Any]],
+        output: type[M],
+        *,
+        effort: Effort,
+        max_tokens: int = ...,
+        stage: Stage | None = ...,
+    ) -> M: ...
+
+    @overload
+    async def parse(
+        self,
+        model: str,
+        system: str,
+        messages: list[dict[str, Any]],
+        output: dict[str, Any],
+        *,
+        effort: Effort,
+        max_tokens: int = ...,
+        stage: Stage | None = ...,
+    ) -> dict[str, Any]: ...
+
+    async def parse(
+        self,
+        model: str,
+        system: str,
+        messages: list[dict[str, Any]],
+        output: type[BaseModel] | dict[str, Any],
+        *,
+        effort: Effort,
+        max_tokens: int = 16000,
+        stage: Stage | None = None,
+    ) -> BaseModel | dict[str, Any]:
+        """Structured output. ``output`` is a Pydantic model class or a JSON schema dict."""
+        is_model = isinstance(output, type) and issubclass(output, BaseModel)
+        schema: dict[str, Any] = (
+            output.model_json_schema() if is_model else output  # type: ignore[union-attr,assignment]
+        )
+        request = {
+            "model": model,
+            "system": system,
+            "messages": messages,
+            "schema": schema,
+            "params": {"effort": effort, "max_tokens": max_tokens},
+        }
+        key = request_key("parse", request)
+
+        if self.mode == "replay":
+            cas = self.store.load("parse", key)
+            if cas is None:
+                raise ReplayMissError(key, "parse", model, self.store.directory)
+            resp = cas["response"]
+            stop_reason, text = resp.get("stop_reason"), resp.get("text", "")
+            usage = Usage.from_dict(resp.get("usage", {}))
+            category = resp.get("refusal_category")
+        else:
+            kwargs: dict[str, Any] = {
+                "model": model,
+                "max_tokens": max_tokens,
+                "system": self.system_blocks(system),
+                "messages": messages,
+            }
+            if is_model:
+                kwargs["output_format"] = output
+                kwargs["output_config"] = {"effort": effort}
+            else:
+                kwargs["output_config"] = {
+                    "effort": effort,
+                    "format": {"type": "json_schema", "schema": schema},
+                }
+            try:
+                msg = await self._api().messages.parse(**kwargs)
+            except anthropic.APIError as exc:
+                raise _translate(exc) from exc
+            stop_reason = msg.stop_reason
+            text = next((b.text for b in msg.content if getattr(b, "type", None) == "text"), "")
+            usage = Usage.from_api(msg.usage)
+            category = _refusal_category(msg)
+            if self.mode == "record":
+                self.store.save(
+                    "parse",
+                    key,
+                    request,
+                    {
+                        "text": text,
+                        "stop_reason": stop_reason,
+                        "refusal_category": category,
+                        "usage": usage.to_dict(),
+                    },
+                )
+
+        _record(stage, model, usage)
+        if stop_reason == "refusal":
+            raise LLMRefusalError(category)
+        if stop_reason == "max_tokens":
+            raise LLMOutputError("structured output truncated (stop_reason=max_tokens)")
+        try:
+            if is_model:
+                return output.model_validate_json(text)  # type: ignore[union-attr]
+            data: dict[str, Any] = json.loads(text)
+            return data
+        except ValueError as exc:
+            raise LLMOutputError(f"could not parse structured output: {exc}") from exc
+
+
+def _refusal_category(msg: Any) -> str | None:
+    details = getattr(msg, "stop_details", None)
+    return getattr(details, "category", None) if details is not None else None
+
+
+_default_client: LLMClient | None = None
+
+
+def get_llm_client() -> LLMClient:
+    """FastAPI dependency / process-wide default client (override in tests)."""
+    global _default_client
+    if _default_client is None:
+        _default_client = LLMClient.from_settings()
+    return _default_client
