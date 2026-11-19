@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import make_url, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -18,7 +18,35 @@ from app.main import create_app
 BACKEND = Path(__file__).resolve().parents[1]
 
 
+def _test_db_name() -> str | None:
+    """Database name in DATABASE_URL if it is a dedicated test DB (``*_test``)."""
+    name = make_url(get_settings().DATABASE_URL).database or ""
+    return name if name.endswith("_test") else None
+
+
+async def _ensure_test_db() -> None:
+    """Create the ``*_test`` database if missing (CI and `make test`). Never other DBs."""
+    name = _test_db_name()
+    if name is None or not name.replace("_", "").isalnum():
+        return  # only plain identifiers are ever interpolated into CREATE DATABASE
+    url = make_url(get_settings().DATABASE_URL).set(database="postgres")
+    engine = create_async_engine(url, poolclass=NullPool, isolation_level="AUTOCOMMIT")
+    try:
+        async with asyncio.timeout(3):
+            async with engine.connect() as conn:
+                exists = await conn.scalar(
+                    text("SELECT 1 FROM pg_database WHERE datname = :n"), {"n": name}
+                )
+                if not exists:
+                    await conn.execute(text(f'CREATE DATABASE "{name}"'))
+    except Exception:
+        pass  # server down: _db_reachable reports it
+    finally:
+        await engine.dispose()
+
+
 async def _db_reachable() -> bool:
+    await _ensure_test_db()
     try:
         async with asyncio.timeout(3):
             async with get_engine().connect() as conn:
@@ -68,11 +96,19 @@ async def loaded_db(db_available: bool) -> AsyncIterator[None]:
 
     CIP embeddings come from data/fixtures/cip_embeddings.jsonl; any cip_code row
     still without one (file not generated yet) gets a FakeEmbedder vector so pgvector
-    queries work. This COMMITS the sample data: point DATABASE_URL at a test DB.
+    queries work. This COMMITS the sample data, so it refuses (fails) unless the
+    database name ends in ``_test`` or TEST_DB_WRITES=1 is set.
     Skips when Postgres is unreachable (fails under REQUIRE_DB=1).
     """
     if not db_available:
         _skip_or_fail_no_db()
+    if _test_db_name() is None and os.environ.get("TEST_DB_WRITES") != "1":
+        db = make_url(get_settings().DATABASE_URL).database
+        pytest.fail(
+            f"refusing to load test data (incl. FakeEmbedder vectors) into database {db!r}: "
+            "point DATABASE_URL at a *_test database (`make test` uses matcher_test) "
+            "or set TEST_DB_WRITES=1"
+        )
     from app.retrieval.embedder import FakeEmbedder
     from ingest.load import load_fixture
 

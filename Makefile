@@ -17,8 +17,14 @@ dev-api:
 migrate:
 	cd $(BACKEND) && uv run alembic upgrade head
 
+# Tests always run against a dedicated *_test database (the session fixture commits
+# sample data and FakeEmbedder vectors). tests/conftest.py creates it if missing and
+# refuses to write to any database whose name doesn't end in _test.
+DB_PORT ?= 5433
+TEST_DATABASE_URL ?= postgresql+asyncpg://matcher:matcher@localhost:$(DB_PORT)/matcher_test
+
 test:
-	cd $(BACKEND) && uv run pytest -q
+	cd $(BACKEND) && DATABASE_URL=$(TEST_DATABASE_URL) uv run pytest -q
 
 lint:
 	cd $(BACKEND) && uv run ruff check . && uv run ruff format --check . && uv run mypy app
