@@ -5,8 +5,10 @@ Every agent builds against these types. Change them only through the orchestrato
 Design rules
 ------------
 * Every profile field carries value + confidence + evidence (the student's own words).
-* The extractor returns a ``ProfileDelta`` whose shape is strict-JSON-schema friendly
-  (no free-form dict keys), so it can be used with Claude structured outputs.
+* ``ProfileDelta`` is the INTERNAL extraction result. It is NOT sent to Claude as a
+  structured-output schema: its 20 nullable fields exceed the structured-outputs
+  complexity limits (max 16 union-typed params). The extractor uses its own flat
+  wire schema and converts to ``ProfileDelta`` locally.
 * Recommendation prose (``reasons``) contains no numbers; every number shown to a
   student is a ``Claim`` that the groundedness checker verifies against Postgres.
 
