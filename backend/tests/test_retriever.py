@@ -147,16 +147,39 @@ ART_CA = dict(
 )
 
 
-async def _db_facts(session: AsyncSession, c: Candidate, bracket: str | None) -> dict[str, Any]:
+# Independent SQL oracle for the pricing rule (app.retrieval.pricing.student_net_price).
+def _price_sql(col: str, fallback: bool = False) -> str:
+    base = f"COALESCE({col}, avg_net_price)" if fallback else col
+    return (
+        f"CASE WHEN {base} IS NULL THEN NULL"
+        f" WHEN control <> 1 OR state = :home THEN {base}"
+        " WHEN tuition_in_state IS NULL OR tuition_out_of_state IS NULL THEN NULL"
+        f" ELSE {base} + GREATEST(tuition_out_of_state - tuition_in_state, 0) END"
+    )
+
+
+def _basis_sql(col: str) -> str:
+    return (
+        f"CASE WHEN {col} IS NULL THEN 'unknown' WHEN control <> 1 THEN 'private'"
+        " WHEN state = :home THEN 'in_state'"
+        " WHEN tuition_in_state IS NULL OR tuition_out_of_state IS NULL THEN 'unknown'"
+        " ELSE 'est_out_of_state' END"
+    )
+
+
+async def _db_facts(
+    session: AsyncSession, c: Candidate, bracket: str | None, home: str
+) -> dict[str, Any]:
     col = sql_filters.net_price_column(bracket)
     inst = (
         await session.execute(
             text(
-                f"SELECT {col} AS net_price, admission_rate, sat_25, sat_75, act_25, act_75,"
+                f"SELECT {_price_sql(col)} AS net_price, {_basis_sql(col)} AS basis,"
+                " admission_rate, sat_25, sat_75, act_25, act_75,"
                 " completion_rate, median_earnings_10yr, median_debt, undergrad_size, city, state"
                 " FROM institution WHERE unitid = :u"
             ),
-            {"u": c.unitid},
+            {"u": c.unitid, "home": home},
         )
     ).one()
     prog = None
@@ -172,6 +195,7 @@ async def _db_facts(session: AsyncSession, c: Candidate, bracket: str | None) ->
         ).one()
     return {
         "net_price": inst.net_price,
+        "net_price_basis": inst.basis,
         "admission_rate": inst.admission_rate,
         "sat_range": f"{inst.sat_25}-{inst.sat_75}"
         if inst.sat_25 is not None and inst.sat_75 is not None
@@ -221,9 +245,10 @@ async def test_candidates_valid(fixture_session: AsyncSession, mode: str, person
             assert offers == 1
         else:
             assert mode == "sql_only"
-        assert c.facts == await _db_facts(s, c, p.income_bracket.value)
+        assert c.facts == await _db_facts(s, c, p.income_bracket.value, p.home_state.value)
         assert set(c.facts) == {
-            "net_price", "admission_rate", "sat_range", "act_range", "completion_rate",
+            "net_price", "net_price_basis", "admission_rate", "sat_range", "act_range",
+            "completion_rate",
             "program_median_earnings", "program_median_debt", "median_earnings_10yr",
             "median_debt", "undergrad_size", "city_state",
         }  # fmt: skip
@@ -246,10 +271,8 @@ async def test_budget_and_region_filters(fixture_session: AsyncSession) -> None:
         assert {c.state for c in cands} <= states_for_regions(["west"], "CA")
     for c in cands:
         price = await fixture_session.scalar(
-            text(
-                "SELECT COALESCE(net_price_0_30k, avg_net_price) FROM institution WHERE unitid=:u"
-            ),
-            {"u": c.unitid},
+            text(f"SELECT {_price_sql('net_price_0_30k', True)} FROM institution WHERE unitid=:u"),
+            {"u": c.unitid, "home": "CA"},
         )
         assert price is not None and price <= 15000 * 1.15
 

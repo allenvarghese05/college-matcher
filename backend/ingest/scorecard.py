@@ -186,6 +186,10 @@ class InstitutionRecord:
     median_earnings_10yr: int | None
     median_debt: int | None
     url: str | None
+    # Published tuition + fees (TUITIONFEE_IN / TUITIONFEE_OUT). For publics the
+    # difference is the out-of-state surcharge added to the (in-state) net price.
+    tuition_in_state: int | None = None
+    tuition_out_of_state: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,6 +238,8 @@ def institution_from_row(row: dict[str, str]) -> InstitutionRecord:
         median_earnings_10yr=parse_int(row.get("MD_EARN_WNE_P10")),
         median_debt=parse_int(row.get("GRAD_DEBT_MDN")),
         url=normalize_url(row.get("INSTURL")),
+        tuition_in_state=parse_int(row.get("TUITIONFEE_IN")),
+        tuition_out_of_state=parse_int(row.get("TUITIONFEE_OUT")),
     )
 
 

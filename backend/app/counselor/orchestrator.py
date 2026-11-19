@@ -53,6 +53,7 @@ from app.db.models import (
 from app.schemas import (
     Candidate,
     EvidenceSource,
+    NetPriceBasis,
     NextTopic,
     RecommendationOut,
     RecommendationSet,
@@ -150,6 +151,11 @@ async def recent_turns(db: AsyncSession, session_id: uuid.UUID, limit: int) -> l
         HistoryTurn(idx=t.idx, role="user" if t.role == "user" else "assistant", text=t.text)
         for t in reversed(rows)
     ]
+
+
+def _basis(facts: dict[str, Any]) -> NetPriceBasis:
+    b = facts.get("net_price_basis")
+    return b if b in ("in_state", "est_out_of_state", "private") else "unknown"  # type: ignore[return-value]
 
 
 def _metric_row(
@@ -423,7 +429,10 @@ class CounselorOrchestrator:
                 claim_keys = {(c.unitid, c.cip4) for r in recs for c in r.claims}
                 rec_keys = {(r.unitid, r.cip4) for r in recs}
                 db_facts = await load_db_facts(
-                    db, claim_keys | rec_keys, profile.income_bracket.value
+                    db,
+                    claim_keys | rec_keys,
+                    profile.income_bracket.value,
+                    profile.home_state.value,
                 )
                 for (unitid, cip4), row in db_facts.items():
                     facts.add(unitid, cip4, row)  # Postgres values override candidate copies
@@ -492,6 +501,7 @@ class CounselorOrchestrator:
                         scores=cand.scores,
                         reasons=reasons,
                         claims=checked.claims,
+                        net_price_basis=_basis(db_facts.get((rec.unitid, rec.cip4), cand.facts)),
                     )
                 )
             db.add_all(_metric_row(session_id, None, m) for m in tl.stages)

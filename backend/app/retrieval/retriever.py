@@ -51,14 +51,22 @@ def _filter_active(profile: StudentProfile, step: str) -> bool:
     return bool(profile.regions.value)
 
 
-def facts_for(row: CandidateRow, bracket: IncomeBracket | None) -> dict[str, Any]:
-    """ClaimField → DB value for a candidate (the only numbers the LLM may cite)."""
+def facts_for(
+    row: CandidateRow, bracket: IncomeBracket | None, home_state: str | None = None
+) -> dict[str, Any]:
+    """ClaimField → DB value for a candidate (the only numbers the LLM may cite).
+
+    ``net_price`` is ``pricing.student_net_price`` (out-of-state estimate at public
+    schools outside ``home_state``); ``net_price_basis`` says which rule applied.
+    """
 
     def rng(lo: int | None, hi: int | None) -> str | None:
         return f"{lo}-{hi}" if lo is not None and hi is not None else None
 
+    net_price, basis = row.student_price(bracket, home_state)
     return {
-        "net_price": row.net_price_at(bracket),
+        "net_price": net_price,
+        "net_price_basis": basis,
         "admission_rate": row.admission_rate,
         "sat_range": rng(row.sat_25, row.sat_75),
         "act_range": rng(row.act_25, row.act_75),
@@ -160,7 +168,7 @@ class Retriever:
                 admission_band=s.admission.band,
                 band_confidence=s.admission.confidence,
                 scores=s.scores,
-                facts=facts_for(s.row, bracket),
+                facts=facts_for(s.row, bracket, profile.home_state.value),
             )
             for s in final
         ]
