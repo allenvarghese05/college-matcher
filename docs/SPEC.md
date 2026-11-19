@@ -342,7 +342,7 @@ class StudentProfile(BaseModel):
     strengths: Field[list[str]]
     favorite_subjects: Field[list[str]]
     activities: Field[list[Activity]]      # clubs, sports, jobs, volunteering, leadership
-    work_values: Field[list[str]]          # achievement, independence, recognition, relationships, support, conditions
+    work_values: Field[list[str]]          # achievement, independence, recognition, relationships, support, working_conditions
     # fit preferences
     max_distance_miles: Field[int]
     regions: Field[list[str]]
@@ -371,6 +371,10 @@ class Recommendation(BaseModel):
 ```
 
 **Design rule:** prose (`reasons`) contains **no numbers**; every number is a `Claim`. This makes groundedness mechanical (§10).
+
+**`regions` vocabulary (decided Nov 19):** lowercase US Census regions (`northeast, midwest, south, west`) and divisions (`new_england, mid_atlantic, east_north_central, west_north_central, south_atlantic, east_south_central, west_south_central, mountain, pacific`), two-letter USPS state codes, and `out_of_state` (any state except `home_state` — how "far from home" is expressed). The state mapping lives in `app/retrieval/geo.py`.
+
+**Missing vs none:** a null field means "unknown". If a student says they have no GPA/test score, the field stays null (never invented); distinguishing "asked, none" from "never asked" is a tier-2 follow-up for the questions-asked metric.
 
 ---
 
@@ -536,7 +540,7 @@ Final list balances bands (e.g. 2–3 safety, 4–5 target, 2–3 reach) when ba
 ### Admission estimator (deterministic, labelled "estimated")
 Data reality (`docs/data_coverage.md`): 95.7% of schools have an admission rate or are open-admission; only 43.7% report SAT/ACT ranges. So the estimator has tiers:
 
-1. **Open admission** (`OPENADMP = 1`, 24.8% of schools) → **safety**, no stats needed.
+1. **Open admission** (`OPENADMP = 1`, 24.8% of schools) → **safety**, no test ranges needed (the student must still have shared a GPA or test score, per D9).
 2. **Selectivity cap:** admission rate < 15% (60 schools) → always **reach**, regardless of stats.
 3. **Test position** (student gave SAT/ACT and school reports ranges): below 25th → low, 25th–75th → mid, above 75th → high.
 4. **GPA modifier** (if GPA): ≥ 3.8 nudges up one step, < 3.0 nudges down one step. Test scores dominate: GPA never moves more than one step.

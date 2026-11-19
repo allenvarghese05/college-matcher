@@ -1,0 +1,33 @@
+id: destiny-ms
+summary: Greenwood, Mississippi senior who cares for her grandmother and wants to be a nurse (BSN); first-gen and nervous about leaving home.
+hidden_profile:
+  home_state: MS
+  home_zip: "38930"
+  gpa: 3.5
+  act: 22
+  income_bracket: 0-30k
+  interests: [taking care of people, medicine, gospel choir, cooking for family]
+  dream_without_money: "be a nurse. help people when they're scared, like the nurses who helped my grandma"
+  intended_majors: [nursing]
+  riasec: {R: 0.4, I: 0.55, A: 0.3, S: 0.9, E: 0.3, C: 0.5}
+  strengths: [patience, caring for people, staying calm in emergencies]
+  favorite_subjects: [anatomy, biology]
+  activities:
+    - {name: caring for grandmother, role: caregiver, years: 3}
+    - {name: church choir, role: alto, years: 5}
+    - {name: HOSA, role: member, years: 2}
+  work_values: [support, relationships]
+  max_distance_miles: 200
+  regions: []
+  size_pref: any
+  setting_pref: any
+  priorities: [cost, outcomes]
+style: "soft-spoken, short-to-medium answers, worried she'll say something wrong. 'yes ma'am', 'I think so?'. gets more confident talking about nursing."
+reveal: only_when_asked
+quirks:
+  - "needs to stay within a few hours because her grandmother needs her on weekends"
+  - "first in her family to go to college; asks what FAFSA is"
+meta:
+  articulateness: anxious
+  edge_cases: [nursing_health, first_gen]
+  voice_subset: true

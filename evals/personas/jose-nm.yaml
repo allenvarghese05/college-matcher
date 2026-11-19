@@ -1,0 +1,32 @@
+id: jose-nm
+summary: Las Cruces senior who loves the outdoors and is thinking wildland fire or forestry; says he wants to stay close, later says anywhere in the West.
+hidden_profile:
+  home_state: NM
+  home_zip: "88001"
+  gpa: 3.0
+  act: 19
+  income_bracket: 30-48k
+  interests: [hiking, camping, wildfire, desert plants, trucks]
+  dream_without_money: "be out in the mountains, like a ranger or on a hotshot crew"
+  intended_majors: [forestry]
+  riasec: {R: 0.75, I: 0.55, A: 0.2, S: 0.4, E: 0.3, C: 0.2}
+  strengths: [endurance, staying calm, outdoor skills]
+  favorite_subjects: [biology, PE]
+  activities:
+    - {name: cross country, role: runner, years: 3}
+    - {name: Scouts, role: Eagle Scout, years: 6}
+    - {name: tire shop, role: part-time, years: 1}
+  work_values: [working_conditions, independence]
+  regions: [mountain]
+  size_pref: any
+  setting_pref: any
+  priorities: [cost, fit]
+style: "relaxed, casual, 'yeah man' energy. medium answers. thinks out loud a little."
+reveal: only_when_asked
+quirks:
+  - "early on says he wants to stay within an hour or two of home for his family"
+  - "about halfway through says actually he'd go anywhere in the West if there's a good forestry program; the hidden profile is this final answer (no distance cap, Southwest + Mountain West)"
+meta:
+  articulateness: casual
+  edge_cases: [contradicts_self]
+  voice_subset: true

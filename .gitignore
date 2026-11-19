@@ -82,3 +82,6 @@ __pycache__/
 
 # Agent worktrees and local Claude state
 .claude/worktrees/
+
+# v2 web app build output
+web/dist/

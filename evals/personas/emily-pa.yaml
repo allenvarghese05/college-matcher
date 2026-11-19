@@ -1,0 +1,33 @@
+id: emily-pa
+summary: Scranton senior who coaches little kids' soccer and wants to teach elementary or special education; talks a lot.
+hidden_profile:
+  home_state: PA
+  home_zip: "18505"
+  gpa: 3.8
+  income_bracket: 75-110k
+  budget_cap: 24000
+  interests: [working with kids, soccer, special olympics, crafts, reading to her cousins]
+  dream_without_money: "teach second grade forever honestly, or work with kids with disabilities"
+  intended_majors: [elementary education, special education]
+  riasec: {R: 0.3, I: 0.3, A: 0.5, S: 0.95, E: 0.4, C: 0.55}
+  strengths: [patience, organizing, explaining things simply]
+  favorite_subjects: [psychology, English]
+  activities:
+    - {name: youth soccer, role: assistant coach, years: 3}
+    - {name: Best Buddies, role: chapter secretary, years: 2}
+    - {name: daycare, role: summer aide, years: 2}
+  work_values: [support, relationships]
+  max_distance_miles: 250
+  regions: [northeast]
+  size_pref: medium
+  setting_pref: suburb
+  priorities: [cost, fit]
+style: "rambling and warm, long run-on messages full of stories about kids she coaches. lots of exclamation points. eventually answers the question."
+reveal: only_when_asked
+quirks:
+  - "test-optional, never sent scores; says 'I took the SAT once and it was bad so I'm not using it'"
+  - "asks if she can student-teach close to home"
+meta:
+  articulateness: rambling
+  edge_cases: []
+  voice_subset: false

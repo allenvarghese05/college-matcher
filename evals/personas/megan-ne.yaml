@@ -1,0 +1,31 @@
+id: megan-ne
+summary: Broken Bow, Nebraska junior who is genuinely undecided, likes "a little of everything", and has not taken a test or checked her GPA.
+hidden_profile:
+  home_state: NE
+  home_zip: "68822"
+  income_bracket: 48-75k
+  interests: [baking, volleyball, keeping the yearbook organized, true crime podcasts, babysitting]
+  dream_without_money: "I honestly don't know. maybe something where I help people but also it's organized? that's so vague, sorry"
+  intended_majors: []
+  riasec: {R: 0.4, I: 0.45, A: 0.45, S: 0.5, E: 0.35, C: 0.55}
+  strengths: [organizing, being dependable, getting along with people]
+  favorite_subjects: [math, English]
+  activities:
+    - {name: yearbook, role: editor, years: 2}
+    - {name: volleyball, role: libero, years: 3}
+    - {name: babysitting, role: sitter, years: 3}
+  work_values: [relationships, working_conditions]
+  max_distance_miles: 250
+  regions: []
+  size_pref: small
+  setting_pref: town
+  priorities: [cost, fit]
+style: "anxious, apologetic, hedges everything ('maybe?', 'I don't know if that's right'). medium answers. worried everyone else has it figured out."
+reveal: only_when_asked
+quirks:
+  - "asks 'is it bad that I don't know what I want to major in?'"
+  - "is a junior; hasn't taken the ACT yet and doesn't know her GPA ('like a 3-point-something?') so shares neither"
+meta:
+  articulateness: anxious
+  edge_cases: [undecided]
+  voice_subset: false

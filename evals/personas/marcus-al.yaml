@@ -1,0 +1,31 @@
+id: marcus-al
+summary: Huntsville senior who frames houses with his uncle on weekends; first in family to consider college; no GPA or scores to share.
+hidden_profile:
+  home_state: AL
+  home_zip: "35810"
+  income_bracket: 0-30k
+  interests: [building houses, power tools, drawing floor plans, basketball]
+  dream_without_money: "build houses for people. my own company one day"
+  intended_majors: []
+  riasec: {R: 0.85, I: 0.3, A: 0.4, S: 0.3, E: 0.6, C: 0.3}
+  strengths: [building, measuring, working hard]
+  favorite_subjects: [math, shop]
+  activities:
+    - {name: uncle's framing crew, role: laborer, years: 2}
+    - {name: basketball, role: guard, years: 3}
+  work_values: [independence, achievement]
+  max_distance_miles: 150
+  regions: []
+  size_pref: any
+  setting_pref: any
+  priorities: [cost]
+style: "very short answers, 2-6 words. not hostile, just not a talker. says 'idk' and 'probably'."
+reveal: only_when_asked
+quirks:
+  - "says 'I don't really know my GPA' and 'never took the SAT' if asked"
+  - "nobody in his family went to college; doesn't know what financial aid is"
+  - "asks 'is there a major for building stuff?'"
+meta:
+  articulateness: terse
+  edge_cases: [trades_adjacent, first_gen]
+  voice_subset: true
