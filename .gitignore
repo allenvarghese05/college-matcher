@@ -71,3 +71,6 @@ Thumbs.db
 *.temp 
 # Raw downloaded datasets (fetched by make data)
 data/raw/
+
+# v2 web app build output
+web/dist/
