@@ -11,9 +11,9 @@ This is an **internal benchmark, not ground truth.** It shows whether one versio
 ### Known biases (stated up front)
 
 1. **Single labeler.** One person, the project owner, labels everything. There is no inter-rater agreement. If time allows, a second person labels 5 personas blind, and Cohen's kappa on acceptable/not is reported. If not, the README says so.
-2. **The labeler built the system.** The labeler wrote or approved these criteria, knows how the retriever works, and has seen its outputs during development. Unconscious alignment with the system's habits is likely. Mitigations: criteria are frozen first, candidates are shown in random order with no system scores, and labeling happens without looking at any system output for that persona.
+2. **The labeler built the system.** The labeler wrote or approved these criteria, knows how the retriever works, and has seen its outputs during development. Unconscious alignment with the system's habits is likely. The judged pool also contains every retrieval mode's top 10 (see Pooling). Mitigations: criteria are frozen first; pooled candidates are shuffled together with the stratified sample and shown with no source, rank or score, so the labeler can't tell which rows a system picked; and the labeler doesn't look at any system output for that persona outside the labeling tool.
 3. **The hard criteria mirror Stage B.** The budget rule (cap × 1.15) is the same as the retriever's SQL filter. Any retriever that uses those filters passes the hard part for free. That is why there is a soft criterion (see below).
-4. **Data limits are inherited.** Scorecard net price for public schools is the **in-state** figure, so out-of-state publics look cheaper than they are. Program earnings are missing for 61% of programs. SAT/ACT ranges exist for only ~44% of schools. Labels can't be better than this data. The labeler may flag a known problem (for example, an out-of-state flagship that is clearly unaffordable) in `notes` and score it 0 on the soft rubric.
+4. **Data limits are inherited.** Scorecard net price for public schools is the **in-state** figure, so out-of-state publics look cheaper than they are. Program earnings are missing for 61% of programs. SAT/ACT ranges exist for only ~44% of schools. Labels can't be better than this data. The out-of-state public problem is handled by a mandatory rule in H2. The rest is inherited as is.
 5. **The labeler's own taste.** "Fit" and "prestige" are partly subjective. The rubric below narrows this but doesn't remove it.
 6. **Hidden profile = gold profile.** The labeler works from the same `hidden_profile` that is fed to the gold-profile retrieval run, so that run is graded against a target written from the same facts it receives. End-to-end runs have to recover those facts from conversation first.
 
@@ -52,13 +52,29 @@ Only in-scope schools count (SPEC D6: currently operating, in the 50 states + DC
   | 110k+ | $40,000 (no ceiling if `priorities` includes `prestige`) |
 
 - If the bracket net price is missing, use the school's average net price (`NPT4`). If both are missing, the school **fails** H2: nobody can say it is affordable, and the system can't cite a price for it either.
+- **Out-of-state publics (mandatory).** Scorecard's public net price is for in-state students. For a **public school outside the persona's `home_state`**, H2 uses an out-of-state estimate: the bracket net price + (`TUITIONFEE_OUT` − `TUITIONFEE_IN`), the published sticker gap. If that estimate is above the H2 ceiling (cap × 1.15, or the bracket default), the school **fails** H2. This matters most for `leave_home_far` personas (`ethan-vt`, `kenji-hi`, `riley-nh`) and anyone with an out-of-state region list. The rule is deliberately stricter than the retriever's Stage B filter, which uses the in-state figure, so the benchmark penalizes recommending out-of-state publics a student can't afford.
+  - **Only exception:** a published tuition-reciprocity price that applies to the persona's home state (WUE, Midwest Student Exchange, Academic Common Market, New England RSP). Use that price instead of the sticker gap, and say so in `notes`. If tuition fields are missing, the school fails.
 - **Relaxation (only when too few schools pass).** If fewer than 5 schools pass H1–H4, H2 is relaxed once, from the cap to the bracket default, and the relaxation is recorded in `relaxed`. This exists for `bella-la`, whose $2,000 cap is below any realistic net price. Whether the counselor tells her this honestly is judged in the transcript review, not by recall.
 
 **H3. Geography.**
 - If `max_distance_miles` is given: the great-circle distance from the `home_zip` centroid to the school's lat/long is ≤ `max_distance_miles × 1.10` (students' numbers are rough).
-- Otherwise, if `regions` is non-empty: the school's state is in one of the listed regions. The region → states mapping is the one used by the retriever, and it is recorded in the labeling tool.
+- Otherwise, if `regions` is non-empty: the school's state must be in the **union** of the listed entries (Census regions, divisions, or two-letter state codes, using the table below). If `out_of_state` is listed, the home state is also **excluded**. `out_of_state` on its own means any state except home.
 - If both are given, distance is the hard rule and regions only feed the soft rubric.
 - If neither is given, there is no geographic constraint.
+
+The **region table is frozen here.** It is the US Census Bureau's four regions and nine divisions. It is not taken from the retriever's code, so a mapping bug in the retriever can't leak into the labels.
+
+| Region | Division | States |
+|---|---|---|
+| `northeast` | `new_england` | CT, ME, MA, NH, RI, VT |
+| `northeast` | `mid_atlantic` | NJ, NY, PA |
+| `midwest` | `east_north_central` | IL, IN, MI, OH, WI |
+| `midwest` | `west_north_central` | IA, KS, MN, MO, NE, ND, SD |
+| `south` | `south_atlantic` | DE, DC, FL, GA, MD, NC, SC, VA, WV |
+| `south` | `east_south_central` | AL, KY, MS, TN |
+| `south` | `west_south_central` | AR, LA, OK, TX |
+| `west` | `mountain` | AZ, CO, ID, MT, NV, NM, UT, WY |
+| `west` | `pacific` | AK, CA, HI, OR, WA |
 
 **H4. Admission plausibility.** This is per school, based on raw Scorecard data, and deliberately **not** the system's estimator.
 - A school fails H4 if it is a *far reach* for the persona:
@@ -85,9 +101,28 @@ Score 0 / 1 / 2. Judge the **school + matched program** against everything the s
 
 1. **Freeze.** Commit this file. Write its commit hash in `labels.yaml`.
 2. **Pass 1, major sets (~1 min per persona).** For each persona, read the YAML and write `major_cip4s`. Don't look at system output.
-3. **Generate candidate pools** (tool comes later). The pool is every in-scope school passing H1–H4 for the persona. Each row shows: name, city/state, control, undergrad size, locale, net price at bracket, admission rate, SAT/ACT range, matched CIP titles, program earnings if not suppressed, and distance from home. Rows come in **random order** (fixed seed per persona), with **no system scores or rankings**. If the pool has more than 60 schools, the tool shows a stratified random sample of 60 (by control × admission band), and the true pool size is recorded.
-4. **Pass 2, mark acceptable (~3–4 min per persona).** Score S1 for each row. Mark acceptable where S1 ≥ 1. Apply the H4 band-mix check. **Target 10–25 acceptable schools.** If more than 25 pass, keep only the S1 = 2 schools, and if that is still more than 25, keep all of them and note it. If fewer than 10 pass, keep them and note why (thin market, tight budget).
-5. **Record** in `labels.yaml` and commit. Don't revise a persona's labels after seeing system output for it. A genuine labeling error gets a changelog entry.
+3. **Run retrieval.** Run every retrieval mode (SQL only, hybrid, hybrid + rerank, and hybrid + RIASEC + rerank if it exists) on both the **gold-profile** and the **end-to-end** profile for each persona. Save each top 10. The labeler doesn't look at these results.
+4. **Build the judged pool** (TREC-style pooling; tool comes later). See Pooling below.
+5. **Pass 2, mark acceptable (~3–4 min per persona).** Score S1 for each shown row. Mark acceptable where S1 ≥ 1. Apply the H4 band-mix check. **Target 10–25 acceptable schools.** If more than 25 pass, keep only the S1 = 2 schools, and if that is still more than 25, keep all of them and note it. If fewer than 10 pass, keep them and note why (thin market, tight budget).
+6. **Record** in `labels.yaml` and commit. Labels aren't revised after this. A genuine labeling error gets a changelog entry.
+
+### Pooling
+
+For each persona:
+
+**judged pool = stratified sample ∪ top-10 from every retrieval mode × {gold-profile, end-to-end}**
+
+- **Stratified sample:** draw from the in-scope schools that pass H1–H4. If there are 60 or fewer, include them all. Otherwise draw a stratified random sample of 60 by control × admission band (fixed seed per persona), and record the true count of schools passing H1–H4 as `pool_size`.
+- **System top-10s:** each pooled school is checked against H1–H4 first. One that fails a hard criterion is **auto-judged not acceptable** and isn't shown. The rest are shown.
+- **Display:** all shown rows are **shuffled together** (fixed seed). Nothing shows a row's source (sample or which system), rank or score, and duplicates are collapsed. Each row shows:
+  - name and city/state
+  - control, undergrad size and locale
+  - net price at the bracket, plus the out-of-state estimate if one applies
+  - admission rate and SAT/ACT range
+  - matched CIP titles and program earnings (if not suppressed)
+  - distance from home
+- **Judged set:** every school shown or auto-judged becomes the persona's judged set (`judged_unitids`).
+- **Later runs:** a later system version whose top 10 includes schools outside the judged set gets **no** benefit of the doubt (see Scoring). Optionally, those new schools can be judged in a dated top-up pass. The top-up is listed in the changelog, and the same rules apply.
 
 **Time budget:** about 4–5 minutes per persona, so roughly 2.5–3 hours for 36. If time runs short, label in this priority order: the voice subset first, then one persona per edge case, then the rest. The README reports how many were labeled.
 
@@ -103,20 +138,34 @@ maya-oh:
   acceptable_unitids: [204796, 201885, 206084]   # Scorecard UNITIDs (int); illustrative only
   notes: "Few industrial design programs in 300 mi; mech-eng-only schools scored 1."
   labeled_at: 2026-11-21
+  judged_unitids: [204796, 201885, 206084, 204024]   # every school shown or auto-judged
   # optional fields below
   major_cip4s: ["50.04", "14.19", "15.08"]
-  pool_size: 47
+  pool_size: 47        # schools passing H1-H4 before sampling
   relaxed: []          # e.g. [budget] when the H2 relaxation was used
 ```
 
-Required per persona: `acceptable_unitids` (list of int, may be empty), `notes` (str), `labeled_at` (ISO date). The optional fields are recommended because they make the labels auditable. A persona with an empty acceptable list is left out of averaged recall and reported separately.
+Required per persona:
+- `acceptable_unitids` (list of int, may be empty)
+- `judged_unitids` (list of int, a superset of `acceptable_unitids`; needed for judged-only precision)
+- `notes` (str)
+- `labeled_at` (ISO date)
 
-## Scoring notes for `metrics.py` (proposed)
+The optional fields are recommended because they make the labels auditable. A persona with an empty acceptable list is left out of averaged recall and reported separately.
 
+## Scoring (for `metrics.py`)
+
+- **Unjudged = non-hit.** A top-10 school that isn't in `judged_unitids` counts as **not acceptable** in recall@10 and nDCG@10. With pooling this only happens for system versions run after labeling. Report the unjudged count next to the scores.
 - **recall@10** = |acceptable ∩ top-10| / min(10, |acceptable|). The denominator stops personas with large acceptable sets from being penalized.
-- **nDCG@10:** binary gain (acceptable = 1).
-- Retrieved schools the labeler never saw (outside the sampled pool) are **unjudged**, not wrong. Report the unjudged rate in the top 10 next to recall.
+- **nDCG@10:** binary gain (acceptable = 1), log2 discount. The ideal DCG assumes **min(10, |acceptable|)** relevant items in the first positions, so a persona with 4 acceptable schools can still reach 1.0.
+- **Judged-only precision@10** = |acceptable ∩ top-10| / |judged ∩ top-10|. Report it next to recall and nDCG. It shows how good the system's picks are among the ones a human actually looked at, separately from the unjudged penalty.
 
 ## Changelog
 
 - 2026-11-19: initial version, written before any labeling.
+- 2026-11-19 (review, still before any labeling):
+  - TREC-style pooling replaces the random-60 pool.
+  - Unjudged schools count as non-hits, and judged-only precision@10 is added.
+  - `judged_unitids` is now required.
+  - The out-of-state public rule in H2 is mandatory.
+  - The Census region table is frozen in H3, and the `regions` union / `out_of_state` rule is defined.
