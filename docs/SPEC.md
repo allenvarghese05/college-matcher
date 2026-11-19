@@ -342,7 +342,7 @@ class StudentProfile(BaseModel):
     strengths: Field[list[str]]
     favorite_subjects: Field[list[str]]
     activities: Field[list[Activity]]      # clubs, sports, jobs, volunteering, leadership
-    work_values: Field[list[str]]          # achievement, independence, recognition, relationships, support, conditions
+    work_values: Field[list[str]]          # achievement, independence, recognition, relationships, support, working_conditions
     # fit preferences
     max_distance_miles: Field[int]
     regions: Field[list[str]]
@@ -371,6 +371,10 @@ class Recommendation(BaseModel):
 ```
 
 **Design rule:** prose (`reasons`) contains **no numbers**; every number is a `Claim`. This makes groundedness mechanical (§10).
+
+**`regions` vocabulary (decided Nov 19):** lowercase US Census regions (`northeast, midwest, south, west`) and divisions (`new_england, mid_atlantic, east_north_central, west_north_central, south_atlantic, east_south_central, west_south_central, mountain, pacific`), two-letter USPS state codes, and `out_of_state` (any state except `home_state` — how "far from home" is expressed). The state mapping lives in `app/retrieval/geo.py`.
+
+**Missing vs none:** a null field means "unknown". If a student says they have no GPA/test score, the field stays null (never invented); distinguishing "asked, none" from "never asked" is a tier-2 follow-up for the questions-asked metric.
 
 ---
 
