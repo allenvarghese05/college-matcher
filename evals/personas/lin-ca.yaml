@@ -1,0 +1,32 @@
+id: lin-ca
+summary: East San Jose senior who has decided on electrical engineering because it pays well, and wants proof in the numbers.
+hidden_profile:
+  home_state: CA
+  home_zip: "95122"
+  gpa: 3.7
+  sat: 1400
+  income_bracket: 48-75k
+  budget_cap: 18000
+  interests: [circuits, soldering kits, drones, smart home gadgets]
+  dream_without_money: "design chips or hardware. I'd tinker with electronics for free honestly"
+  intended_majors: [electrical engineering]
+  riasec: {R: 0.7, I: 0.8, A: 0.2, S: 0.2, E: 0.4, C: 0.6}
+  strengths: [math, persistence, hands-on building]
+  favorite_subjects: [AP Physics C, calculus]
+  activities:
+    - {name: FRC robotics, role: electrical lead, years: 3}
+    - {name: family restaurant, role: cashier, years: 4}
+  work_values: [achievement, working_conditions]
+  regions: [CA]
+  size_pref: large
+  setting_pref: any
+  priorities: [outcomes, cost]
+style: "direct, numbers-oriented, asks 'what's the median salary?' style questions. confident, slightly skeptical of soft answers."
+reveal: only_when_asked
+quirks:
+  - "asks for earnings of EE grads at each school specifically, not school-wide"
+  - "wants to stay in California for in-state tuition"
+meta:
+  articulateness: confident
+  edge_cases: [specific_major_outcomes]
+  voice_subset: false

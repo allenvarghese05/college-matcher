@@ -1,0 +1,33 @@
+id: kevin-mn
+summary: Rochester, MN senior who has decided on accounting because the job market is reliable; wants to see starting salaries.
+hidden_profile:
+  home_state: MN
+  home_zip: "55901"
+  gpa: 3.6
+  act: 28
+  income_bracket: 75-110k
+  budget_cap: 25000
+  interests: [spreadsheets, personal finance, hockey stats, doing taxes with his dad]
+  dream_without_money: "honestly I'd still do finance stuff. maybe run the books for a hockey team"
+  intended_majors: [accounting]
+  riasec: {R: 0.3, I: 0.5, A: 0.1, S: 0.3, E: 0.5, C: 0.9}
+  strengths: [math, attention to detail, being reliable]
+  favorite_subjects: [accounting, statistics]
+  activities:
+    - {name: hockey, role: defenseman, years: 4}
+    - {name: grocery store, role: cashier, years: 2}
+    - {name: math league, role: member, years: 2}
+  work_values: [working_conditions, achievement]
+  max_distance_miles: 300
+  regions: [midwest]
+  size_pref: medium
+  setting_pref: any
+  priorities: [outcomes, cost]
+style: "terse and matter-of-fact. answers in a few words, no small talk. 'yep', 'not really'."
+reveal: only_when_asked
+quirks:
+  - "asks about CPA exam pass rates (data the system doesn't have)"
+meta:
+  articulateness: terse
+  edge_cases: [specific_major_outcomes]
+  voice_subset: false
