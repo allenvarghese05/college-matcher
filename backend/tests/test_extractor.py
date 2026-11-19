@@ -4,19 +4,27 @@ from pathlib import Path
 
 import pytest
 
-from app.core.llm import LLMClient
+from app.core.llm import LLMClient, LLMOutputError, wire_schema
 from app.core.logging import Stage
-from app.counselor.context import HistoryTurn, plan_next_topic
-from app.counselor.extractor import Extractor, build_user_message, quote_in, sanitize
-from app.schemas import (
-    ExtractionResult,
-    ProfileDelta,
-    ProfileField,
-    Riasec,
-    StudentProfile,
-    Update,
+from app.counselor.context import HistoryTurn, plan_next_topic, to_usps
+from app.counselor.extractor import (
+    ExtractionWire,
+    Extractor,
+    WireActivity,
+    WireUpdate,
+    build_user_message,
+    quote_in,
+    sanitize,
+    wire_to_delta,
 )
-from tests.counselor_fixtures import CASSETTE_DIR, SCENARIO, ScriptedAnthropic, ScriptedParse
+from app.schemas import Activity, ProfileDelta, ProfileField, Riasec, StudentProfile, Update
+from tests.counselor_fixtures import (
+    CASSETTE_DIR,
+    SCENARIO,
+    ScriptedAnthropic,
+    ScriptedParse,
+    wire_update,
+)
 
 LATEST = "I live in Ohio, near Columbus. I'd love somewhere on the West Coast though."
 
@@ -25,25 +33,22 @@ def _client(fake: ScriptedAnthropic, tmp_path: Path) -> LLMClient:
     return LLMClient(mode="live", cassette_dir=tmp_path, anthropic_client=fake)
 
 
+def _wire(*updates: WireUpdate, next_topic: str = "money") -> ExtractionWire:
+    return ExtractionWire(updates=list(updates), next_topic=next_topic)  # type: ignore[arg-type]
+
+
 async def test_extract_returns_delta_and_next_topic_with_sonnet_params(tmp_path: Path) -> None:
     fake = ScriptedAnthropic()
     fake.add_parse(
-        "ExtractionResult",
+        "ExtractionWire",
         ScriptedParse(
-            output=ExtractionResult(
-                delta=ProfileDelta(
-                    home_state=Update(value="OH", confidence=0.95, quote="I live in Ohio"),
-                    regions=Update(
-                        value=["pacific"], confidence=0.8, quote="somewhere on the West Coast"
-                    ),
-                ),
-                next_topic="money",
+            output=_wire(
+                wire_update("home_state", "OH", 0.95, "I live in Ohio"),
+                wire_update("regions", ["pacific"], 0.8, "somewhere on the West Coast"),
             )
         ),
     )
-    profile = StudentProfile(
-        interests=ProfileField[list[str]](value=["coding"], confidence=0.9),
-    )
+    profile = StudentProfile(interests=ProfileField[list[str]](value=["coding"], confidence=0.9))
     history = [
         HistoryTurn(0, "user", "I like coding."),
         HistoryTurn(1, "assistant", "Nice! Where do you live?"),
@@ -55,32 +60,106 @@ async def test_extract_returns_delta_and_next_topic_with_sonnet_params(tmp_path:
     assert res.delta.regions is not None and res.delta.regions.value == ["pacific"]
 
     kind, kw = fake.calls[0]
-    assert kind == "parse"
-    assert kw["model"] == "claude-sonnet-5-5"
-    assert kw["output_format"] is ExtractionResult
-    assert kw["output_config"] == {"effort": "medium"}
+    assert kind == "stream" and "output_format" not in kw
+    assert kw["model"] == "claude-sonnet-5-5" and kw["max_tokens"] == 16000
+    assert kw["output_config"] == {
+        "effort": "medium",
+        "format": {"type": "json_schema", "schema": wire_schema(ExtractionWire)},
+    }
     assert kw["system"][0]["cache_control"] == {"type": "ephemeral"}
     assert "extract ONLY what the student states in the LATEST" in kw["system"][0]["text"]
     content = kw["messages"][0]["content"]
     assert LATEST in content and "counselor: Nice! Where do you live?" in content
     assert '"interests"' in content  # previous profile is in context
-    assert st.extra["next_topic"] == "money" and st.extra["prompt"] == "extractor.v1"
+    assert st.extra["next_topic"] == "money" and st.extra["prompt"] == "extractor.v2"
     assert st.input_tokens > 0
 
 
-def test_extractor_prompt_contains_region_vocabulary_and_no_invented_scores() -> None:
+async def test_schema_invalid_output_is_llm_output_error(tmp_path: Path) -> None:
+    fake = ScriptedAnthropic()
+    fake.add_parse("ExtractionWire", ScriptedParse(output='{"updates": "nope"}'))
+    st = Stage("extract")
+    with pytest.raises(LLMOutputError):
+        await Extractor(_client(fake, tmp_path)).extract([], "hi", StudentProfile(), stage=st)
+    assert st.input_tokens > 0  # usage still recorded
+
+
+def test_extractor_prompt_v2_describes_wire_and_region_vocabulary() -> None:
     from app.counselor.prompts import load_prompt
 
     text = load_prompt("extractor").text
     for code in ["new_england", "mid_atlantic", "pacific", "mountain", "out_of_state"]:
         assert code in text
-    assert "leave that field null" in text
+    assert "add no update for that field" in text
     assert "0.8 or higher" in text  # corrections rubric
+    assert "Update format" in text and "null" not in text
 
 
 def test_build_user_message_marks_start_of_conversation() -> None:
     msg = build_user_message(StudentProfile(), [], "hello")
     assert "(start of conversation)" in msg and "<latest_student_message>\nhello\n" in msg
+
+
+# --------------------------------------------------------------- wire -> delta
+
+
+def test_wire_to_delta_types_and_sentinels() -> None:
+    wire = _wire(
+        wire_update("gpa", 3.7, 0.95, "q"),
+        wire_update("sat", 1310.0, 0.95, "q"),
+        wire_update("income_bracket", "48-75K", 0.85, "q"),  # case-insensitive enum
+        wire_update("size_pref", " Large ", 0.8, "q"),
+        wire_update("work_values", ["Independence", "Working Conditions", "money"], 0.7, "q"),
+        wire_update("interests", ["coding", " "], 0.9, "q"),
+        WireUpdate(
+            field="activities",
+            text="",
+            number=0,
+            items=[],
+            activities=[WireActivity(name="Robotics", role="", years=2, hours_per_week=0)],
+            confidence=0.9,
+            quote="q",
+        ),
+    )
+    delta, dropped = wire_to_delta(wire)
+    assert delta.gpa == Update(value=3.7, confidence=0.95, quote="q")
+    assert delta.sat is not None and delta.sat.value == 1310
+    assert delta.income_bracket is not None and delta.income_bracket.value == "48-75k"
+    assert delta.size_pref is not None and delta.size_pref.value == "large"
+    assert delta.work_values is not None
+    assert delta.work_values.value == ["independence", "working_conditions"]  # "money" dropped
+    assert delta.interests is not None and delta.interests.value == ["coding"]
+    assert delta.activities is not None
+    assert delta.activities.value == [Activity(name="Robotics", role=None, years=2)]
+    assert dropped == []
+
+
+def test_wire_to_delta_drops_empty_and_invalid_values() -> None:
+    wire = _wire(
+        wire_update("sat", 0, 0.9, "q"),  # 0 = not stated
+        wire_update("income_bracket", "rich", 0.9, "q"),  # not an enum value
+        wire_update("home_zip", "", 0.9, "q"),
+        wire_update("priorities", ["fame"], 0.9, "q"),  # no valid items
+    )
+    delta, dropped = wire_to_delta(wire)
+    assert delta == ProfileDelta()
+    assert sorted(dropped) == ["home_zip", "income_bracket", "priorities", "sat"]
+
+
+def test_wire_to_delta_repeated_fields() -> None:
+    wire = _wire(
+        wire_update("interests", ["coding"], 0.7, "a"),
+        wire_update("interests", ["art"], 0.9, "b"),
+        wire_update("home_state", "OH", 0.9, "c"),
+        wire_update("home_state", "MI", 0.5, "d"),
+    )
+    delta, _ = wire_to_delta(wire)
+    assert delta.interests is not None and delta.interests.value == ["coding", "art"]
+    assert delta.interests.confidence == 0.9
+    assert delta.home_state is not None and delta.home_state.value == "OH"
+
+
+# ---------------------------------------------------------------------- guards
 
 
 @pytest.mark.parametrize(
@@ -89,6 +168,8 @@ def test_build_user_message_marks_start_of_conversation() -> None:
         ("I live in Ohio", True),
         ("i live   in ohio.", True),  # case, whitespace, trailing punctuation
         ("“West Coast”", True),
+        ("I live in Oh", False),  # word boundary: not a prefix of "Ohio"
+        ("ive in Ohio", False),
         ("I live in Michigan", False),  # not said
         ("", False),
         ("...", False),
@@ -98,15 +179,30 @@ def test_quote_in(quote: str, ok: bool) -> None:
     assert quote_in(quote, LATEST) is ok
 
 
+def test_quote_in_normalises_dashes_and_ellipsis() -> None:
+    msg = "Maybe 1200–1400 on the SAT… not sure"
+    assert quote_in("1200-1400 on the SAT...", msg)
+    assert quote_in("Maybe 1200—1400", msg)
+
+
+@pytest.mark.parametrize(
+    ("text", "code"),
+    [("oh", "OH"), ("Ohio", "OH"), (" new  york ", "NY"), ("District of Columbia", "DC"),
+     ("Narnia", None), ("O", None)],
+)  # fmt: skip
+def test_to_usps(text: str, code: str | None) -> None:
+    assert to_usps(text) == code
+
+
 def test_sanitize_drops_unquoted_riasec_and_bad_regions() -> None:
     delta = ProfileDelta(
-        home_state=Update(value="oh", confidence=0.9, quote="I live in Ohio"),
+        home_state=Update(value="Ohio", confidence=0.9, quote="I live in Ohio"),
         interests=Update(value=["coding"], confidence=0.9, quote="I like coding"),  # earlier turn
         riasec=Update(
             value=Riasec(R=0, I=1, A=0, S=0, E=0, C=0), confidence=0.6, quote="I live in Ohio"
         ),
         regions=Update(
-            value=["Pacific", "ca", "west coast", "Narnia"],
+            value=["Pacific", "ca", "California", "west coast", "New England", "Narnia"],
             confidence=0.8,
             quote="somewhere on the West Coast",
         ),
@@ -114,13 +210,13 @@ def test_sanitize_drops_unquoted_riasec_and_bad_regions() -> None:
     clean, dropped = sanitize(delta, LATEST)
     assert clean.home_state is not None and clean.home_state.value == "OH"
     assert clean.interests is None and clean.riasec is None
-    assert clean.regions is not None and clean.regions.value == ["pacific", "CA"]
+    assert clean.regions is not None and clean.regions.value == ["pacific", "CA", "new_england"]
     assert set(dropped) == {"interests", "riasec"}
 
 
 def test_sanitize_drops_all_invalid_regions_and_unknown_state() -> None:
     delta = ProfileDelta(
-        home_state=Update(value="Ohio", confidence=0.9, quote="I live in Ohio"),
+        home_state=Update(value="Ohioland", confidence=0.9, quote="I live in Ohio"),
         regions=Update(value=["the coast"], confidence=0.8, quote="West Coast"),
     )
     clean, dropped = sanitize(delta, LATEST)

@@ -253,5 +253,24 @@ def test_check_with_no_claims_is_fully_grounded() -> None:
     assert report.groundedness == 1.0 and report.n_claims == 0
 
 
+def test_finalize_pins_claims_to_parent_recommendation() -> None:
+    from app.counselor.recommender import finalize
+
+    a, b = _cand(unitid=1, cip4="1107"), _cand(unitid=2, cip4=None)
+    raw = {
+        "recommendations": [
+            {"unitid": 2, "cip4": "", "reasons": ["x"],
+             "claims": [{"field": "net_price", "value": "$14,200"}]},
+            {"unitid": 1, "cip4": "9999", "reasons": ["y"],  # unknown cip4 -> best candidate
+             "claims": [{"field": "program_median_earnings", "value": "$98,765"}]},
+            {"unitid": 2, "cip4": "", "reasons": ["dup"], "claims": []},  # duplicate school
+        ]
+    }  # fmt: skip
+    recs = finalize(raw, [a, b], k=5)
+    assert [(r.unitid, r.cip4, r.rank) for r in recs] == [(2, None, 1), (1, "1107", 2)]
+    assert [(c.unitid, c.cip4) for r in recs for c in r.claims] == [(2, None), (1, "1107")]
+    assert check(recs, FactIndex.from_candidates([a, b])).groundedness == 1.0
+
+
 def test_count_digit_reasons() -> None:
     assert count_digit_reasons(["no numbers here", "top 10 school", "class of 2028"]) == 2

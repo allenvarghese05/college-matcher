@@ -18,6 +18,7 @@ from app.core.llm import (
     ReplayMissError,
     request_key,
     use_stage,
+    wire_schema,
 )
 from app.core.logging import Stage
 from tests.counselor_fixtures import ScriptedAnthropic, ScriptedParse, ScriptedStream, usage
@@ -65,7 +66,7 @@ async def test_stream_record_then_replay_roundtrip(tmp_path: Path) -> None:
     assert cas["response"]["chunks"] == ["Hel", "lo ", "there"]
     assert cas["request"]["params"] == {"effort": "low", "max_tokens": 256}
     assert st.input_tokens == 10 and st.output_tokens == 3 and st.cache_read_tokens == 100
-    assert st.extra["cache_creation_tokens"] == 20
+    assert st.cache_creation_tokens == 20
 
     # replay: no transport at all, same chunks and usage
     rep = LLMClient(mode="replay", cassette_dir=tmp_path)
@@ -99,9 +100,13 @@ async def test_parse_pydantic_record_replay(tmp_path: Path) -> None:
     rec = LLMClient(mode="record", cassette_dir=tmp_path, anthropic_client=fake)
     pet = await rec.parse(SONNET, SYSTEM, MSGS, Pet, effort="medium", max_tokens=1000)
     assert pet == Pet(name="Rex", legs=4)
-    _, kw = fake.calls[0]
-    assert kw["output_format"] is Pet
-    assert kw["output_config"] == {"effort": "medium"}
+    kind, kw = fake.calls[0]
+    assert kind == "stream"  # structured output is streamed; no SDK eager parsing
+    assert "output_format" not in kw
+    assert kw["output_config"] == {
+        "effort": "medium",
+        "format": {"type": "json_schema", "schema": wire_schema(Pet)},
+    }
     rep = LLMClient(mode="replay", cassette_dir=tmp_path)
     assert await rep.parse(SONNET, SYSTEM, MSGS, Pet, effort="medium", max_tokens=1000) == pet
 
@@ -115,7 +120,7 @@ async def test_parse_json_schema_uses_output_config_format(tmp_path: Path) -> No
     _, kw = fake.calls[0]
     assert kw["output_config"] == {
         "effort": "high",
-        "format": {"type": "json_schema", "schema": SCHEMA},
+        "format": {"type": "json_schema", "schema": wire_schema(SCHEMA)},
     }
     assert "output_format" not in kw
     rep = LLMClient(mode="replay", cassette_dir=tmp_path)
@@ -128,7 +133,7 @@ async def test_replay_miss_names_hash(tmp_path: Path) -> None:
         "model": SONNET,
         "system": SYSTEM,
         "messages": MSGS,
-        "schema": Pet.model_json_schema(),
+        "schema": wire_schema(Pet),
         "params": {"effort": "low", "max_tokens": 16000},
     }
     key = request_key("parse", req)
@@ -235,8 +240,82 @@ async def test_usage_cost_includes_cache_write_and_binds_via_contextvar(tmp_path
     st = Stage("extract")
     with use_stage(st):
         await client.parse(SONNET, SYSTEM, MSGS, Pet, effort="low")
-    # sonnet: $2 in, $10 out, $0.10 cache read; cache write 1.25 x $2
-    expected = (1000 * 2 + 100 * 10 + 10_000 * 0.10 + 2000 * 2 * 1.25) / 1_000_000
+    # sonnet: $2 in, $10 out, $0.10 cache read, $2.50 cache write
+    expected = (1000 * 2 + 100 * 10 + 10_000 * 0.10 + 2000 * 2.50) / 1_000_000
     assert st.cost_usd == pytest.approx(expected)
     assert st.model == SONNET
-    assert st.cache_read_tokens == 10_000
+    assert st.cache_read_tokens == 10_000 and st.cache_creation_tokens == 2000
+
+
+async def test_invalid_output_records_usage_and_cassette_then_raises(tmp_path: Path) -> None:
+    """Schema-invalid JSON must not escape as pydantic.ValidationError (SDK eager parse)."""
+    fake = ScriptedAnthropic()
+    fake.add_parse("Pet", ScriptedParse(output='{"name": "Rex", "legs": "many"}'))
+    rec = LLMClient(mode="record", cassette_dir=tmp_path, anthropic_client=fake)
+    st = Stage("extract")
+    with pytest.raises(LLMOutputError, match="validation"):
+        await rec.parse(SONNET, SYSTEM, MSGS, Pet, effort="low", stage=st)
+    assert st.input_tokens == 1200  # usage recorded before validation
+    assert len(list(tmp_path.glob("parse-*.json"))) == 1  # cassette written
+    rep = LLMClient(mode="replay", cassette_dir=tmp_path)
+    with pytest.raises(LLMOutputError):
+        await rep.parse(SONNET, SYSTEM, MSGS, Pet, effort="low")
+
+
+async def test_fake_transport_validates_eagerly_like_the_sdk() -> None:
+    from pydantic import ValidationError
+
+    fake = ScriptedAnthropic()
+    fake.add_parse("Pet", ScriptedParse(output='{"name": 1}'))
+    with pytest.raises(ValidationError):
+        await fake.messages.parse(model=SONNET, max_tokens=1, messages=MSGS, output_format=Pet)
+
+
+async def test_replayed_refusal_yields_partial_chunks_then_raises(tmp_path: Path) -> None:
+    fake = ScriptedAnthropic()
+    fake.add_stream(ScriptedStream(chunks=["Sure, ", "so"], stop_reason="refusal"))
+    rec = LLMClient(mode="record", cassette_dir=tmp_path, anthropic_client=fake)
+    for client in (rec, LLMClient(mode="replay", cassette_dir=tmp_path)):
+        got: list[str] = []
+        with pytest.raises(LLMRefusalError):
+            async for c in client.stream_text(SONNET, SYSTEM, MSGS, effort="low", max_tokens=9):
+                got.append(c)
+        assert got == ["Sure, ", "so"]
+
+
+def test_cassette_writes_are_atomic(tmp_path: Path) -> None:
+    from app.core.llm import CassetteStore
+
+    store = CassetteStore(tmp_path / "nested")
+    p = store.save("parse", "abc", {"model": "m"}, {"text": "{}"})
+    assert json.loads(p.read_text())["key"] == "abc"
+    assert [f.name for f in (tmp_path / "nested").iterdir()] == ["parse-abc.json"]
+
+
+def test_cassette_dir_comes_from_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core.config import get_settings
+    from app.core.llm import DEFAULT_CASSETTE_DIR
+
+    monkeypatch.setattr(get_settings(), "LLM_CASSETTE_DIR", tmp_path)
+    assert LLMClient.from_settings().cassette_dir == tmp_path
+    monkeypatch.setattr(get_settings(), "LLM_CASSETTE_DIR", None)
+    assert LLMClient.from_settings().cassette_dir == DEFAULT_CASSETTE_DIR
+
+
+def test_structured_output_schemas_stay_under_complexity_limits() -> None:
+    """Walk the SDK-transformed schemas actually sent for the extractor and recommender."""
+    from app.core.llm import MAX_OPTIONAL_PARAMS, MAX_UNION_PARAMS, schema_complexity
+    from app.counselor.extractor import ExtractionWire
+    from app.counselor.recommender import build_output_schema
+    from app.schemas import ExtractionResult
+    from tests.counselor_fixtures import FakeRetriever, scenario_profile
+
+    cands = FakeRetriever(limit=40).candidates(scenario_profile(), 40)
+    cands[0] = cands[0].model_copy(update={"cip4": None})  # exercise the no-major sentinel
+    for schema in (wire_schema(ExtractionWire), wire_schema(build_output_schema(cands))):
+        c = schema_complexity(schema)
+        assert c.optional <= MAX_OPTIONAL_PARAMS and c.unions <= MAX_UNION_PARAMS, c
+        assert c.optional == 0 and c.unions == 0
+    # the counter does catch the original (rejected) design
+    bad = schema_complexity(wire_schema(ExtractionResult))
+    assert bad.unions > MAX_UNION_PARAMS

@@ -19,7 +19,7 @@ from app.counselor.orchestrator import (
 from app.db.models import ChatSession, ProfileSnapshot, Turn, TurnMetricRow
 from app.db.session import get_sessionmaker
 from app.schemas import ExtractionResult, ProfileDelta, StudentProfile, Update
-from tests.counselor_fixtures import ScriptedAnthropic, ScriptedParse, ScriptedStream
+from tests.counselor_fixtures import ScriptedAnthropic, ScriptedParse, ScriptedStream, to_wire
 
 pytestmark = pytest.mark.usefixtures("requires_db")
 
@@ -37,14 +37,20 @@ def _orch(fake: ScriptedAnthropic, tmp_path: Path) -> CounselorOrchestrator:
     return CounselorOrchestrator(llm=llm, sessionmaker=get_sessionmaker())
 
 
+def _reply_calls(fake: ScriptedAnthropic) -> list[dict]:  # type: ignore[type-arg]
+    """Text-reply requests (streams without a structured-output format)."""
+    return [
+        kw for kind, kw in fake.calls if kind == "stream" and "format" not in kw["output_config"]
+    ]
+
+
 async def _collect(orch: CounselorOrchestrator, sid: uuid.UUID, text: str) -> list[TurnEvent]:
     return [ev async for ev in orch.handle_turn(sid, text)]
 
 
-def _extraction(**updates: Update) -> ScriptedParse:  # type: ignore[type-arg]
-    return ScriptedParse(
-        output=ExtractionResult(delta=ProfileDelta(**updates), next_topic="money")  # type: ignore[arg-type]
-    )
+def _extraction(next_topic: str = "money", **updates: Update) -> ScriptedParse:  # type: ignore[type-arg]
+    result = ExtractionResult(delta=ProfileDelta(**updates), next_topic=next_topic)  # type: ignore[arg-type]
+    return ScriptedParse(output=to_wire(result))
 
 
 async def test_reply_and_extraction_run_concurrently(tmp_path: Path) -> None:
@@ -52,7 +58,7 @@ async def test_reply_and_extraction_run_concurrently(tmp_path: Path) -> None:
     fake.add_stream(ScriptedStream(chunks=["Hi ", "there, ", "where do you live?"], delay_s=0.4))
     p = _extraction(interests=Update(value=["coding"], confidence=0.9, quote="I love coding"))
     p.delay_s = 0.4
-    fake.add_parse("ExtractionResult", p)
+    fake.add_parse("ExtractionWire", p)
     sid = await _new_session()
 
     t0 = time.perf_counter()
@@ -61,8 +67,8 @@ async def test_reply_and_extraction_run_concurrently(tmp_path: Path) -> None:
 
     assert elapsed < 0.7, f"reply and extraction ran sequentially ({elapsed:.2f}s)"
     marks = dict(fake.timeline)
-    assert marks["parse_start:ExtractionResult"] < marks["stream_end"]
-    assert marks["stream_start"] < marks["parse_end:ExtractionResult"]
+    assert marks["parse_start:ExtractionWire"] < marks["stream_end"]
+    assert marks["stream_start"] < marks["parse_end:ExtractionWire"]
     assert [e.event for e in events][-3:] == ["profile", "ready", "done"]
 
 
@@ -70,7 +76,7 @@ async def test_event_order_persistence_and_metrics(tmp_path: Path) -> None:
     fake = ScriptedAnthropic()
     fake.add_stream(ScriptedStream(chunks=["That's ", "awesome! ", "Where do you live?"]))
     fake.add_parse(
-        "ExtractionResult",
+        "ExtractionWire",
         _extraction(interests=Update(value=["coding"], confidence=0.9, quote="I love coding")),
     )
     sid = await _new_session()
@@ -117,6 +123,8 @@ async def test_event_order_persistence_and_metrics(tmp_path: Path) -> None:
     assert metrics["extract"].input_tokens == 1200 and metrics["extract"].cost_usd > 0
     assert metrics["reply_total"].output_tokens == 60
     assert metrics["reply_total"].cache_read_tokens == 1500
+    assert metrics["reply_total"].cost_usd > 0
+    assert snaps[0].next_topic == "money"
     assert 0 <= metrics["reply_ttft"].ms <= metrics["reply_total"].ms
 
 
@@ -125,11 +133,11 @@ async def test_profile_merges_across_turns_and_corrections_win(tmp_path: Path) -
     for _ in range(2):
         fake.add_stream(ScriptedStream(chunks=["Got it."]))
     fake.add_parse(
-        "ExtractionResult",
+        "ExtractionWire",
         _extraction(home_state=Update(value="OH", confidence=0.95, quote="I live in Ohio")),
     )
     fake.add_parse(
-        "ExtractionResult",
+        "ExtractionWire",
         _extraction(
             home_state=Update(value="MI", confidence=0.85, quote="actually I live in Michigan"),
             interests=Update(value=["robotics"], confidence=0.8, quote="I build robots"),
@@ -147,7 +155,7 @@ async def test_profile_merges_across_turns_and_corrections_win(tmp_path: Path) -
     assert profile.interests.value == ["robotics"]
 
     # second reply prompt saw history + previous profile, ended with the system note
-    _, kw = [c for c in fake.calls if c[0] == "stream"][1]
+    kw = _reply_calls(fake)[1]
     msgs = kw["messages"]
     assert [m["role"] for m in msgs] == ["user", "assistant", "user", "system"]
     assert msgs[0]["content"] == "I live in Ohio" and msgs[1]["content"] == "Got it."
@@ -159,7 +167,7 @@ async def test_profile_merges_across_turns_and_corrections_win(tmp_path: Path) -
 async def test_extraction_failure_keeps_reply_and_profile(tmp_path: Path) -> None:
     fake = ScriptedAnthropic()
     fake.add_stream(ScriptedStream(chunks=["Tell me more!"]))
-    fake.add_parse("ExtractionResult", ScriptedParse(output="", stop_reason="refusal"))
+    fake.add_parse("ExtractionWire", ScriptedParse(output="", stop_reason="refusal"))
     sid = await _new_session()
     events = await _collect(_orch(fake, tmp_path), sid, "hello")
     assert [e.event for e in events] == ["token", "profile", "ready", "done"]
@@ -174,7 +182,7 @@ async def test_extraction_failure_keeps_reply_and_profile(tmp_path: Path) -> Non
 async def test_reply_refusal_uses_safe_fallback(tmp_path: Path) -> None:
     fake = ScriptedAnthropic()
     fake.add_stream(ScriptedStream(chunks=[], stop_reason="refusal"))
-    fake.add_parse("ExtractionResult", _extraction())
+    fake.add_parse("ExtractionWire", _extraction())
     sid = await _new_session()
     events = await _collect(_orch(fake, tmp_path), sid, "something off topic")
     assert events[0] == TurnEvent("token", {"text": REFUSAL_FALLBACK})
@@ -210,3 +218,99 @@ def test_reply_messages_window_starts_with_user_and_ends_with_note() -> None:
         "Still needed before recommendations: home_state, income_bracket, interests"
         in (msgs[-1]["content"])
     )
+
+
+async def test_next_topic_is_persisted_and_used_as_next_hint(tmp_path: Path) -> None:
+    fake = ScriptedAnthropic()
+    fake.add_stream(ScriptedStream(chunks=["Cool."]))
+    fake.add_stream(ScriptedStream(chunks=["Nice."]))
+    fake.add_parse("ExtractionWire", _extraction(next_topic="activities"))
+    fake.add_parse("ExtractionWire", _extraction())
+    orch = _orch(fake, tmp_path)
+    sid = await _new_session()
+    await _collect(orch, sid, "hello")
+    await _collect(orch, sid, "again")
+    note = _reply_calls(fake)[1]["messages"][-1]["content"]
+    assert "Suggested next topic: activities" in note
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        ScriptedParse(output='{"updates": 5, "next_topic": "money"}'),  # schema-invalid JSON
+        ScriptedParse(output="", stop_reason="max_tokens"),
+        RuntimeError("unexpected bug in extraction"),
+    ],
+)
+async def test_any_extraction_failure_still_persists_reply(
+    tmp_path: Path, bad: ScriptedParse | Exception
+) -> None:
+    fake = ScriptedAnthropic()
+    fake.add_stream(ScriptedStream(chunks=["Tell me more!"]))
+    fake.add_parse("ExtractionWire", bad)
+    sid = await _new_session()
+    events = await _collect(_orch(fake, tmp_path), sid, "hello")
+    assert [e.event for e in events] == ["token", "profile", "ready", "done"]
+    async with get_sessionmaker()() as db:
+        turns = (await db.execute(select(Turn).where(Turn.session_id == sid))).scalars().all()
+        stages = (
+            (await db.execute(select(TurnMetricRow.stage).where(TurnMetricRow.session_id == sid)))
+            .scalars()
+            .all()
+        )
+    assert sorted(t.role for t in turns) == ["assistant", "user"]
+    assert "extract" in stages  # failure still recorded as a metric row
+
+
+async def test_client_disconnect_persists_partial_reply_as_interrupted(tmp_path: Path) -> None:
+    fake = ScriptedAnthropic()
+    fake.add_stream(
+        ScriptedStream(chunks=["Partial ", "reply ", "never ", "finished"], delay_s=0.4)
+    )
+    p = _extraction()
+    p.delay_s = 1.0
+    fake.add_parse("ExtractionWire", p)
+    sid = await _new_session()
+    agen = _orch(fake, tmp_path).handle_turn(sid, "hello")
+    got = [await agen.__anext__(), await agen.__anext__()]
+    assert [e.data["text"] for e in got] == ["Partial ", "reply "]
+    await agen.aclose()  # what the API layer does when the client goes away
+    async with get_sessionmaker()() as db:
+        turns = (
+            (await db.execute(select(Turn).where(Turn.session_id == sid).order_by(Turn.idx)))
+            .scalars()
+            .all()
+        )
+        snaps = (
+            await db.execute(select(ProfileSnapshot).where(ProfileSnapshot.session_id == sid))
+        ).all()
+    assert [(t.role, t.interrupted) for t in turns] == [("user", False), ("assistant", True)]
+    assert turns[1].text == "Partial reply "
+    assert snaps == []  # extraction was cancelled
+
+
+async def test_refusal_counts_are_recorded_per_stage(tmp_path: Path) -> None:
+    from app.core.logging import TurnLogger  # noqa: F401  (stage records come from it)
+
+    fake = ScriptedAnthropic()
+    fake.add_stream(ScriptedStream(chunks=["ok"]))
+    fake.add_parse("ExtractionWire", ScriptedParse(output="", stop_reason="refusal"))
+    orch = _orch(fake, tmp_path)
+    sid = await _new_session()
+    seen: list[dict] = []  # type: ignore[type-arg]
+    import app.counselor.orchestrator as mod
+
+    real = mod.TurnLogger
+
+    class Spy(real):  # type: ignore[valid-type,misc]
+        def __init__(self, *a: object, **k: object) -> None:
+            super().__init__(*a, **k)
+            seen.append(self.__dict__)
+
+    mod.TurnLogger = Spy  # type: ignore[misc]
+    try:
+        await _collect(orch, sid, "hello")
+    finally:
+        mod.TurnLogger = real  # type: ignore[misc]
+    extract = next(s for s in seen[0]["stages"] if s["stage"] == "extract")
+    assert extract["refusals"] == 1

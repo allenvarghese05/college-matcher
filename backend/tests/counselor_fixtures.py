@@ -24,6 +24,7 @@ from pydantic import BaseModel
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.counselor.extractor import ExtractionWire, WireUpdate
 from app.counselor.facts import institution_facts
 from app.counselor.groundedness import format_fact
 from app.db.models import CipCode, Institution, Program
@@ -117,36 +118,84 @@ class _StreamCM:
         return _message("".join(i.chunks), i.stop_reason, i.usage, i.refusal_category)
 
 
+def _route(kwargs: dict[str, Any]) -> str | None:
+    """Structured-output route: schema title (Pydantic models) or 'json_schema'."""
+    fmt = (kwargs.get("output_config") or {}).get("format")
+    if fmt is not None:
+        return str(fmt["schema"].get("title") or "json_schema")
+    if kwargs.get("output_format") is not None:
+        return str(kwargs["output_format"].__name__)
+    return None
+
+
+def _sdk_eager_validate(kwargs: dict[str, Any], text: str) -> None:
+    """Mimic the SDK: with ``output_format`` it validates eagerly and raises
+    ``pydantic.ValidationError`` (escaping stop_reason handling)."""
+    fmt = kwargs.get("output_format")
+    if fmt is not None:
+        fmt.model_validate_json(text)
+
+
 class _Messages:
     def __init__(self, owner: ScriptedAnthropic):
         self.o = owner
 
-    def stream(self, **kwargs: Any) -> _StreamCM:
-        self.o.calls.append(("stream", kwargs))
-        item = self.o.queues["stream"].popleft()
-        if isinstance(item, Exception):
-            raise item
-        assert isinstance(item, ScriptedStream)
-        return _StreamCM(item, self.o.timeline)
-
-    async def parse(self, **kwargs: Any) -> Any:
-        self.o.calls.append(("parse", kwargs))
-        fmt = kwargs.get("output_format")
-        route = fmt.__name__ if fmt is not None else "json_schema"
+    def _pop(self, route: str) -> ScriptedStream | ScriptedParse:
         item = self.o.queues[route].popleft()
         if isinstance(item, Exception):
             raise item
+        return item
+
+    def stream(self, **kwargs: Any) -> _StreamCM | _ParseCM:
+        self.o.calls.append(("stream", kwargs))
+        route = _route(kwargs)
+        if route is None:
+            item = self._pop("stream")
+            assert isinstance(item, ScriptedStream)
+            return _StreamCM(item, self.o.timeline)
+        parsed = self._pop(route)
+        assert isinstance(parsed, ScriptedParse)
+        return _ParseCM(parsed, route, kwargs, self.o.timeline)
+
+    async def parse(self, **kwargs: Any) -> Any:
+        self.o.calls.append(("parse", kwargs))
+        route = _route(kwargs) or "json_schema"
+        item = self._pop(route)
         assert isinstance(item, ScriptedParse)
-        loop = asyncio.get_running_loop()
-        self.o.timeline.append((f"parse_start:{route}", loop.time()))
         await asyncio.sleep(item.delay_s)
-        self.o.timeline.append((f"parse_end:{route}", loop.time()))
+        _sdk_eager_validate(kwargs, item.text)
         return _message(item.text, item.stop_reason, item.usage, item.refusal_category)
 
 
+class _ParseCM:
+    def __init__(
+        self,
+        item: ScriptedParse,
+        route: str,
+        kwargs: dict[str, Any],
+        log: list[tuple[str, float]],
+    ):
+        self.item, self.route, self.kwargs, self.log = item, route, kwargs, log
+
+    async def __aenter__(self) -> _ParseCM:
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        return None
+
+    async def get_final_message(self) -> Any:
+        loop = asyncio.get_running_loop()
+        self.log.append((f"parse_start:{self.route}", loop.time()))
+        await asyncio.sleep(self.item.delay_s)
+        self.log.append((f"parse_end:{self.route}", loop.time()))
+        i = self.item
+        _sdk_eager_validate(self.kwargs, i.text)
+        return _message(i.text, i.stop_reason, i.usage, i.refusal_category)
+
+
 class ScriptedAnthropic:
-    """Queues: ``stream`` for replies; ``parse`` routed by output_format class name
-    (e.g. ``ExtractionResult``) or ``json_schema`` for raw-schema calls."""
+    """Queues: ``stream`` for text replies; structured calls are routed by the schema
+    title (e.g. ``ExtractionWire``) or ``json_schema`` for raw-schema calls."""
 
     def __init__(self) -> None:
         self.queues: dict[str, deque[ScriptedStream | ScriptedParse | Exception]] = defaultdict(
@@ -199,6 +248,7 @@ class FakeRetriever:
     cips: tuple[str, ...] = ("1101", "1107")
     limit: int = 12
     calls: list[tuple[int, str]] = field(default_factory=list)
+    loggers: list[Any] = field(default_factory=list)
 
     def candidates(self, profile: StudentProfile, k: int) -> list[Candidate]:
         bracket = profile.income_bracket.value
@@ -221,7 +271,7 @@ class FakeRetriever:
             facts["program_median_earnings"] = p["median_earnings"]
             facts["program_median_debt"] = p["median_debt"]
             n = len(out)
-            total = round(0.9 - n * 0.03, 4)
+            total = round(max(0.05, 0.9 - n * 0.03), 4)
             out.append(
                 Candidate(
                     unitid=p["unitid"],
@@ -248,9 +298,16 @@ class FakeRetriever:
         return out
 
     async def retrieve(
-        self, session: AsyncSession, profile: StudentProfile, k: int, mode: RetrievalMode
+        self,
+        session: AsyncSession,
+        profile: StudentProfile,
+        k: int,
+        mode: RetrievalMode,
+        *,
+        logger: Any = None,
     ) -> list[Candidate]:
         self.calls.append((k, mode))
+        self.loggers.append(logger)
         return self.candidates(profile, k)
 
 
@@ -386,7 +443,7 @@ def _claim(c: Candidate, field_name: str) -> dict[str, Any] | None:
         shown = f"{round(float(v) * 100)}%"
     else:
         shown = format_fact(field_name, v)
-    return {"unitid": c.unitid, "field": field_name, "cip4": c.cip4, "value": shown}
+    return {"field": field_name, "value": shown}
 
 
 def recommendation_output(candidates: list[Candidate], k: int) -> dict[str, Any]:
@@ -399,7 +456,7 @@ def recommendation_output(candidates: list[Candidate], k: int) -> dict[str, Any]
         recs.append(
             {
                 "unitid": c.unitid,
-                "cip4": c.cip4,
+                "cip4": c.cip4 or "",
                 "reasons": REASONS[i % len(REASONS)],
                 "claims": claims,
             }
@@ -407,10 +464,41 @@ def recommendation_output(candidates: list[Candidate], k: int) -> dict[str, Any]
     return {"recommendations": recs}
 
 
+def wire_update(name: str, value: Any, confidence: float, quote: str) -> WireUpdate:
+    """A realistic wire update: the value in its typed slot, sentinels elsewhere."""
+    slots: dict[str, Any] = {"text": "", "number": 0, "items": [], "activities": []}
+    if name in ("activities",):
+        slots["activities"] = [
+            {
+                "name": a.name,
+                "role": a.role or "",
+                "years": a.years or 0,
+                "hours_per_week": a.hours_per_week or 0,
+            }
+            for a in value
+        ]
+    elif isinstance(value, list):
+        slots["items"] = value
+    elif isinstance(value, int | float):
+        slots["number"] = value
+    else:
+        slots["text"] = value
+    return WireUpdate(field=name, confidence=confidence, quote=quote, **slots)  # type: ignore[arg-type]
+
+
+def to_wire(result: ExtractionResult) -> ExtractionWire:
+    updates = [
+        wire_update(name, upd.value, upd.confidence, upd.quote)
+        for name in ProfileDelta.model_fields
+        if (upd := getattr(result.delta, name)) is not None
+    ]
+    return ExtractionWire(updates=updates, next_topic=result.next_topic)
+
+
 def script_scenario(fake: ScriptedAnthropic) -> None:
     for t in SCENARIO:
         fake.add_stream(ScriptedStream(chunks=t.reply_chunks))
-        fake.add_parse("ExtractionResult", ScriptedParse(output=t.extraction))
+        fake.add_parse("ExtractionWire", ScriptedParse(output=to_wire(t.extraction)))
 
 
 def script_recommendation(fake: ScriptedAnthropic, profile: StudentProfile, k: int) -> None:

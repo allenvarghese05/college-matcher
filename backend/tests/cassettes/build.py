@@ -5,7 +5,7 @@ plays the scenario through the real API + orchestrator with ``LLM_MODE=record`` 
 scripted fake Anthropic transport, so every cassette is keyed by the exact request the
 app sends. Re-run after changing a prompt or request shape:
 
-    cd backend && DATABASE_URL=postgresql+asyncpg://...:5433/matcher_counselor \
+    cd backend && DATABASE_URL=postgresql+asyncpg://...:5433/matcher_counselor_test \
         uv run python -m tests.cassettes.build
 """
 

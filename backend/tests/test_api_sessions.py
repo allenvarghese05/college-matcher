@@ -80,6 +80,7 @@ async def test_full_session_replay(api: AsyncClient, retriever: FakeRetriever) -
     assert rs["groundedness"] == 1.0
     assert rs["retrieval_mode"] == "hybrid_rerank"
     assert retriever.calls == [(40, "hybrid_rerank")]
+    assert retriever.loggers[0] is not None  # the turn logger is passed through
     recs = rs["recommendations"]
     assert [r["rank"] for r in recs] == list(range(1, SCENARIO_K + 1))
     candidates = {c.unitid: c for c in retriever.candidates(_profile(st), 40)}
@@ -130,14 +131,7 @@ def _profile(state: dict) -> object:  # type: ignore[type-arg]
 
 
 async def test_injected_wrong_claim_is_unverified(tmp_path: Path, retriever: FakeRetriever) -> None:
-    for f in CASSETTE_DIR.glob("*.json"):
-        shutil.copy(f, tmp_path / f.name)
-    rec_cassette = next(
-        p
-        for p in tmp_path.glob("parse-*.json")
-        if json.loads(p.read_text())["request"]["model"] == "claude-opus-5-5"
-    )
-    cas = json.loads(rec_cassette.read_text())
+    rec_cassette, cas = _copy_cassettes(tmp_path)
     out = json.loads(cas["response"]["text"])
     target = out["recommendations"][0]["claims"][0]
     assert target["field"] == "net_price"
@@ -188,3 +182,58 @@ async def test_recommendations_require_ready_profile(api: AsyncClient) -> None:
 async def test_resume_not_implemented(api: AsyncClient) -> None:
     sid = (await api.post("/api/sessions")).json()["id"]
     assert (await api.post(f"/api/sessions/{sid}/resume")).status_code == 501
+
+
+def _copy_cassettes(tmp_path: Path) -> tuple[Path, dict]:  # type: ignore[type-arg]
+    for f in CASSETTE_DIR.glob("*.json"):
+        shutil.copy(f, tmp_path / f.name)
+    rec_cassette = next(
+        p
+        for p in tmp_path.glob("parse-*.json")
+        if json.loads(p.read_text())["request"]["model"] == "claude-opus-5-5"
+    )
+    return rec_cassette, json.loads(rec_cassette.read_text())
+
+
+async def test_digit_reasons_are_dropped_and_counted(
+    tmp_path: Path, retriever: FakeRetriever
+) -> None:
+    path, cas = _copy_cassettes(tmp_path)
+    out = json.loads(cas["response"]["text"])
+    out["recommendations"][0]["reasons"].append("Only 17% of applicants get in.")
+    cas["response"]["text"] = json.dumps(out)
+    path.write_text(json.dumps(cas))
+    async for c in _client(tmp_path, retriever):
+        run = await run_api_scenario(c)
+    reasons = run.recommendations["recommendations"][0]["reasons"]
+    assert reasons == out["recommendations"][0]["reasons"][:-1]
+    async with get_sessionmaker()() as db:
+        row = await db.get(RecommendationSetRow, uuid.UUID(run.recommendations["id"]))
+        assert row is not None and row.retrieval_trace["reason_digit_violations"] == 1
+
+
+class _RaisingRetriever(FakeRetriever):
+    def __init__(self, exc: Exception):
+        super().__init__()
+        self.exc = exc
+
+    async def retrieve(self, *a: object, **k: object) -> list:  # type: ignore[override,type-arg]
+        raise self.exc
+
+
+@pytest.mark.parametrize(
+    ("exc", "code"),
+    [(NotImplementedError("mode not built"), 501), (ValueError("bad region"), 422)],
+)
+async def test_retriever_errors_map_to_http(exc: Exception, code: int) -> None:
+    # reach readiness with the real scenario first, then swap in a failing retriever
+    async for c in _client(CASSETTE_DIR, FakeRetriever()):
+        run = await run_api_scenario(c)
+    async for c in _client(CASSETTE_DIR, _RaisingRetriever(exc)):
+        r = await c.post(f"/api/sessions/{run.session_id}/recommendations", json={"k": 3})
+    assert r.status_code == code
+
+
+async def test_recommendations_unknown_session_404(api: AsyncClient) -> None:
+    r = await api.post(f"/api/sessions/{uuid.uuid4()}/recommendations", json={"k": 3})
+    assert r.status_code == 404
