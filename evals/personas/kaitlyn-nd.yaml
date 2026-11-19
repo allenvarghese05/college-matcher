@@ -1,0 +1,31 @@
+id: kaitlyn-nd
+summary: Homeschooled Minot student with a student pilot certificate who wants a bachelor's in aviation that leads to an airline job.
+hidden_profile:
+  home_state: ND
+  home_zip: "58701"
+  act: 30
+  income_bracket: 110k+
+  interests: [flying, weather, airplanes, maps]
+  dream_without_money: "fly. honestly just fly planes forever"
+  intended_majors: [aviation, professional pilot]
+  riasec: {R: 0.85, I: 0.7, A: 0.2, S: 0.3, E: 0.5, C: 0.6}
+  strengths: [focus under pressure, math, spatial reasoning]
+  favorite_subjects: [physics, geography]
+  activities:
+    - {name: flight lessons, role: student pilot, years: 2}
+    - {name: Civil Air Patrol, role: cadet, years: 3}
+  work_values: [achievement, independence]
+  max_distance_miles: 1000
+  regions: []
+  size_pref: any
+  setting_pref: any
+  priorities: [outcomes, location]
+style: "articulate, knows what she wants, asks pointed questions. polite but efficient."
+reveal: only_when_asked
+quirks:
+  - "homeschooled, so no GPA: says 'we don't really do GPA, I have an ACT'"
+  - "asks how much pilots earn after graduating"
+meta:
+  articulateness: confident
+  edge_cases: [specific_major_outcomes]
+  voice_subset: false

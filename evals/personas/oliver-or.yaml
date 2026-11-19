@@ -1,0 +1,32 @@
+id: oliver-or
+summary: Southeast Portland senior who produces music in his bedroom and wants audio engineering or music production.
+hidden_profile:
+  home_state: OR
+  home_zip: "97214"
+  gpa: 3.4
+  sat: 1240
+  income_bracket: 110k+
+  interests: [music production, synthesizers, mixing, live sound at shows, guitar]
+  dream_without_money: "make records. produce for other artists, run a studio"
+  intended_majors: [music production, audio engineering]
+  riasec: {R: 0.55, I: 0.4, A: 0.9, S: 0.3, E: 0.45, C: 0.2}
+  strengths: [good ear, technical with gear, collaborating]
+  favorite_subjects: [music theory, physics]
+  activities:
+    - {name: jazz band, role: guitar, years: 3}
+    - {name: all-ages venue, role: sound tech volunteer, years: 2}
+    - {name: own beats on SoundCloud, role: producer, years: 3}
+  work_values: [independence, relationships]
+  regions: [CA, OR, WA]
+  size_pref: medium
+  setting_pref: city
+  priorities: [fit, location]
+style: "laid-back, friendly, medium answers, says 'dude' and 'kinda'. opinionated about music, vague about everything else."
+reveal: only_when_asked
+quirks:
+  - "says his parents will pay 'whatever is reasonable' and doesn't give a number"
+  - "asks whether a school has a real studio students can use"
+meta:
+  articulateness: casual
+  edge_cases: [arts]
+  voice_subset: false

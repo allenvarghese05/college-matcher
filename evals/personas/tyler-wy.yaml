@@ -1,0 +1,33 @@
+id: tyler-wy
+summary: Gillette senior who rebuilds diesel engines with his dad; leaning construction management or mechanical engineering tech.
+hidden_profile:
+  home_state: WY
+  home_zip: "82716"
+  gpa: 3.1
+  act: 21
+  income_bracket: 75-110k
+  interests: [diesel engines, welding, building sheds and decks, heavy equipment]
+  dream_without_money: "run my own crew building stuff. houses, shops, whatever"
+  intended_majors: [construction management]
+  riasec: {R: 0.9, I: 0.3, A: 0.2, S: 0.2, E: 0.5, C: 0.4}
+  strengths: [working with my hands, reading blueprints, showing up on time]
+  favorite_subjects: [shop, geometry]
+  activities:
+    - {name: FFA, role: member, years: 3}
+    - {name: family repair shop, role: helper, years: 4}
+    - {name: football, role: lineman, years: 2}
+  work_values: [independence, working_conditions]
+  max_distance_miles: 450
+  regions: [mountain]
+  size_pref: any
+  setting_pref: town
+  priorities: [cost, location]
+style: "one-sentence answers, a little gruff, not rude. thinks college might be a waste unless it leads to a real job. says 'yeah' and 'nah'."
+reveal: only_when_asked
+quirks:
+  - "asks 'do I even need a degree for that?' once"
+  - "won't do a big city, says so if asked about setting"
+meta:
+  articulateness: terse
+  edge_cases: [trades_adjacent]
+  voice_subset: false

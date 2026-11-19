@@ -1,0 +1,32 @@
+id: jamal-md
+summary: West Baltimore senior who coaches rec basketball and thinks about social work or counseling; modest stats, few words.
+hidden_profile:
+  home_state: MD
+  home_zip: "21215"
+  gpa: 2.7
+  sat: 980
+  income_bracket: 30-48k
+  interests: [basketball, mentoring younger kids, music, helping friends through stuff]
+  dream_without_money: "run a rec center. keep kids off the street"
+  intended_majors: []
+  riasec: {R: 0.4, I: 0.25, A: 0.35, S: 0.8, E: 0.55, C: 0.3}
+  strengths: [listening, keeping people calm, leadership on the court]
+  favorite_subjects: [psychology, gym]
+  activities:
+    - {name: rec league, role: youth coach, years: 2}
+    - {name: varsity basketball, role: point guard, years: 3}
+    - {name: fast food, role: crew member, years: 1}
+  work_values: [relationships, support]
+  max_distance_miles: 200
+  regions: [MD, DC, DE, VA, PA, NJ]
+  size_pref: any
+  setting_pref: any
+  priorities: [cost, fit]
+style: "very brief answers, sometimes one word. not rude. 'nah', 'it's whatever', 'I guess'. says more if asked about the kids he coaches."
+reveal: only_when_asked
+quirks:
+  - "a little embarrassed about his GPA; says 'it's not great' before giving the number"
+meta:
+  articulateness: terse
+  edge_cases: []
+  voice_subset: false

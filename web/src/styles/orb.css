@@ -1,0 +1,191 @@
+/*
+ * Voice orb. Pure CSS; JS only writes --level (0..1) for listening/speaking.
+ * Breathing animates `transform` on .orb-breath, live level drives the
+ * independent `scale` property on .orb-body so the two compose.
+ */
+
+.orb {
+  --size: 220px;
+  --level: 0;
+  --amp: 0;
+  --swirl-speed: 26s;
+  --halo: 0.55;
+  position: relative;
+  width: var(--size);
+  height: var(--size);
+  flex: none;
+  isolation: isolate;
+}
+
+.orb-breath {
+  position: absolute;
+  inset: 0;
+  animation: orb-breathe var(--breath) ease-in-out infinite;
+}
+
+.orb-halo {
+  position: absolute;
+  inset: -38%;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--lavender) 85%, transparent) 0%, transparent 52%),
+    radial-gradient(circle at 62% 58%, color-mix(in oklab, var(--sky) 80%, transparent) 0%, transparent 58%);
+  filter: blur(28px);
+  opacity: calc(var(--halo) + var(--level) * 0.35);
+  transition: opacity 600ms var(--ease-out);
+  z-index: -1;
+}
+
+.orb-body {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  overflow: hidden;
+  scale: calc(1 + var(--level) * var(--amp));
+  transition: scale 120ms linear;
+  background: radial-gradient(
+    circle at 34% 30%,
+    var(--orb-core) 0%,
+    color-mix(in oklab, var(--lavender) 70%, var(--orb-core)) 38%,
+    var(--sky) 100%
+  );
+  box-shadow:
+    inset 0 -18px 40px color-mix(in oklab, var(--sky) 55%, transparent),
+    inset 0 10px 30px rgb(255 255 255 / 0.35);
+}
+
+.orb-swirl {
+  position: absolute;
+  inset: -20%;
+  background: conic-gradient(
+    from 0deg,
+    var(--lavender),
+    var(--sky),
+    var(--peach),
+    var(--lavender) 70%,
+    var(--orb-core),
+    var(--lavender)
+  );
+  filter: blur(22px);
+  opacity: 0.55;
+  mix-blend-mode: soft-light;
+  animation: orb-spin var(--swirl-speed) linear infinite;
+}
+
+.orb-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 30% 24%, rgb(255 255 255 / 0.85) 0%, rgb(255 255 255 / 0) 34%);
+  mix-blend-mode: screen;
+  opacity: 0.8;
+}
+
+.orb-ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklab, var(--lavender) 70%, var(--ink) 10%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---- States ---- */
+
+.orb[data-state="idle"] {
+  --swirl-speed: 26s;
+  --halo: 0.5;
+}
+
+.orb[data-state="listening"] {
+  --swirl-speed: 14s;
+  --halo: 0.75;
+  --amp: 0.07;
+}
+
+.orb[data-state="listening"] .orb-ripple {
+  animation: orb-ripple 2.6s var(--ease-out) infinite;
+}
+
+.orb[data-state="listening"] .orb-ripple + .orb-ripple {
+  animation-delay: 1.3s;
+}
+
+.orb[data-state="thinking"] {
+  --swirl-speed: 3.2s;
+  --halo: 0.45;
+}
+
+.orb[data-state="thinking"] .orb-body {
+  scale: 0.93;
+  transition: scale 900ms var(--ease-out);
+}
+
+.orb[data-state="thinking"] .orb-halo {
+  animation: orb-pulse 1.6s ease-in-out infinite;
+}
+
+.orb[data-state="thinking"] .orb-swirl {
+  opacity: 0.8;
+}
+
+.orb[data-state="speaking"] {
+  --swirl-speed: 9s;
+  --halo: 0.6;
+  --amp: 0.09;
+}
+
+.orb[data-state="listening"] .orb-breath,
+.orb[data-state="speaking"] .orb-breath,
+.orb[data-state="thinking"] .orb-breath {
+  animation-play-state: paused;
+}
+
+@keyframes orb-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.035);
+  }
+}
+
+@keyframes orb-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes orb-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+@keyframes orb-pulse {
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Reduced motion: a still orb; state is carried by the label and halo only. */
+@media (prefers-reduced-motion: reduce) {
+  .orb-breath,
+  .orb-swirl,
+  .orb-halo,
+  .orb-ripple {
+    animation: none !important;
+  }
+  .orb-body {
+    scale: 1 !important;
+  }
+  .orb[data-state="thinking"] .orb-body {
+    scale: 0.96 !important;
+  }
+}
