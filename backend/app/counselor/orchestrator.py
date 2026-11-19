@@ -22,11 +22,13 @@ session is held open across the Opus call.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import time
 import uuid
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import Any, Protocol
 
 from sqlalchemy import func, select
@@ -38,7 +40,13 @@ from app.core.logging import TurnLogger, get_logger
 from app.counselor.context import HistoryTurn, plan_next_topic, profile_json
 from app.counselor.extractor import ExtractionOutcome, Extractor, add_extra_evidence
 from app.counselor.facts import load_db_facts
-from app.counselor.groundedness import FactIndex, GroundednessReport, check, has_digit
+from app.counselor.groundedness import (
+    CheckedRecommendation,
+    FactIndex,
+    GroundednessReport,
+    check,
+    has_digit,
+)
 from app.counselor.prompts import load_prompt
 from app.counselor.recommender import Recommender
 from app.db.models import (
@@ -52,9 +60,11 @@ from app.db.models import (
 )
 from app.schemas import (
     Candidate,
+    Claim,
     EvidenceSource,
     NetPriceBasis,
     NextTopic,
+    Recommendation,
     RecommendationOut,
     RecommendationSet,
     RetrievalMode,
@@ -151,6 +161,75 @@ async def recent_turns(db: AsyncSession, session_id: uuid.UUID, limit: int) -> l
         HistoryTurn(idx=t.idx, role="user" if t.role == "user" else "assistant", text=t.text)
         for t in reversed(rows)
     ]
+
+
+RECENT_SET_WINDOW_S = 60.0  # reuse a set this fresh for an identical request
+_INFLIGHT: dict[tuple[uuid.UUID, str, str, int], asyncio.Future[Any]] = {}
+
+
+def _profile_key(profile: StudentProfile) -> str:
+    dumped = json.dumps(profile.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(dumped.encode()).hexdigest()
+
+
+async def recent_recommendation_set(
+    db: AsyncSession,
+    session_id: uuid.UUID,
+    profile: StudentProfile,
+    mode: RetrievalMode,
+    k: int,
+) -> tuple[RecommendationSet, GroundednessReport] | None:
+    """The newest set for this session created in the last ``RECENT_SET_WINDOW_S`` s
+    from the same profile snapshot, mode and k — rebuilt from its stored response."""
+    cutoff = func.now() - timedelta(seconds=RECENT_SET_WINDOW_S)
+    row = (
+        await db.execute(
+            select(RecommendationSetRow)
+            .where(
+                RecommendationSetRow.session_id == session_id,
+                RecommendationSetRow.retrieval_mode == mode,
+                RecommendationSetRow.created_at >= cutoff,
+            )
+            .order_by(RecommendationSetRow.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        return None
+    trace = row.retrieval_trace or {}
+    if (
+        trace.get("k") != k
+        or "response" not in trace
+        or row.profile_used != profile.model_dump(mode="json")
+    ):
+        return None
+    outs = [RecommendationOut.model_validate(o) for o in trace["response"]]
+    report = GroundednessReport(
+        reason_digit_violations=int(trace.get("reason_digit_violations", 0))
+    )
+    for o in outs:
+        rec = Recommendation(
+            unitid=o.unitid,
+            cip4=o.cip4,
+            rank=o.rank,
+            admission_band=o.admission_band,
+            reasons=o.reasons,
+            claims=[
+                Claim(unitid=c.unitid, field=c.field, cip4=c.cip4, value=c.value) for c in o.claims
+            ],
+        )
+        report.recommendations.append(CheckedRecommendation(rec, list(o.claims)))
+        report.n_claims += len(o.claims)
+        report.n_verified += sum(c.verified for c in o.claims)
+    result = RecommendationSet(
+        id=row.id,
+        session_id=session_id,
+        retrieval_mode=mode,
+        recommendations=outs,
+        groundedness=row.groundedness if row.groundedness is not None else report.groundedness,
+        created_at=row.created_at,
+    )
+    return result, report
 
 
 def _basis(facts: dict[str, Any]) -> NetPriceBasis:
@@ -396,16 +475,51 @@ class CounselorOrchestrator:
         mode: RetrievalMode = "hybrid_rerank",
         k: int = 10,
     ) -> tuple[RecommendationSet, GroundednessReport]:
-        assert self.recommender is not None
-        tl = TurnLogger(session_id=str(session_id), stage_group="recommend")
+        """Retrieve -> Opus -> groundedness -> persist, at most once per identical request.
 
-        # A: profile + retrieval (short-lived session)
+        Idempotency (one Opus call per session x profile x mode x k): a concurrent
+        duplicate (e.g. React StrictMode firing twice) awaits the request already in
+        flight, and a set persisted in the last ``RECENT_SET_WINDOW_S`` seconds for the
+        same profile snapshot is returned as-is.
+        """
+        assert self.recommender is not None
         async with self.sessionmaker() as db:
             await get_chat_session(db, session_id)
             profile = await latest_profile(db, session_id)
             missing = profile.missing_for_recommendation()
             if missing:
                 raise NotReady(missing)
+            recent = await recent_recommendation_set(db, session_id, profile, mode, k)
+        if recent is not None:
+            log.info("recommend_reused", session_id=str(session_id), set_id=str(recent[0].id))
+            return recent
+
+        key = (session_id, _profile_key(profile), mode, k)
+        task = _INFLIGHT.get(key)
+        if task is None:
+            task = asyncio.ensure_future(
+                self._recommend_fresh(session_id, profile, retriever, mode, k)
+            )
+            _INFLIGHT[key] = task
+            task.add_done_callback(lambda _t: _INFLIGHT.pop(key, None))
+        else:
+            log.info("recommend_coalesced", session_id=str(session_id))
+        # shield: a disconnecting caller must not cancel the work another caller awaits
+        return await asyncio.shield(task)
+
+    async def _recommend_fresh(
+        self,
+        session_id: uuid.UUID,
+        profile: StudentProfile,
+        retriever: RetrieverProtocol,
+        mode: RetrievalMode,
+        k: int,
+    ) -> tuple[RecommendationSet, GroundednessReport]:
+        assert self.recommender is not None
+        tl = TurnLogger(session_id=str(session_id), stage_group="recommend")
+
+        # A: retrieval (short-lived session)
+        async with self.sessionmaker() as db:
             t0 = time.perf_counter()
             with tl.stage("retrieve") as st:
                 candidates = await retriever.retrieve(
@@ -504,6 +618,11 @@ class CounselorOrchestrator:
                         net_price_basis=_basis(db_facts.get((rec.unitid, rec.cip4), cand.facts)),
                     )
                 )
+            # the exact response, so a duplicate request can be answered without Opus
+            set_row.retrieval_trace = {
+                **set_row.retrieval_trace,
+                "response": [o.model_dump(mode="json") for o in outs],
+            }
             db.add_all(_metric_row(session_id, None, m) for m in tl.stages)
             await db.commit()
             await db.refresh(set_row)
