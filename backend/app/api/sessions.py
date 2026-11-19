@@ -50,11 +50,14 @@ SSE_HEADERS = {
 
 
 def get_retriever() -> RetrieverProtocol:
+    """Retriever with the shared embedder. Imports are lazy and guarded: retrieval and
+    the embedder land in parallel branches; until then this returns 503."""
     try:
+        from app.retrieval.embedder import get_embedder  # type: ignore[import-not-found,unused-ignore]
         from app.retrieval.retriever import Retriever  # type: ignore[import-not-found,unused-ignore]
-    except ImportError as exc:  # retrieval lands in a parallel branch
+    except ImportError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "retriever unavailable") from exc
-    retriever: RetrieverProtocol = Retriever()
+    retriever: RetrieverProtocol = Retriever(embedder=get_embedder())
     return retriever
 
 
@@ -71,6 +74,12 @@ async def _require_session(db: AsyncSession, session_id: uuid.UUID) -> ChatSessi
         return await get_chat_session(db, session_id)
     except SessionNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "session not found") from None
+
+
+async def _check_session_exists(session_id: uuid.UUID) -> None:
+    """Short-lived session: nothing is held open across an SSE stream or an Opus call."""
+    async with get_sessionmaker()() as db:
+        await _require_session(db, session_id)
 
 
 @router.post("", response_model=SessionOut, status_code=status.HTTP_201_CREATED)
@@ -111,18 +120,20 @@ async def get_session_state(
 async def post_turn(
     session_id: uuid.UUID,
     body: TurnIn,
-    db: AsyncSession = Depends(get_session),
     orch: CounselorOrchestrator = Depends(get_orchestrator),
 ) -> StreamingResponse:
-    await _require_session(db, session_id)  # 404 before the stream starts
+    await _check_session_exists(session_id)  # 404 before the stream starts
 
     async def events() -> AsyncIterator[str]:
+        turn = orch.handle_turn(session_id, body.text, "chat")
         try:
-            async for ev in orch.handle_turn(session_id, body.text, "chat"):
+            async for ev in turn:
                 yield ev.sse()
         except Exception as exc:  # never break the SSE framing with a raw 500
             log.error("turn_failed", error=type(exc).__name__)
             yield TurnEvent("error", {"message": "Something went wrong. Please retry."}).sse()
+        finally:
+            await turn.aclose()  # client disconnect: close the model stream, save partial text
 
     return StreamingResponse(events(), media_type="text/event-stream", headers=SSE_HEADERS)
 
@@ -131,20 +142,24 @@ async def post_turn(
 async def post_recommendations(
     session_id: uuid.UUID,
     body: RecommendRequest | None = None,
-    db: AsyncSession = Depends(get_session),
     orch: CounselorOrchestrator = Depends(get_orchestrator),
     retriever: RetrieverProtocol = Depends(get_retriever),
 ) -> RecommendationSet:
-    await _require_session(db, session_id)
     req = body or RecommendRequest()
     try:
         result, _ = await orch.recommend(session_id, retriever, mode=req.mode, k=req.k)
+    except SessionNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "session not found") from None
+    except NotImplementedError as exc:  # e.g. a retrieval mode not built yet
+        raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, str(exc) or "not implemented") from exc
     except NotReady as exc:
         detail: dict[str, Any] = {"message": "profile not ready", "missing": exc.missing}
         raise HTTPException(status.HTTP_409_CONFLICT, detail) from None
     except LLMError as exc:
         code = status.HTTP_503_SERVICE_UNAVAILABLE if exc.retryable else status.HTTP_502_BAD_GATEWAY
         raise HTTPException(code, "recommendation model unavailable") from exc
+    except ValueError as exc:  # invalid retrieval input (e.g. unknown state/region)
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     return result
 
 

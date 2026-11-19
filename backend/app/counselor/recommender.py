@@ -27,32 +27,31 @@ CLAIM_FIELDS: list[str] = list(get_args(ClaimField))
 
 
 def build_output_schema(candidates: list[Candidate]) -> dict[str, Any]:
+    """Wire schema: no optional and no union params (structured-outputs limits).
+
+    Claims carry only ``field`` + ``value``; their unitid/cip4 come from the parent
+    recommendation in :func:`finalize`, so a claim can't be attached to another school.
+    ``cip4`` uses ``""`` as the no-major sentinel instead of ``null``.
+    """
     unitids = sorted({c.unitid for c in candidates})
-    cips = sorted({c.cip4 for c in candidates if c.cip4 is not None})
-    cip_schema: dict[str, Any] = (
-        {"anyOf": [{"type": "string", "enum": cips}, {"type": "null"}]}
-        if cips
-        else {"type": "null"}
-    )
+    cips = sorted({c.cip4 or "" for c in candidates})
     claim = {
         "type": "object",
         "properties": {
-            "unitid": {"type": "integer", "enum": unitids},
             "field": {"type": "string", "enum": CLAIM_FIELDS},
-            "cip4": cip_schema,
             "value": {
                 "type": "string",
-                "description": "Copied from the candidate's facts, e.g. '$14,200' or '62%'.",
+                "description": "Copied from this candidate's facts, e.g. '$14,200' or '62%'.",
             },
         },
-        "required": ["unitid", "field", "cip4", "value"],
+        "required": ["field", "value"],
         "additionalProperties": False,
     }
     rec = {
         "type": "object",
         "properties": {
             "unitid": {"type": "integer", "enum": unitids},
-            "cip4": cip_schema,
+            "cip4": {"type": "string", "enum": cips},
             "reasons": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -77,7 +76,7 @@ def candidate_payload(c: Candidate) -> dict[str, Any]:
         "name": c.name,
         "city": c.city,
         "state": c.state,
-        "cip4": c.cip4,
+        "cip4": c.cip4 or "",
         "major": c.cip_title,
         "estimated_admission_band": c.admission_band,
         "band_confidence": c.band_confidence,
@@ -114,14 +113,9 @@ def finalize(raw: dict[str, Any], candidates: list[Candidate], k: int) -> list[R
         unitid = int(item["unitid"])
         if unitid in seen or unitid not in best_by_unitid:
             continue
-        cand = by_pair.get((unitid, item.get("cip4"))) or best_by_unitid[unitid]
+        cand = by_pair.get((unitid, item.get("cip4") or None)) or best_by_unitid[unitid]
         claims = [
-            Claim(
-                unitid=int(cl["unitid"]),
-                field=cl["field"],
-                cip4=cl.get("cip4"),
-                value=str(cl["value"]),
-            )
+            Claim(unitid=cand.unitid, field=cl["field"], cip4=cand.cip4, value=str(cl["value"]))
             for cl in item.get("claims", [])
         ]
         out.append(
@@ -145,7 +139,7 @@ class Recommender:
     llm: LLMClient
     model: str = field(default_factory=lambda: get_settings().MODEL_STRONG)
     effort: Effort = "high"
-    max_tokens: int = 16000
+    max_tokens: int = 32000
 
     async def synthesize(
         self,

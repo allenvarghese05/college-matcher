@@ -222,8 +222,12 @@ def check_claim(claim: Claim, facts: FactIndex, default_cip4: str | None = None)
     )
 
 
+def has_digit(text: str) -> bool:
+    return _DIGIT.search(text) is not None
+
+
 def count_digit_reasons(reasons: Iterable[str]) -> int:
-    return sum(1 for r in reasons if _DIGIT.search(r))
+    return sum(1 for r in reasons if has_digit(r))
 
 
 def check(recs: Iterable[Recommendation], facts: FactIndex) -> GroundednessReport:

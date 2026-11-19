@@ -4,14 +4,19 @@
 
 1. persist the user turn;
 2. run the reply stream (Sonnet) and the extraction (Sonnet, structured) **concurrently**;
-   the reply prompt sees the profile as of the previous turn + missing fields + a
-   next-topic hint (it is one turn behind by design);
-3. merge the extraction delta with ``schemas.apply_delta``;
-4. persist profile snapshot, assistant turn and ``turn_metric`` rows
+   the reply prompt sees the profile as of the previous turn + missing fields + the
+   previous extraction's next-topic hint (it is one turn behind by design);
+3. merge the extraction delta with ``schemas.apply_delta`` (an extraction failure of
+   any kind is logged and never blocks the reply);
+4. persist profile snapshot (+ ``next_topic``), assistant turn and ``turn_metric`` rows
    (``extract``, ``reply_ttft``, ``reply_total``);
 5. yield SSE events: ``token``* -> ``profile`` -> ``ready`` -> ``done`` (or ``error``).
 
-``recommend`` — retrieve -> synthesize (Opus) -> groundedness check -> persist.
+If the client disconnects mid-reply the model stream is closed and the partial
+assistant text is persisted with ``interrupted=True``.
+
+``recommend`` — retrieve -> synthesize (Opus) -> groundedness check -> persist. No DB
+session is held open across the Opus call.
 """
 
 from __future__ import annotations
@@ -20,7 +25,7 @@ import asyncio
 import json
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -33,7 +38,7 @@ from app.core.logging import TurnLogger, get_logger
 from app.counselor.context import HistoryTurn, plan_next_topic, profile_json
 from app.counselor.extractor import Extractor
 from app.counselor.facts import load_db_facts
-from app.counselor.groundedness import FactIndex, GroundednessReport, check
+from app.counselor.groundedness import FactIndex, GroundednessReport, check, has_digit
 from app.counselor.prompts import load_prompt
 from app.counselor.recommender import Recommender
 from app.db.models import (
@@ -49,6 +54,7 @@ from app.schemas import (
     Candidate,
     EvidenceSource,
     ExtractionResult,
+    NextTopic,
     RecommendationOut,
     RecommendationSet,
     RetrievalMode,
@@ -68,7 +74,13 @@ REFUSAL_FALLBACK = (
 
 class RetrieverProtocol(Protocol):
     async def retrieve(
-        self, session: AsyncSession, profile: StudentProfile, k: int, mode: RetrievalMode
+        self,
+        session: AsyncSession,
+        profile: StudentProfile,
+        k: int,
+        mode: RetrievalMode,
+        *,
+        logger: TurnLogger | None = None,
     ) -> list[Candidate]: ...
 
 
@@ -101,7 +113,10 @@ async def get_chat_session(db: AsyncSession, session_id: uuid.UUID) -> ChatSessi
     return row
 
 
-async def latest_profile(db: AsyncSession, session_id: uuid.UUID) -> StudentProfile:
+async def latest_state(
+    db: AsyncSession, session_id: uuid.UUID
+) -> tuple[StudentProfile, NextTopic | None]:
+    """Latest profile snapshot and the extractor's ``next_topic`` stored with it."""
     snap = (
         await db.execute(
             select(ProfileSnapshot)
@@ -110,7 +125,13 @@ async def latest_profile(db: AsyncSession, session_id: uuid.UUID) -> StudentProf
             .limit(1)
         )
     ).scalar_one_or_none()
-    return StudentProfile.model_validate(snap.profile) if snap else StudentProfile()
+    if snap is None:
+        return StudentProfile(), None
+    return StudentProfile.model_validate(snap.profile), snap.next_topic  # type: ignore[return-value]
+
+
+async def latest_profile(db: AsyncSession, session_id: uuid.UUID) -> StudentProfile:
+    return (await latest_state(db, session_id))[0]
 
 
 async def recent_turns(db: AsyncSession, session_id: uuid.UUID, limit: int) -> list[HistoryTurn]:
@@ -144,12 +165,16 @@ def _metric_row(
         input_tokens=int(rec.get("input_tokens") or 0),
         output_tokens=int(rec.get("output_tokens") or 0),
         cache_read_tokens=int(rec.get("cache_read_tokens") or 0),
+        cache_creation_tokens=int(rec.get("cache_creation_tokens") or 0),
         cost_usd=float(rec.get("cost_usd") or 0.0),
     )
 
 
 def build_reply_messages(
-    history: list[HistoryTurn], text: str, profile: StudentProfile
+    history: list[HistoryTurn],
+    text: str,
+    profile: StudentProfile,
+    next_topic: NextTopic | None = None,
 ) -> list[dict[str, Any]]:
     """History window + new user message + a trailing mid-conversation system note.
 
@@ -166,7 +191,7 @@ def build_reply_messages(
         "Private counselor note (never reveal or quote it).\n"
         f"Known about the student: {profile_json(profile)}\n"
         f"Still needed before recommendations: {', '.join(missing) if missing else 'nothing'}\n"
-        f"Suggested next topic: {plan_next_topic(profile)}\n"
+        f"Suggested next topic: {next_topic or plan_next_topic(profile)}\n"
         f"Ready for recommendations: {'yes' if not missing else 'no'}"
     )
     msgs.append({"role": "system", "content": note})
@@ -193,15 +218,48 @@ class CounselorOrchestrator:
 
     # ------------------------------------------------------------- turn pipeline
 
+    async def _persist_turn(
+        self,
+        *,
+        session_id: uuid.UUID,
+        user_idx: int,
+        user_turn_id: uuid.UUID,
+        source: EvidenceSource,
+        assistant_text: str | None,
+        interrupted: bool,
+        snapshot: tuple[StudentProfile, NextTopic] | None,
+        metrics: list[dict[str, Any]],
+    ) -> Turn | None:
+        async with self.sessionmaker() as db:
+            if snapshot is not None:
+                db.add(
+                    ProfileSnapshot(
+                        session_id=session_id,
+                        after_turn=user_idx,
+                        profile=snapshot[0].model_dump(mode="json"),
+                        next_topic=snapshot[1],
+                    )
+                )
+            assistant_turn: Turn | None = None
+            if assistant_text is not None:
+                assistant_turn = Turn(
+                    session_id=session_id, idx=user_idx + 1, role="assistant",
+                    text=assistant_text, source=source, interrupted=interrupted,
+                )  # fmt: skip
+                db.add(assistant_turn)
+            db.add_all(_metric_row(session_id, user_turn_id, m) for m in metrics)
+            await db.commit()
+        return assistant_turn
+
     async def handle_turn(
         self, session_id: uuid.UUID, text: str, source: EvidenceSource = "chat"
-    ) -> AsyncIterator[TurnEvent]:
+    ) -> AsyncGenerator[TurnEvent, None]:
         assert self.extractor is not None
         # 1. persist the user turn; load previous profile + history
         async with self.sessionmaker() as db:
             await get_chat_session(db, session_id)
             history = await recent_turns(db, session_id, self.history_window)
-            prev_profile = await latest_profile(db, session_id)
+            prev_profile, prev_topic = await latest_state(db, session_id)
             max_idx = (
                 await db.execute(select(func.max(Turn.idx)).where(Turn.session_id == session_id))
             ).scalar_one_or_none()
@@ -217,74 +275,95 @@ class CounselorOrchestrator:
 
         async def run_extraction() -> ExtractionResult:
             with tl.stage("extract") as st:
-                return await extractor.extract(history, text, prev_profile, stage=st)
+                try:
+                    return await extractor.extract(history, text, prev_profile, stage=st)
+                except LLMRefusalError as exc:
+                    st.set(refusals=1, refusal=exc.category)
+                    raise
 
         # 2. extraction and reply run concurrently
         extract_task = asyncio.create_task(run_extraction())
+        stream = self.llm.stream_text(
+            self.reply_model,
+            load_prompt("counselor_reply").text,
+            build_reply_messages(history, text, prev_profile, prev_topic),
+            effort=self.reply_effort,
+            max_tokens=self.reply_max_tokens,
+        )
         reply_parts: list[str] = []
-        ttft_ms: float | None = None
         reply_error: str | None = None
+        stream_stage = None
+        finished = False
         try:
             with tl.stage("reply_total") as st:
-                stream = self.llm.stream_text(
-                    self.reply_model,
-                    load_prompt("counselor_reply").text,
-                    build_reply_messages(history, text, prev_profile),
-                    effort=self.reply_effort,
-                    max_tokens=self.reply_max_tokens,
-                    stage=st,
-                )
+                st.set(prompt=load_prompt("counselor_reply").id)
+                stream_stage = st
                 try:
                     async for chunk in stream:
                         reply_parts.append(chunk)
                         yield TurnEvent("token", {"text": chunk})
                 except LLMRefusalError as exc:
-                    st.set(refusal=exc.category)
+                    st.set(refusals=1, refusal=exc.category)
                     if not reply_parts:
                         reply_parts.append(REFUSAL_FALLBACK)
                         yield TurnEvent("token", {"text": REFUSAL_FALLBACK})
-                ttft_ms = stream.ttft_ms
-                st.set(prompt=load_prompt("counselor_reply").id, ttft_ms=ttft_ms)
-        except LLMError as exc:
-            reply_error = str(exc)
-            log.error("reply_failed", error=type(exc).__name__)
-        except BaseException:
-            extract_task.cancel()
-            raise
+                except LLMError as exc:
+                    reply_error = type(exc).__name__
+                    log.error("reply_failed", error=reply_error)
+                st.record_usage(
+                    model=self.reply_model,
+                    input_tokens=stream.usage.input_tokens,
+                    output_tokens=stream.usage.output_tokens,
+                    cache_read_tokens=stream.usage.cache_read_tokens,
+                    cache_creation_tokens=stream.usage.cache_creation_tokens,
+                    cost=stream.usage.cost(self.reply_model),
+                )
+                st.set(ttft_ms=stream.ttft_ms)
+            finished = True
+        finally:
+            if not finished:  # client went away (GeneratorExit / cancellation)
+                await stream.aclose()
+                extract_task.cancel()
+                if stream_stage is not None:
+                    stream_stage.set(interrupted=True)
+                await asyncio.shield(
+                    self._persist_turn(
+                        session_id=session_id,
+                        user_idx=user_idx,
+                        user_turn_id=user_turn_id,
+                        source=source,
+                        assistant_text="".join(reply_parts) if reply_parts else None,
+                        interrupted=True,
+                        snapshot=None,
+                        metrics=list(tl.stages),
+                    )
+                )
 
-        # 3. merge extraction
+        # 3. merge extraction — any failure keeps the previous profile
         profile = prev_profile
-        extraction_ok = True
+        snapshot: tuple[StudentProfile, NextTopic] | None = None
         try:
             result = await extract_task
             profile = apply_delta(prev_profile, result.delta, user_idx, source)
-        except LLMError as exc:
-            extraction_ok = False
+            snapshot = (profile, result.next_topic)
+        except Exception as exc:
             log.error("extract_failed", error=type(exc).__name__)
 
-        # 4. persist
-        assistant_text = "".join(reply_parts)
+        # 4. persist (partial text after a mid-stream error is kept as interrupted)
         metrics = list(tl.stages)
-        if ttft_ms is not None:
-            metrics.append({"stage": "reply_ttft", "ms": ttft_ms, "model": self.reply_model})
-        async with self.sessionmaker() as db:
-            if extraction_ok:
-                db.add(
-                    ProfileSnapshot(
-                        session_id=session_id,
-                        after_turn=user_idx,
-                        profile=profile.model_dump(mode="json"),
-                    )
-                )
-            assistant_turn: Turn | None = None
-            if reply_error is None:
-                assistant_turn = Turn(
-                    session_id=session_id, idx=user_idx + 1, role="assistant",
-                    text=assistant_text, source=source,
-                )  # fmt: skip
-                db.add(assistant_turn)
-            db.add_all(_metric_row(session_id, user_turn_id, m) for m in metrics)
-            await db.commit()
+        if stream.ttft_ms is not None:
+            metrics.append({"stage": "reply_ttft", "ms": stream.ttft_ms, "model": self.reply_model})
+        assistant_text = "".join(reply_parts)
+        assistant_turn = await self._persist_turn(
+            session_id=session_id,
+            user_idx=user_idx,
+            user_turn_id=user_turn_id,
+            source=source,
+            assistant_text=assistant_text if (reply_error is None or reply_parts) else None,
+            interrupted=reply_error is not None,
+            snapshot=snapshot,
+            metrics=metrics,
+        )
 
         # 5. remaining events
         if reply_error is not None:
@@ -311,29 +390,40 @@ class CounselorOrchestrator:
     ) -> tuple[RecommendationSet, GroundednessReport]:
         assert self.recommender is not None
         tl = TurnLogger(session_id=str(session_id), stage_group="recommend")
+
+        # A: profile + retrieval (short-lived session)
         async with self.sessionmaker() as db:
             await get_chat_session(db, session_id)
             profile = await latest_profile(db, session_id)
             missing = profile.missing_for_recommendation()
             if missing:
                 raise NotReady(missing)
-
             t0 = time.perf_counter()
             with tl.stage("retrieve") as st:
-                candidates = await retriever.retrieve(db, profile, max(RETRIEVE_K, k), mode)
+                candidates = await retriever.retrieve(
+                    db, profile, max(RETRIEVE_K, k), mode, logger=tl
+                )
                 st.set(n_candidates=len(candidates), mode=mode)
             retrieve_ms = round((time.perf_counter() - t0) * 1000, 2)
 
-            with tl.stage("recommend") as st:
+        # B: Opus synthesis — no DB connection held
+        with tl.stage("recommend") as st:
+            try:
                 recs = await self.recommender.synthesize(profile, candidates, k, stage=st)
+            except LLMRefusalError as exc:
+                st.set(refusals=1, refusal=exc.category)
+                raise
 
+        # C: groundedness against Postgres + persist
+        async with self.sessionmaker() as db:
             with tl.stage("groundedness") as st:
                 facts = FactIndex.from_candidates(candidates)
-                for (unitid, cip4), row in (
-                    await load_db_facts(
-                        db, {(r.unitid, r.cip4) for r in recs}, profile.income_bracket.value
-                    )
-                ).items():
+                claim_keys = {(c.unitid, c.cip4) for r in recs for c in r.claims}
+                rec_keys = {(r.unitid, r.cip4) for r in recs}
+                db_facts = await load_db_facts(
+                    db, claim_keys | rec_keys, profile.income_bracket.value
+                )
+                for (unitid, cip4), row in db_facts.items():
                     facts.add(unitid, cip4, row)  # Postgres values override candidate copies
                 report = check(recs, facts)
                 st.set(
@@ -362,6 +452,7 @@ class CounselorOrchestrator:
             for checked in report.recommendations:
                 rec = checked.recommendation
                 cand = by_pair[(rec.unitid, rec.cip4)]
+                reasons = [r for r in rec.reasons if not has_digit(r)]  # never display digits
                 rec_row = RecommendationRow(
                     set_id=set_row.id,
                     unitid=rec.unitid,
@@ -370,7 +461,7 @@ class CounselorOrchestrator:
                     admission_band=rec.admission_band,
                     band_confidence=cand.band_confidence,
                     score_breakdown=cand.scores.model_dump(),
-                    reasons=rec.reasons,
+                    reasons=reasons,
                 )
                 db.add(rec_row)
                 await db.flush()
@@ -397,7 +488,7 @@ class CounselorOrchestrator:
                         admission_band=rec.admission_band,
                         band_confidence=cand.band_confidence,
                         scores=cand.scores,
-                        reasons=rec.reasons,
+                        reasons=reasons,
                         claims=checked.claims,
                     )
                 )

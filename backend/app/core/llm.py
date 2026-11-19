@@ -3,8 +3,13 @@
 Every Claude call in the app goes through :class:`LLMClient`:
 
 * ``stream_text`` — streamed text reply (``client.messages.stream``).
-* ``parse`` — structured output (``client.messages.parse``) against a Pydantic model
-  or a raw JSON schema (sent as ``output_config.format``).
+* ``parse`` — structured output: the schema (Pydantic model or JSON-schema dict) is
+  passed through ``anthropic.transform_schema`` and sent as
+  ``output_config.format = {"type": "json_schema", ...}`` on a streamed request
+  (``messages.stream`` + ``get_final_message``, so large ``max_tokens`` never hits
+  HTTP timeouts). No SDK-side eager validation: we record usage and the cassette,
+  check ``stop_reason`` (refusal / max_tokens) first, and only then validate locally,
+  raising :class:`LLMOutputError` on a schema mismatch.
 
 Modes (``LLM_MODE``):
 
@@ -13,7 +18,7 @@ Modes (``LLM_MODE``):
 * ``replay`` — never touch the network; answer from cassettes. A miss raises
   :class:`ReplayMissError` naming the request hash.
 
-Cassettes live under ``LLM_CASSETTE_DIR`` (env var; default ``<repo>/evals/recordings``)
+Cassettes live under ``Settings.LLM_CASSETTE_DIR`` (default ``<repo>/evals/recordings``)
 as ``<kind>-<hash>.json``. The hash is a SHA-256 over the canonical JSON of
 (kind, model, system, messages, schema, params), so any prompt change is a new key.
 
@@ -29,6 +34,7 @@ import contextvars
 import hashlib
 import json
 import os
+import tempfile
 import time
 from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
@@ -37,7 +43,7 @@ from pathlib import Path
 from typing import Any, Literal, TypeVar, overload
 
 import anthropic
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.core.config import LLMMode, get_settings
 from app.core.cost import cost_usd
@@ -50,7 +56,6 @@ M = TypeVar("M", bound=BaseModel)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_CASSETTE_DIR = REPO_ROOT / "evals" / "recordings"
-CACHE_WRITE_MULTIPLIER = 1.25  # 5-minute ephemeral cache writes bill at 1.25x input
 
 _current_stage: contextvars.ContextVar[Stage | None] = contextvars.ContextVar(
     "llm_stage", default=None
@@ -162,11 +167,15 @@ class Usage:
 
     def cost(self, model: str) -> float | None:
         try:
-            base = cost_usd(model, self.input_tokens, self.output_tokens, self.cache_read_tokens)
-            write = cost_usd(model, input_tokens=self.cache_creation_tokens)
+            return cost_usd(
+                model,
+                self.input_tokens,
+                self.output_tokens,
+                self.cache_read_tokens,
+                self.cache_creation_tokens,
+            )
         except KeyError:
             return None
-        return base + write * CACHE_WRITE_MULTIPLIER
 
 
 def _record(stage: Stage | None, model: str, usage: Usage) -> None:
@@ -178,10 +187,8 @@ def _record(stage: Stage | None, model: str, usage: Usage) -> None:
         input_tokens=usage.input_tokens,
         output_tokens=usage.output_tokens,
         cache_read_tokens=usage.cache_read_tokens,
+        cache_creation_tokens=usage.cache_creation_tokens,
         cost=usage.cost(model),
-    )
-    st.extra["cache_creation_tokens"] = (
-        int(st.extra.get("cache_creation_tokens", 0)) + usage.cache_creation_tokens
     )
 
 
@@ -210,10 +217,18 @@ class CassetteStore:
         return data
 
     def save(self, kind: str, key: str, request: dict[str, Any], response: dict[str, Any]) -> Path:
+        """Atomic write (temp file in the same dir + ``os.replace``)."""
         self.directory.mkdir(parents=True, exist_ok=True)
         p = self.path(kind, key)
         payload = {"key": key, "kind": kind, "request": request, "response": response}
-        p.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+        fd, tmp = tempfile.mkstemp(dir=self.directory, prefix=f".{p.name}.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+            os.replace(tmp, p)
+        except BaseException:
+            Path(tmp).unlink(missing_ok=True)
+            raise
         return p
 
 
@@ -242,9 +257,19 @@ class TextStream:
         return chunk
 
     async def aclose(self) -> None:
+        """Close the underlying request (e.g. the client disconnected mid-reply)."""
         aclose = getattr(self._gen, "aclose", None)
         if aclose is not None:
             await aclose()
+
+
+def _refusal_category(msg: Any) -> str | None:
+    details = getattr(msg, "stop_details", None)
+    return getattr(details, "category", None) if details is not None else None
+
+
+def _first_text(msg: Any) -> str:
+    return next((b.text for b in msg.content if getattr(b, "type", None) == "text"), "")
 
 
 # ---------------------------------------------------------------------- client
@@ -265,8 +290,7 @@ class LLMClient:
     @classmethod
     def from_settings(cls) -> LLMClient:
         s = get_settings()
-        directory = Path(os.environ.get("LLM_CASSETTE_DIR") or DEFAULT_CASSETTE_DIR)
-        return cls(mode=s.LLM_MODE, cassette_dir=directory)
+        return cls(mode=s.LLM_MODE, cassette_dir=s.LLM_CASSETTE_DIR or DEFAULT_CASSETTE_DIR)
 
     # -- plumbing
 
@@ -314,14 +338,14 @@ class LLMClient:
                 if cas is None:
                     raise ReplayMissError(key, "stream", model, self.store.directory)
                 resp = cas["response"]
-                if resp.get("stop_reason") == "refusal":
-                    raise LLMRefusalError(resp.get("refusal_category"))
-                for chunk in resp["chunks"]:
+                for chunk in resp["chunks"]:  # partial chunks first, like live
                     await asyncio.sleep(self.replay_chunk_delay_s)
                     yield chunk
                 ts.stop_reason = resp.get("stop_reason")
                 ts.usage = Usage.from_dict(resp.get("usage", {}))
                 _record(stage, model, ts.usage)
+                if ts.stop_reason == "refusal":
+                    raise LLMRefusalError(resp.get("refusal_category"))
                 return
 
             chunks: list[str] = []
@@ -402,10 +426,7 @@ class LLMClient:
         stage: Stage | None = None,
     ) -> BaseModel | dict[str, Any]:
         """Structured output. ``output`` is a Pydantic model class or a JSON schema dict."""
-        is_model = isinstance(output, type) and issubclass(output, BaseModel)
-        schema: dict[str, Any] = (
-            output.model_json_schema() if is_model else output  # type: ignore[union-attr,assignment]
-        )
+        schema = wire_schema(output)
         request = {
             "model": model,
             "system": system,
@@ -424,26 +445,22 @@ class LLMClient:
             usage = Usage.from_dict(resp.get("usage", {}))
             category = resp.get("refusal_category")
         else:
-            kwargs: dict[str, Any] = {
-                "model": model,
-                "max_tokens": max_tokens,
-                "system": self.system_blocks(system),
-                "messages": messages,
-            }
-            if is_model:
-                kwargs["output_format"] = output
-                kwargs["output_config"] = {"effort": effort}
-            else:
-                kwargs["output_config"] = {
-                    "effort": effort,
-                    "format": {"type": "json_schema", "schema": schema},
-                }
             try:
-                msg = await self._api().messages.parse(**kwargs)
+                async with self._api().messages.stream(
+                    model=model,
+                    max_tokens=max_tokens,
+                    system=self.system_blocks(system),
+                    messages=messages,
+                    output_config={
+                        "effort": effort,
+                        "format": {"type": "json_schema", "schema": schema},
+                    },
+                ) as s:
+                    msg = await s.get_final_message()
             except anthropic.APIError as exc:
                 raise _translate(exc) from exc
             stop_reason = msg.stop_reason
-            text = next((b.text for b in msg.content if getattr(b, "type", None) == "text"), "")
+            text = _first_text(msg)
             usage = Usage.from_api(msg.usage)
             category = _refusal_category(msg)
             if self.mode == "record":
@@ -465,17 +482,59 @@ class LLMClient:
         if stop_reason == "max_tokens":
             raise LLMOutputError("structured output truncated (stop_reason=max_tokens)")
         try:
-            if is_model:
-                return output.model_validate_json(text)  # type: ignore[union-attr]
+            if isinstance(output, type):
+                return output.model_validate_json(text)
             data: dict[str, Any] = json.loads(text)
             return data
-        except ValueError as exc:
-            raise LLMOutputError(f"could not parse structured output: {exc}") from exc
+        except (ValidationError, ValueError) as exc:
+            raise LLMOutputError(f"structured output failed validation: {exc}") from exc
 
 
-def _refusal_category(msg: Any) -> str | None:
-    details = getattr(msg, "stop_details", None)
-    return getattr(details, "category", None) if details is not None else None
+def wire_schema(output: type[BaseModel] | dict[str, Any]) -> dict[str, Any]:
+    """The exact JSON schema sent as ``output_config.format.schema``."""
+    return anthropic.transform_schema(output)
+
+
+# Structured-outputs complexity limits (per request, across the whole schema).
+MAX_OPTIONAL_PARAMS = 24
+MAX_UNION_PARAMS = 16
+
+
+@dataclass(frozen=True)
+class SchemaComplexity:
+    optional: int  # object properties not listed in ``required``
+    unions: int  # nodes using anyOf/oneOf or a list-valued ``type`` (incl. nullable)
+
+
+def schema_complexity(schema: dict[str, Any]) -> SchemaComplexity:
+    """Walk a (transformed) JSON schema, including ``$defs``, and count limit-relevant
+    constructs. ``$defs`` are counted once each, as the API compiles them once."""
+    optional = unions = 0
+
+    def walk(node: Any) -> None:
+        nonlocal optional, unions
+        if isinstance(node, list):
+            for n in node:
+                walk(n)
+            return
+        if not isinstance(node, dict):
+            return
+        if "anyOf" in node or "oneOf" in node or isinstance(node.get("type"), list):
+            unions += 1
+        props = node.get("properties")
+        if isinstance(props, dict):
+            required = set(node.get("required") or [])
+            optional += sum(1 for k in props if k not in required)
+            for v in props.values():
+                walk(v)
+        for k in ("items", "anyOf", "oneOf", "allOf"):
+            if k in node:
+                walk(node[k])
+        for v in (node.get("$defs") or {}).values():
+            walk(v)
+
+    walk(schema)
+    return SchemaComplexity(optional=optional, unions=unions)
 
 
 _default_client: LLMClient | None = None
