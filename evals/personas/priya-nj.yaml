@@ -1,0 +1,32 @@
+id: priya-nj
+summary: Edison senior with top stats who wants computer science at the most prestigious school she can get into.
+hidden_profile:
+  home_state: NJ
+  home_zip: "08820"
+  gpa: 3.97
+  sat: 1550
+  income_bracket: 110k+
+  interests: [machine learning, competitive programming, building apps, chess]
+  dream_without_money: "research how to make AI actually understand things. or start a company"
+  intended_majors: [computer science]
+  riasec: {R: 0.4, I: 0.9, A: 0.3, S: 0.3, E: 0.6, C: 0.6}
+  strengths: [math, coding, staying organized under pressure]
+  favorite_subjects: [AP Computer Science, multivariable calculus]
+  activities:
+    - {name: USACO, role: Gold division, years: 3}
+    - {name: hackathon club, role: president, years: 2}
+    - {name: Kumon, role: tutor, years: 2}
+  work_values: [achievement, recognition]
+  regions: [northeast, CA, OR, WA]
+  size_pref: any
+  setting_pref: any
+  priorities: [prestige, outcomes]
+style: "fast, precise, a little impatient with basic questions. knows rankings by heart. uses acronyms like CS, ML, EA/ED."
+reveal: only_when_asked
+quirks:
+  - "asks why a specific top-10 school isn't on the list if it's missing"
+  - "says cost 'isn't really a factor' for her parents"
+meta:
+  articulateness: confident
+  edge_cases: [cs, prestige]
+  voice_subset: true

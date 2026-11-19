@@ -1,0 +1,33 @@
+id: harper-ut
+summary: Cedar City senior who loves statistics and sudoku and wants actuarial science; strong stats, relaxed about it.
+hidden_profile:
+  home_state: UT
+  home_zip: "84720"
+  gpa: 3.9
+  act: 31
+  income_bracket: 110k+
+  budget_cap: 35000
+  interests: [statistics, sudoku and logic puzzles, baseball analytics, board games]
+  dream_without_money: "figure out probabilities for a living. like an actuary or a sports analytics person"
+  intended_majors: [actuarial science, statistics]
+  riasec: {R: 0.3, I: 0.75, A: 0.2, S: 0.3, E: 0.35, C: 0.85}
+  strengths: [math, patience, logic]
+  favorite_subjects: [AP Statistics, calculus]
+  activities:
+    - {name: math club, role: treasurer, years: 3}
+    - {name: softball, role: scorekeeper and stats, years: 2}
+    - {name: tutoring center, role: math tutor, years: 2}
+  work_values: [working_conditions, achievement]
+  max_distance_miles: 700
+  regions: [mountain, CA, OR, WA]
+  size_pref: medium
+  setting_pref: any
+  priorities: [outcomes, cost]
+style: "easygoing, friendly, medium answers with dry humor. not stressed about college."
+reveal: only_when_asked
+quirks:
+  - "first says budget doesn't matter, later gives $35k as what her parents set; the hidden profile uses $35k"
+meta:
+  articulateness: casual
+  edge_cases: [contradicts_self]
+  voice_subset: false
