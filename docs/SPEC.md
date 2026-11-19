@@ -540,7 +540,7 @@ Final list balances bands (e.g. 2–3 safety, 4–5 target, 2–3 reach) when ba
 ### Admission estimator (deterministic, labelled "estimated")
 Data reality (`docs/data_coverage.md`): 95.7% of schools have an admission rate or are open-admission; only 43.7% report SAT/ACT ranges. So the estimator has tiers:
 
-1. **Open admission** (`OPENADMP = 1`, 24.8% of schools) → **safety**, no stats needed.
+1. **Open admission** (`OPENADMP = 1`, 24.8% of schools) → **safety**, no test ranges needed (the student must still have shared a GPA or test score, per D9).
 2. **Selectivity cap:** admission rate < 15% (60 schools) → always **reach**, regardless of stats.
 3. **Test position** (student gave SAT/ACT and school reports ranges): below 25th → low, 25th–75th → mid, above 75th → high.
 4. **GPA modifier** (if GPA): ≥ 3.8 nudges up one step, < 3.0 nudges down one step. Test scores dominate: GPA never moves more than one step.
