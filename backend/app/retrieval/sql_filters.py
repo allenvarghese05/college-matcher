@@ -7,9 +7,14 @@
 * Budget (if ``budget_cap``): net price at the student's bracket ≤ cap × 1.15. If the
   bracket price is missing we fall back to the school's average net price; if both are
   missing the school is excluded (we can't show it is affordable).
-* Regions (if ``regions``): school state ∈ ``states_for_regions(regions, home_state)``.
-* Distance (if ``max_distance_miles`` and ``home_state``): haversine from the home
-  state's population centroid to the school ≤ max distance (computed in Python).
+* Geography (criteria H3):
+  - Distance (if ``max_distance_miles`` and ``home_state``): haversine from the home
+    state's population centroid to the school ≤ max distance × 1.10 (computed in
+    Python). See ``geo`` for the centroid limitation.
+  - Regions (if ``regions``): school state ∈ ``states_for_regions(regions, home_state)``
+    — hard **only when distance is not the hard rule**. When distance is enforced,
+    regions become a soft preference (``CandidateRow.region_match``).
+  - Relaxation order (done by the retriever): distance first, then regions.
 
 Rows carry every fact the recommender may cite (see ``CandidateRow``).
 """
@@ -26,6 +31,7 @@ from app.retrieval.geo import distance_from_home, states_for_regions
 from app.schemas import IncomeBracket, StudentProfile
 
 BUDGET_SLACK = 1.15
+DISTANCE_SLACK = 1.10
 BACHELORS = 3
 
 NET_PRICE_COLUMNS: dict[str, str] = {
@@ -109,6 +115,7 @@ class CandidateRow:
     program_median_debt: int | None = None
     program_graduates: int | None = None
     distance_miles: float | None = None
+    region_match: bool | None = None  # set when regions are a soft preference only
 
     def net_price_at(self, bracket: IncomeBracket | str | None) -> int | None:
         """Net price at the bracket (DB value, may be None)."""
@@ -124,7 +131,8 @@ class CandidateRow:
 @dataclass(frozen=True)
 class FilterOptions:
     apply_budget: bool = True
-    apply_location: bool = True
+    apply_distance: bool = True
+    apply_regions: bool = True
 
 
 async def candidates(
@@ -165,11 +173,15 @@ async def candidates(
         params["max_price"] = cap * BUDGET_SLACK
 
     home = profile.home_state.value
-    if opts.apply_location and profile.regions.value:
-        states = states_for_regions(profile.regions.value, home)
-        if states:
-            where.append("i.state = ANY(:states)")
-            params["states"] = sorted(states)
+    max_d = profile.max_distance_miles.value
+    distance_hard = opts.apply_distance and max_d is not None and bool(home)
+    region_states: set[str] = (
+        states_for_regions(profile.regions.value, home) if profile.regions.value else set()
+    )
+    regions_hard = opts.apply_regions and not distance_hard and bool(region_states)
+    if regions_hard:
+        where.append("i.state = ANY(:states)")
+        params["states"] = sorted(region_states)
 
     if where:
         sql += " AND " + " AND ".join(where)
@@ -180,9 +192,11 @@ async def candidates(
 
     for row in rows:
         row.distance_miles = distance_from_home(home, row.lat, row.lon)
-    max_d = profile.max_distance_miles.value
-    if opts.apply_location and max_d is not None and home:
-        rows = [r for r in rows if r.distance_miles is not None and r.distance_miles <= max_d]
+        if region_states and not regions_hard:
+            row.region_match = row.state in region_states
+    if distance_hard and max_d is not None:
+        cutoff = max_d * DISTANCE_SLACK
+        rows = [r for r in rows if r.distance_miles is not None and r.distance_miles <= cutoff]
     return rows
 
 

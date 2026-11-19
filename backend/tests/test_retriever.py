@@ -259,9 +259,66 @@ async def test_distance_filter(fixture_session: AsyncSession) -> None:
              max_distance_miles=400)  # fmt: skip
     rows = await sql_filters.candidates(fixture_session, p, ["5138"])
     assert rows
-    assert all(r.distance_miles is not None and r.distance_miles <= 400 for r in rows)
+    assert all(r.distance_miles is not None and r.distance_miles <= 440 for r in rows)
     states = {r.state for r in rows}
     assert "CA" not in states and "OH" in states
+
+
+async def test_distance_tolerance_is_ten_percent(fixture_session: AsyncSession) -> None:
+    base = dict(home_state="OH", income_bracket="75-110k")
+    all_rows = await sql_filters.candidates(fixture_session, prof(**base), ["5138"])
+    dists = sorted(r.distance_miles for r in all_rows if r.distance_miles is not None)
+    d = dists[len(dists) // 2]
+    # a school at distance d is kept with max_distance = d / 1.05 (within ×1.10) ...
+    kept = await sql_filters.candidates(
+        fixture_session, prof(**base, max_distance_miles=int(d / 1.05) + 1), ["5138"]
+    )
+    assert any(r.distance_miles == d for r in kept)
+    # ... and dropped with max_distance = d / 1.2
+    dropped = await sql_filters.candidates(
+        fixture_session, prof(**base, max_distance_miles=int(d / 1.2)), ["5138"]
+    )
+    assert all(r.distance_miles != d for r in dropped)
+
+
+async def test_distance_hard_regions_soft_when_both(fixture_session: AsyncSession) -> None:
+    # OH student, 600 mi, regions=[new_england]: distance is the hard rule; regions are soft
+    p = prof(home_state="OH", income_bracket="75-110k", max_distance_miles=600,
+             regions=["new_england"])  # fmt: skip
+    rows = await sql_filters.candidates(fixture_session, p, ["5138", "1107", "1101"])
+    assert rows
+    assert all(r.distance_miles is not None and r.distance_miles <= 660 for r in rows)
+    assert {r.state for r in rows} - {"CT", "ME", "MA", "NH", "RI", "VT"}, "regions not hard"
+    assert all(r.region_match == (r.state in {"CT", "ME", "MA", "NH", "RI", "VT"}) for r in rows)
+    # regions alone are hard
+    only_regions = prof(home_state="OH", income_bracket="75-110k", regions=["new_england"])
+    rows2 = await sql_filters.candidates(fixture_session, only_regions, ["5138", "1107", "1101"])
+    assert rows2 and {r.state for r in rows2} <= {"CT", "ME", "MA", "NH", "RI", "VT"}
+    assert all(r.region_match is None for r in rows2)
+
+
+async def test_relax_distance_before_regions(fixture_session: AsyncSession) -> None:
+    # 10 miles from RI: too few; dropping distance makes regions (northeast) hard, which
+    # still leaves >= k schools in the fixture, so regions are kept.
+    p = prof(home_state="RI", income_bracket="75-110k", interests=["computer science"],
+             max_distance_miles=10, regions=["northeast", "south"])  # fmt: skip
+    r = Retriever(embedder=HashEmbedder())
+    cands = await r.retrieve(fixture_session, p, k=5, mode="hybrid_rerank")
+    assert r.last_trace["relaxed"] == ["distance"]
+    allowed = states_for_regions(["northeast", "south"], "RI")
+    assert cands and {c.state for c in cands} <= allowed
+
+
+async def test_stage_a_fallback_any_major(fixture_session: AsyncSession) -> None:
+    p = prof(home_state="OH", income_bracket="48-75k", gpa=3.5)  # no interests, no majors
+    for mode in ("hybrid", "hybrid_rerank"):
+        r = Retriever(embedder=HashEmbedder())
+        cands = await r.retrieve(fixture_session, p, k=10, mode=mode)  # type: ignore[arg-type]
+        assert r.last_trace["stage_a_fallback"] is True
+        assert len(cands) == 10 and all(c.cip4 is None for c in cands)
+    r = Retriever(embedder=HashEmbedder())
+    await r.retrieve(fixture_session, prof(**CS_TX), k=5)
+    assert r.last_trace["stage_a_fallback"] is False
 
 
 async def test_location_relaxed_when_too_few(fixture_session: AsyncSession) -> None:
@@ -270,6 +327,7 @@ async def test_location_relaxed_when_too_few(fixture_session: AsyncSession) -> N
     r = Retriever(embedder=HashEmbedder())
     cands = await r.retrieve(fixture_session, p, k=10, mode="hybrid_rerank")
     assert r.last_trace["location_relaxed"] is True
+    assert r.last_trace["relaxed"] == ["distance"]
     assert len(cands) == 10
 
 
@@ -360,6 +418,9 @@ async def test_ablation_runner(fixture_session: AsyncSession) -> None:
     for m in ("sql_only", "hybrid", "hybrid_rerank"):
         assert by_mode[m].n == 2
         assert 0.0 <= by_mode[m].recall <= 1.0 and 0.0 <= by_mode[m].ndcg <= 1.0
+        jp = by_mode[m].judged_precision
+        assert jp is None or 0.0 <= jp <= 1.0
+        assert 0 <= by_mode[m].unjudged <= 20
     table = ab.format_table(results)
     assert table.count("\n") == 5
     print("\n" + table)

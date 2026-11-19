@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from app.retrieval.metrics import ndcg_at_k, recall_at_k
+from app.retrieval.metrics import judged_precision_at_k, ndcg_at_k, recall_at_k, unjudged_at_k
 
 REPO = Path(__file__).resolve().parents[2]
 DATA = Path(__file__).parent / "data"
@@ -82,6 +82,31 @@ def test_ndcg_more_relevant_than_k() -> None:
     assert ndcg_at_k([1, 2], {1, 2, 3, 4, 5}, 2) == pytest.approx(1.0)
 
 
+# ------------------------------------------------------------------ judged precision
+
+
+def test_judged_precision() -> None:
+    # top-3 = [1, 2, 9]; judged {1, 2, 3}; acceptable {1}: 1 hit / 2 judged
+    assert judged_precision_at_k([1, 2, 9, 3], {1}, {1, 2, 3}, 3) == pytest.approx(0.5)
+    assert judged_precision_at_k([1, 3], {1, 3}, {1, 3}, 10) == 1.0
+
+
+def test_judged_precision_none_when_nothing_judged() -> None:
+    assert judged_precision_at_k([7, 8, 9], {1}, {1, 2}, 3) is None
+    assert judged_precision_at_k([], {1}, {1}, 3) is None
+
+
+def test_judged_precision_acceptable_counts_as_judged() -> None:
+    # malformed labels (acceptable not in judged) can't exceed 1.0
+    assert judged_precision_at_k([1, 2], {1, 2}, set(), 2) == 1.0
+
+
+def test_unjudged_at_k() -> None:
+    assert unjudged_at_k([1, 2, 9, 8], {1, 2}, 3) == 1
+    assert unjudged_at_k([1, 1, 9], {1}, 2) == 1  # dedupe before the cut
+    assert unjudged_at_k([], {1}, 10) == 0
+
+
 # ------------------------------------------------------------------ ablation helpers
 
 
@@ -94,7 +119,27 @@ def test_ablation_loads_personas_and_labels() -> None:
     assert cs.interests.value and "computer programming" in cs.interests.value
     labels = ab.load_labels(DATA / "labels.yaml")
     assert set(labels) == {"synthetic-cs-tx", "synthetic-nurse-oh"}
-    assert all(isinstance(u, int) for s in labels.values() for u in s)
+    cs_lab = labels["synthetic-cs-tx"]
+    assert all(isinstance(u, int) for u in cs_lab.acceptable | cs_lab.judged)
+    assert cs_lab.acceptable <= cs_lab.judged and len(cs_lab.judged) == 8
+
+
+def test_ablation_labels_require_judged(tmp_path: Path) -> None:
+    ab = load_ablation()
+    f = tmp_path / "labels.yaml"
+    f.write_text("p1:\n  acceptable_unitids: [1, 2]\n")
+    with pytest.raises(ValueError, match="judged_unitids"):
+        ab.load_labels(f)
+
+
+def test_ablation_strips_meta(tmp_path: Path) -> None:
+    ab = load_ablation()
+    f = tmp_path / "p.yaml"
+    f.write_text(
+        "id: p\nhidden_profile:\n  home_state: OH\n  meta: {x: 1}\nmeta:\n  articulateness: terse\n"
+    )
+    [p] = ab.load_personas(str(f))
+    assert p.id == "p" and p.profile.home_state.value == "OH"
 
 
 def test_ablation_ignores_unknown_hidden_fields() -> None:
@@ -107,11 +152,13 @@ def test_format_table() -> None:
     ab = load_ablation()
     table = ab.format_table(
         [
-            ab.ModeResult("hybrid", 0.5, 0.25, 3),
+            ab.ModeResult("hybrid", 0.5, 0.25, 3, judged_precision=0.75, unjudged=4),
+            ab.ModeResult("sql_only", 0.1, 0.1, 3, judged_precision=None, unjudged=30),
             ab.ModeResult("x", None, None, 0, "not implemented"),
         ]
     )
     lines = table.splitlines()
-    assert lines[0] == "| mode | recall@10 | nDCG@10 | n |"
-    assert "| hybrid | 0.500 | 0.250 | 3 |" in lines
+    assert lines[0] == "| mode | recall@10 | nDCG@10 | judged-P@10 | unjudged@10 | n |"
+    assert "| hybrid | 0.500 | 0.250 | 0.750 | 4 | 3 |" in lines
+    assert "| sql_only | 0.100 | 0.100 | n/a | 30 | 3 |" in lines
     assert "not implemented" in lines[-1]

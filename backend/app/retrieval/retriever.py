@@ -17,8 +17,10 @@ Modes (the §10 ablation):
     Tier 2; not implemented yet.
 
 Every mode returns at most one program per school. If location filters (regions /
-max distance) leave fewer than ``k`` schools they are relaxed and the relaxation is
-recorded in ``last_trace``. The budget filter is never relaxed.
+max distance) leave fewer than ``k`` schools they are relaxed — distance first, then
+regions — and recorded in ``last_trace["relaxed"]``. The budget filter is never relaxed.
+If Stage A finds no majors (no interests, no intended majors) every mode falls back to
+"any major" (``cip4 = None``) and ``last_trace["stage_a_fallback"]`` is true.
 """
 
 from __future__ import annotations
@@ -35,6 +37,18 @@ from app.retrieval.sql_filters import CandidateRow, FilterOptions
 from app.schemas import Candidate, IncomeBracket, RetrievalMode, ScoreBreakdown, StudentProfile
 
 STAGE_A_K = 8
+
+# Location relaxation order (criteria H3): distance first, then regions.
+RELAX_STEPS: tuple[tuple[str, FilterOptions], ...] = (
+    ("distance", FilterOptions(apply_distance=False)),
+    ("regions", FilterOptions(apply_distance=False, apply_regions=False)),
+)
+
+
+def _filter_active(profile: StudentProfile, step: str) -> bool:
+    if step == "distance":
+        return profile.max_distance_miles.value is not None and bool(profile.home_state.value)
+    return bool(profile.regions.value)
 
 
 def facts_for(row: CandidateRow, bracket: IncomeBracket | None) -> dict[str, Any]:
@@ -104,25 +118,28 @@ class Retriever:
             for c in cips
         ]
         cip_codes: list[str] | None = [c.cip4 for c in cips]
-        if mode == "sql_only" and not cips:
-            cip_codes = None  # no stated majors: every school is a candidate
+        trace["stage_a_fallback"] = not cips
+        if not cips:
+            cip_codes = None  # no interest/major signal: every school is a candidate
         cip_sims = {c.cip4: c.similarity for c in cips}
 
         # ---- Stage B
         with tl.stage("retrieve.sql_filter") as st:
+            relaxed: list[str] = []
             rows = await sql_filters.candidates(session, profile, cip_codes)
-            relaxed = False
-            location_set = bool(profile.regions.value) or (
-                profile.max_distance_miles.value is not None and bool(profile.home_state.value)
-            )
-            if location_set and len({r.unitid for r in rows}) < k:
-                rows = await sql_filters.candidates(
-                    session, profile, cip_codes, FilterOptions(apply_location=False)
-                )
-                relaxed = True
+            for step, opts in RELAX_STEPS:
+                if len({r.unitid for r in rows}) >= k or not _filter_active(profile, step):
+                    continue
+                rows = await sql_filters.candidates(session, profile, cip_codes, opts)
+                relaxed.append(step)
             median = await sql_filters.bracket_median(session, profile.income_bracket.value)
             st.set(n_rows=len(rows), n_schools=len({r.unitid for r in rows}), relaxed=relaxed)
-        trace.update(n_rows=len(rows), location_relaxed=relaxed, bracket_median=median)
+        trace.update(
+            n_rows=len(rows),
+            location_relaxed=bool(relaxed),
+            relaxed=relaxed,
+            bracket_median=median,
+        )
 
         # ---- Stage C
         with tl.stage("retrieve.rerank", mode=mode) as st:

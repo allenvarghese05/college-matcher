@@ -13,6 +13,15 @@ and a soft preference only — never shown to the student as a claim.
   ``west_south_central``, ``mountain``, ``pacific``
 * ``out_of_state``: every state except the student's ``home_state``
 * two-letter USPS state codes (``"CA"``, ``"tx"``; case-insensitive)
+
+If ``out_of_state`` is listed the home state is excluded from the union, even when
+another entry (e.g. ``south`` for a TX student) would include it.
+
+Limitation: distances are measured from the home *state's* population centroid, not the
+student's zip (no zip geocoding data). For large states (CA, TX, AK, MT…) a student can
+be 200+ miles from that point, so ``max_distance_miles`` is applied with a ×1.10
+tolerance (matching the labeling criteria H3) and remains approximate; the labels use
+the zip centroid, so expect some disagreement near the cutoff.
 """
 
 from __future__ import annotations
@@ -147,6 +156,7 @@ def states_for_regions(regions: list[str], home_state: str | None) -> set[str]:
     """
     home = home_state.strip().upper() if home_state else None
     out: set[str] = set()
+    exclude_home = False
     for raw in regions:
         token = raw.strip()
         key = token.lower().replace(" ", "_").replace("-", "_")
@@ -155,9 +165,12 @@ def states_for_regions(regions: list[str], home_state: str | None) -> set[str]:
         elif key in DIVISIONS:
             out |= DIVISIONS[key]
         elif key == OUT_OF_STATE:
-            out |= ALL_STATES - ({home} if home else set())
+            out |= ALL_STATES
+            exclude_home = True
         elif token.upper() in ALL_STATES:
             out.add(token.upper())
         else:
             log.warning("unknown_region", region=token)
+    if exclude_home and home:
+        out.discard(home)  # out_of_state always excludes home, whatever else is listed
     return out

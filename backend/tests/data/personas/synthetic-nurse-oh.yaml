@@ -11,3 +11,7 @@ hidden_profile:
   priorities: [cost]
 style: "chatty"
 reveal: only_when_asked
+meta:
+  articulateness: chatty
+  edge_cases: []
+  voice_subset: false

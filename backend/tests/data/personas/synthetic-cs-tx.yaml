@@ -12,3 +12,7 @@ hidden_profile:
   priorities: [cost, outcomes]
 style: "terse"
 reveal: only_when_asked
+meta:
+  articulateness: terse
+  edge_cases: []
+  voice_subset: false

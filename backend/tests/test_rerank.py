@@ -142,6 +142,24 @@ def test_admission_fit_and_prestige() -> None:
     assert admission_fit("unknown", None, True) == 0.6
 
 
+def test_percentiles_midrank() -> None:
+    from app.retrieval.rerank import _percentiles
+
+    assert _percentiles([]) == {}
+    assert _percentiles([5.0]) == {5.0: 0.5}
+    assert _percentiles([1.0, 2.0, 2.0, 3.0]) == {1.0: 0.0, 2.0: 0.5, 3.0: 1.0}
+    big = [float(i % 100) for i in range(20000)]
+    pct = _percentiles(big)
+    assert pct[0.0] == pytest.approx((0 + 0.5 * 199) / 19999)
+    assert pct[99.0] == pytest.approx((19800 + 0.5 * 199) / 19999)
+
+
+def test_region_match_soft_preference() -> None:
+    p = prof()
+    assert preferences(row(region_match=True), p) == 1.0
+    assert preferences(row(region_match=False), p) == 0.0
+
+
 def test_size_and_setting_buckets() -> None:
     assert [size_bucket(n) for n in (None, 1999, 2000, 15000, 15001)] == [
         None,
@@ -272,6 +290,11 @@ def test_states_for_regions() -> None:
     assert "OH" not in oos and len(oos) == 50
     assert len(geo.states_for_regions(["out_of_state"], None)) == 51
     assert geo.states_for_regions(["narnia"], "OH") == set()
+    # out_of_state always excludes home, even when another entry includes it
+    combo = geo.states_for_regions(["south", "out_of_state"], "TX")
+    assert "TX" not in combo and "OK" in combo and "OH" in combo
+    assert "TX" not in geo.states_for_regions(["TX", "out_of_state"], "TX")
+    assert "TX" not in geo.states_for_regions(["out_of_state", "west_south_central"], "tx")
     assert geo.states_for_regions(["narnia", "west"], None) == geo.REGIONS["west"]
 
 

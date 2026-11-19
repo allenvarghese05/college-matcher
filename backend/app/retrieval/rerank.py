@@ -22,7 +22,8 @@ Components (each 0..1)
     ``prestige`` priority it is blended 50/50 with selectivity ``1 − admission_rate``.
 ``preferences``
     Mean of the sub-scores that apply: distance ``1 − d/max_distance`` (or
-    ``1 − d/1000`` with the ``location`` priority and no max distance); size match
+    ``1 − d/1000`` with the ``location`` priority and no max distance); region match
+    (1/0, when ``regions`` are given but not enforced as a hard filter); size match
     (small < 2k, medium 2k–15k, large > 15k: exact 1, adjacent 0.5, opposite 0);
     setting match from ``LOCALE`` (11–13 city, 21–23 suburb, 31–33 town, 41–43 rural:
     exact 1, adjacent 0.5, else 0). Neutral 0.5 when nothing applies.
@@ -54,6 +55,7 @@ The final list is sorted by total score.
 
 from __future__ import annotations
 
+import bisect
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
@@ -124,11 +126,11 @@ def _percentiles(values: list[float]) -> dict[float, float]:
         return {}
     if n == 1:
         return {values[0]: 0.5}
-    out: dict[float, float] = {}
     s = sorted(values)
+    out: dict[float, float] = {}
     for v in set(s):
-        below = sum(1 for x in s if x < v)
-        ties = sum(1 for x in s if x == v)
+        below = bisect.bisect_left(s, v)
+        ties = bisect.bisect_right(s, v) - below
         out[v] = (below + 0.5 * (ties - 1)) / (n - 1)
     return out
 
@@ -199,6 +201,8 @@ def preferences(row: CandidateRow, profile: StudentProfile) -> float:
             subs.append(_clip(1 - d / max_d))
         elif "location" in (profile.priorities.value or []):
             subs.append(_clip(1 - d / 1000))
+    if row.region_match is not None:
+        subs.append(1.0 if row.region_match else 0.0)
     size_pref = profile.size_pref.value
     if size_pref and size_pref != "any":
         b = size_bucket(row.undergrad_size)
