@@ -69,3 +69,5 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp 
+# Raw downloaded datasets (fetched by make data)
+data/raw/
