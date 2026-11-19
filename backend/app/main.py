@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health
+from app.api import health, sessions
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.db.session import dispose_engine
@@ -33,6 +33,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(health.router)
+    app.include_router(sessions.router)
     # Feature routers (rest.py, voice_ws.py) are included here as they land.
     return app
 
