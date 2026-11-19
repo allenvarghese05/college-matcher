@@ -56,7 +56,9 @@ class Institution(Base):
     zip: Mapped[str | None] = mapped_column(String(10))
     lat: Mapped[float | None] = mapped_column(Float)
     lon: Mapped[float | None] = mapped_column(Float)
-    control: Mapped[int] = mapped_column(SmallInteger)  # 1 public, 2 private nonprofit, 3 for-profit
+    control: Mapped[int] = mapped_column(
+        SmallInteger
+    )  # 1 public, 2 private nonprofit, 3 for-profit
     locale: Mapped[int | None] = mapped_column(SmallInteger)
     undergrad_size: Mapped[int | None] = mapped_column(Integer)
     admission_rate: Mapped[float | None] = mapped_column(Float)

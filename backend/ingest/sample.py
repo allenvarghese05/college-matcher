@@ -25,9 +25,9 @@ from __future__ import annotations
 import argparse
 import random
 from collections import Counter, defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 from ingest.scorecard import (
     BACHELORS,
@@ -62,10 +62,14 @@ Pred = Callable[[SchoolInfo], bool]
 STRATA: dict[str, tuple[Pred, int]] = {
     "open_admission": (lambda s: s.inst.open_admission is True, 20),
     "selective_lt_15pct": (
-        lambda s: s.inst.admission_rate is not None and s.inst.admission_rate < 0.15, 15),
+        lambda s: s.inst.admission_rate is not None and s.inst.admission_rate < 0.15,
+        15,
+    ),
     "has_sat_range": (lambda s: s.inst.sat_25 is not None, 40),
     "no_sat_range_not_open": (
-        lambda s: s.inst.sat_25 is None and s.inst.open_admission is not True, 20),
+        lambda s: s.inst.sat_25 is None and s.inst.open_admission is not True,
+        20,
+    ),
     "earnings_all_suppressed": (lambda s: s.n_earnings == 0 and s.n_suppressed > 0, 20),
     "earnings_mixed": (lambda s: s.n_earnings > 0 and s.n_suppressed > 0, 20),
     "earnings_none_suppressed": (lambda s: s.n_earnings > 0 and s.n_suppressed == 0, 10),
@@ -99,8 +103,7 @@ def select(schools: dict[int, SchoolInfo], seed: int = SEED) -> list[int]:
         states = sorted(by_state)
         rng.shuffle(states)
         pools = {
-            st: [u for u in by_state[st] if schools[u].inst.control == control]
-            for st in states
+            st: [u for u in by_state[st] if schools[u].inst.control == control] for st in states
         }
         count = sum(1 for u in chosen if schools[u].inst.control == control)
         while count < target:
@@ -141,9 +144,7 @@ def build(raw: Path, out: Path, seed: int = SEED) -> dict[str, object]:
 
     out.mkdir(parents=True, exist_ok=True)
     n_inst = write_jsonl(out / INST_FIXTURE, (insts[u] for u in picked))
-    sample_progs = sorted(
-        (p for u in picked for p in progs[u]), key=lambda p: (p.unitid, p.cip4)
-    )
+    sample_progs = sorted((p for u in picked for p in progs[u]), key=lambda p: (p.unitid, p.cip4))
     n_prog = write_jsonl(out / PROG_FIXTURE, sample_progs)
 
     return {
@@ -153,8 +154,9 @@ def build(raw: Path, out: Path, seed: int = SEED) -> dict[str, object]:
         "programs_earnings_suppressed": sum(p.earnings_suppressed for p in sample_progs),
         "states": len({insts[u].state for u in picked}),
         "by_control": dict(sorted(Counter(insts[u].control for u in picked).items())),
-        "strata": {name: sum(1 for u in picked if pred(schools[u]))
-                   for name, (pred, _) in STRATA.items()},
+        "strata": {
+            name: sum(1 for u in picked if pred(schools[u])) for name, (pred, _) in STRATA.items()
+        },
         "bytes": (out / INST_FIXTURE).stat().st_size + (out / PROG_FIXTURE).stat().st_size,
     }
 

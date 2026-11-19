@@ -40,9 +40,9 @@ import argparse
 import csv
 import json
 import sys
+from collections.abc import Iterable, Iterator
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable, Iterator
 
 csv.field_size_limit(sys.maxsize)
 

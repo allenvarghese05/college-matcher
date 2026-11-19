@@ -31,7 +31,7 @@ TurnEvent (SSE ``event:`` name -> ``data:`` JSON):
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, ClassVar, Generic, Literal, TypeVar
+from typing import Any, ClassVar, Literal, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -67,7 +67,7 @@ class Evidence(_Strict):
     source: EvidenceSource
 
 
-class ProfileField(_Strict, Generic[T]):
+class ProfileField[T](_Strict):
     value: T | None = None
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     evidence: list[Evidence] = Field(default_factory=list)
@@ -151,7 +151,7 @@ PROFILE_FIELDS: tuple[str, ...] = tuple(StudentProfile.model_fields)
 # ----------------------------------------------------------------- extraction
 
 
-class Update(_Strict, Generic[T]):
+class Update[T](_Strict):
     value: T
     confidence: float = Field(ge=0.0, le=1.0)
     quote: str = Field(description="Exact words from the latest student message (or resume).")
@@ -183,8 +183,17 @@ class ProfileDelta(_Strict):
 
 
 NextTopic = Literal[
-    "dream_without_money", "interests", "strengths", "favorite_subjects", "activities",
-    "work_values", "academics", "money", "location", "size_setting", "priorities",
+    "dream_without_money",
+    "interests",
+    "strengths",
+    "favorite_subjects",
+    "activities",
+    "work_values",
+    "academics",
+    "money",
+    "location",
+    "size_setting",
+    "priorities",
     "ready_to_recommend",
 ]
 
@@ -195,8 +204,16 @@ class ExtractionResult(_Strict):
 
 
 LIST_FIELDS = frozenset(
-    {"interests", "intended_majors", "strengths", "favorite_subjects", "activities",
-     "work_values", "regions", "priorities"}
+    {
+        "interests",
+        "intended_majors",
+        "strengths",
+        "favorite_subjects",
+        "activities",
+        "work_values",
+        "regions",
+        "priorities",
+    }
 )
 
 

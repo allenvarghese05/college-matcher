@@ -33,14 +33,30 @@ FIXTURES = BACKEND.parent / "data" / "fixtures"
 
 def inst_row(**overrides: str) -> dict[str, str]:
     row = {
-        "UNITID": "100654", "INSTNM": "Alabama A & M University", "CITY": "Normal",
-        "STABBR": "AL", "ZIP": "35762", "LATITUDE": "34.783368", "LONGITUDE": "-86.568502",
-        "LOCALE": "12", "INSTURL": "www.aamu.edu/", "CONTROL": "1", "UGDS": "6124",
-        "ADM_RATE": "0.5795", "OPENADMP": "2",
-        "SATVR25": "420", "SATVR75": "530", "SATMT25": "390", "SATMT75": "510",
-        "ACTCM25": "14", "ACTCM75": "19",
-        "NPT4_PUB": "18255", "NPT4_PRIV": "NA",
-        "C150_4": "0.2771", "MD_EARN_WNE_P10": "41266", "GRAD_DEBT_MDN": "27204",
+        "UNITID": "100654",
+        "INSTNM": "Alabama A & M University",
+        "CITY": "Normal",
+        "STABBR": "AL",
+        "ZIP": "35762",
+        "LATITUDE": "34.783368",
+        "LONGITUDE": "-86.568502",
+        "LOCALE": "12",
+        "INSTURL": "www.aamu.edu/",
+        "CONTROL": "1",
+        "UGDS": "6124",
+        "ADM_RATE": "0.5795",
+        "OPENADMP": "2",
+        "SATVR25": "420",
+        "SATVR75": "530",
+        "SATMT25": "390",
+        "SATMT75": "510",
+        "ACTCM25": "14",
+        "ACTCM75": "19",
+        "NPT4_PUB": "18255",
+        "NPT4_PRIV": "NA",
+        "C150_4": "0.2771",
+        "MD_EARN_WNE_P10": "41266",
+        "GRAD_DEBT_MDN": "27204",
         "CURROPER": "1",
     }
     for i in range(1, 6):
@@ -52,9 +68,14 @@ def inst_row(**overrides: str) -> dict[str, str]:
 
 def prog_row(**overrides: str) -> dict[str, str]:
     row = {
-        "UNITID": "100654", "CIPCODE": "0109", "CIPDESC": "Animal Sciences.",
-        "CREDLEV": "3", "IPEDSCOUNT1": "18", "IPEDSCOUNT2": "12",
-        "EARN_MDN_4YR": "PS", "DEBT_ALL_STGP_EVAL_MDN": "27000",
+        "UNITID": "100654",
+        "CIPCODE": "0109",
+        "CIPDESC": "Animal Sciences.",
+        "CREDLEV": "3",
+        "IPEDSCOUNT1": "18",
+        "IPEDSCOUNT2": "12",
+        "EARN_MDN_4YR": "PS",
+        "DEBT_ALL_STGP_EVAL_MDN": "27000",
     }
     row.update(overrides)
     return row
@@ -63,21 +84,47 @@ def prog_row(**overrides: str) -> dict[str, str]:
 # --------------------------------------------------------------------------- parse_num
 
 
-@pytest.mark.parametrize("raw", ["NA", "NULL", "PS", "PrivacySuppressed", "", "   ", None,
-                                 "na", "privacysuppressed", "abc", "nan"])
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "NA",
+        "NULL",
+        "PS",
+        "PrivacySuppressed",
+        "",
+        "   ",
+        None,
+        "na",
+        "privacysuppressed",
+        "abc",
+        "nan",
+    ],
+)
 def test_parse_num_missing(raw):
     assert parse_num(raw) is None
 
 
-@pytest.mark.parametrize("raw,expected", [("0.5795", 0.5795), ("27000", 27000.0),
-                                          (" 12 ", 12.0), ("-3.5", -3.5), ("0", 0.0)])
+@pytest.mark.parametrize(
+    "raw,expected",
+    [("0.5795", 0.5795), ("27000", 27000.0), (" 12 ", 12.0), ("-3.5", -3.5), ("0", 0.0)],
+)
 def test_parse_num_values(raw, expected):
     assert parse_num(raw) == expected
 
 
-@pytest.mark.parametrize("raw,expected", [("PS", True), ("PrivacySuppressed", True),
-                                          (" ps ", True), ("NA", False), ("NULL", False),
-                                          ("", False), (None, False), ("123", False)])
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("PS", True),
+        ("PrivacySuppressed", True),
+        (" ps ", True),
+        ("NA", False),
+        ("NULL", False),
+        ("", False),
+        (None, False),
+        ("123", False),
+    ],
+)
 def test_is_suppressed(raw, expected):
     assert is_suppressed(raw) is expected
 
@@ -104,16 +151,26 @@ def test_act_range():
 
 def test_net_price_public_uses_pub_columns():
     rec = institution_from_row(inst_row(CONTROL="1"))
-    assert [rec.net_price_0_30k, rec.net_price_30_48k, rec.net_price_48_75k,
-            rec.net_price_75_110k, rec.net_price_110k_plus] == [10001, 10002, 10003, 10004, 10005]
+    assert [
+        rec.net_price_0_30k,
+        rec.net_price_30_48k,
+        rec.net_price_48_75k,
+        rec.net_price_75_110k,
+        rec.net_price_110k_plus,
+    ] == [10001, 10002, 10003, 10004, 10005]
     assert rec.avg_net_price == 18255
 
 
 @pytest.mark.parametrize("control", ["2", "3"])
 def test_net_price_private_uses_priv_columns(control):
     rec = institution_from_row(inst_row(CONTROL=control, NPT4_PUB="NA", NPT4_PRIV="41000"))
-    assert [rec.net_price_0_30k, rec.net_price_30_48k, rec.net_price_48_75k,
-            rec.net_price_75_110k, rec.net_price_110k_plus] == [30001, 30002, 30003, 30004, 30005]
+    assert [
+        rec.net_price_0_30k,
+        rec.net_price_30_48k,
+        rec.net_price_48_75k,
+        rec.net_price_75_110k,
+        rec.net_price_110k_plus,
+    ] == [30001, 30002, 30003, 30004, 30005]
     assert rec.avg_net_price == 41000
 
 
@@ -123,19 +180,24 @@ def test_net_price_does_not_fall_back_across_sectors():
     assert rec.avg_net_price is None
 
 
-@pytest.mark.parametrize("raw,expected", [("1", True), ("2", False), ("NA", None),
-                                          ("", None), ("3", None)])
+@pytest.mark.parametrize(
+    "raw,expected", [("1", True), ("2", False), ("NA", None), ("", None), ("3", None)]
+)
 def test_open_admission_mapping(raw, expected):
     assert institution_from_row(inst_row(OPENADMP=raw)).open_admission is expected
 
 
-@pytest.mark.parametrize("raw,expected", [
-    ("www.aamu.edu/", "https://www.aamu.edu/"),
-    ("https://www.uab.edu/", "https://www.uab.edu/"),
-    ("http://example.edu", "http://example.edu"),
-    ("HTTPS://X.EDU", "HTTPS://X.EDU"),
-    ("NA", None), ("", None),
-])
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("www.aamu.edu/", "https://www.aamu.edu/"),
+        ("https://www.uab.edu/", "https://www.uab.edu/"),
+        ("http://example.edu", "http://example.edu"),
+        ("HTTPS://X.EDU", "HTTPS://X.EDU"),
+        ("NA", None),
+        ("", None),
+    ],
+)
 def test_url_normalisation(raw, expected):
     assert normalize_url(raw) == expected
 
@@ -164,13 +226,27 @@ def test_records_are_frozen():
 # --------------------------------------------------------------------------- CIP / programs
 
 
-@pytest.mark.parametrize("raw,expected", [
-    ("1107", "1107"), ("0109", "0109"), (" 5203 ", "5203"),
-    ("11.07", "1107"), ("1.01", "0101"), ("1.1", "0110"), ("01.10", "0110"),
-    ("110", "0110"), ("109", "0109"),
-    ("110701", "1107"), ("11.0701", "1107"),
-    ("", None), ("NA", None), ("abcd", None), ("12345", None), ("0000", None),
-])
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("1107", "1107"),
+        ("0109", "0109"),
+        (" 5203 ", "5203"),
+        ("11.07", "1107"),
+        ("1.01", "0101"),
+        ("1.1", "0110"),
+        ("01.10", "0110"),
+        ("110", "0110"),
+        ("109", "0109"),
+        ("110701", "1107"),
+        ("11.0701", "1107"),
+        ("", None),
+        ("NA", None),
+        ("abcd", None),
+        ("12345", None),
+        ("0000", None),
+    ],
+)
 def test_normalize_cip4(raw, expected):
     assert normalize_cip4(raw) == expected
 
@@ -195,8 +271,9 @@ def test_program_graduates():
 
 
 def test_program_earnings_value():
-    p = program_from_row(prog_row(EARN_MDN_4YR="61234", CIPCODE="11.07",
-                                  CIPDESC="Computer Science."))
+    p = program_from_row(
+        prog_row(EARN_MDN_4YR="61234", CIPCODE="11.07", CIPDESC="Computer Science.")
+    )
     assert p.median_earnings == 61234 and p.earnings_suppressed is False
     assert p.cip4 == "1107" and p.cip_title == "Computer Science"
 
@@ -268,8 +345,14 @@ def test_fixture_institution_ranges(sample_insts):
             assert r["sat_25"] <= r["sat_75"]
         if r["act_25"] is not None and r["act_75"] is not None:
             assert r["act_25"] <= r["act_75"]
-        for k in ("net_price_0_30k", "net_price_30_48k", "net_price_48_75k",
-                  "net_price_75_110k", "net_price_110k_plus", "avg_net_price"):
+        for k in (
+            "net_price_0_30k",
+            "net_price_30_48k",
+            "net_price_48_75k",
+            "net_price_75_110k",
+            "net_price_110k_plus",
+            "avg_net_price",
+        ):
             assert _in(r[k], 0, 150_000), (r["unitid"], k, r[k])
         assert _in(r["median_earnings_10yr"], 5_000, 500_000)
         assert _in(r["median_debt"], 0, 200_000)
