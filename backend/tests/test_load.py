@@ -14,8 +14,8 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import CipCode, Institution, Program
-from app.retrieval.embedder import EMBED_DIM, FakeEmbedder
+from app.db.models import EMBED_DIM, CipCode, Institution, Program
+from app.retrieval.embedder import FakeEmbedder
 from ingest.cip import CipDefinition, apply_definitions
 from ingest.embed import embed_cip_codes, export_fixture
 from ingest.load import (
@@ -26,6 +26,7 @@ from ingest.load import (
     load_fixture,
     load_records,
     pick_cip_titles,
+    rows_per_statement,
     table_counts,
 )
 from ingest.scorecard import InstitutionRecord, ProgramRecord
@@ -149,6 +150,14 @@ async def test_load_records_batches(db_session: AsyncSession) -> None:
     assert (c.institutions, c.programs, c.cip_codes) == (7, 7, 1)
 
 
+def test_rows_per_statement_respects_bind_limit() -> None:
+    assert rows_per_statement(26) == 32767 // 26
+    assert rows_per_statement(8) == 32767 // 8
+    assert rows_per_statement(8, 3) == 3
+    assert rows_per_statement(26, 10_000) == 32767 // 26
+    assert rows_per_statement(26) * 26 <= 32767
+
+
 def test_pick_cip_titles_majority_then_alpha() -> None:
     progs = [
         _prog(1, "0101", "B"),
@@ -199,13 +208,31 @@ async def test_embed_only_missing(db_session: AsyncSession) -> None:
     assert await embed_cip_codes(db_session, FakeEmbedder(), only_missing=True) == 0
 
 
+def test_embed_cli_rejects_export_with_only_missing() -> None:
+    from ingest.embed import main
+
+    with pytest.raises(SystemExit) as exc:
+        main(["--only-missing", "--export"])
+    assert exc.value.code == 2
+
+
 async def test_export_and_reload_embeddings(db_session: AsyncSession, tmp_path: Path) -> None:
     await load_records(db_session, [_inst(995_001)], [_prog(995_001, "9995", "Export Me")])
-    await embed_cip_codes(db_session, FakeEmbedder())
     out = tmp_path / "cip_embeddings.jsonl"
+
+    # only the new row embedded this run -> the other (pre-existing) vectors are stale
+    partial: set[str] = set()
+    await embed_cip_codes(db_session, FakeEmbedder(), only_missing=True, written=partial)
+    assert partial == {"9995"}
+    with pytest.raises(ValueError, match="not embedded"):
+        await export_fixture(db_session, out, "test-model", partial)
+    assert not out.exists()
+
+    written: set[str] = set()
+    await embed_cip_codes(db_session, FakeEmbedder(), written=written)
     with pytest.raises(ValueError, match="FakeEmbedder"):
-        await export_fixture(db_session, out, FakeEmbedder.model_name)
-    n = await export_fixture(db_session, out, "test-model")
+        await export_fixture(db_session, out, FakeEmbedder.model_name, written)
+    n = await export_fixture(db_session, out, "test-model", written)
     lines = [json.loads(x) for x in out.read_text().splitlines()]
     assert len(lines) == n
     rec = next(r for r in lines if r["cip4"] == "9995")

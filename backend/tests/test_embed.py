@@ -6,11 +6,13 @@ import math
 
 import pytest
 
+from app.db.models import EMBED_DIM
 from app.retrieval import embedder as emb_mod
 from app.retrieval.embedder import (
-    EMBED_DIM,
+    BGE_QUERY_PREFIX,
     FakeEmbedder,
     FastEmbedder,
+    embed_queries,
     embed_query,
     embed_texts,
     get_embedder,
@@ -97,6 +99,33 @@ def test_fastembed_normalises_and_checks_dim() -> None:
     e._model = Bad()
     with pytest.raises(ValueError, match="dim"):
         e.embed(["a"])
+
+
+def test_queries_get_bge_instruction_passages_do_not() -> None:
+    seen: list[list[str]] = []
+
+    class Recorder:
+        def embed(self, texts, batch_size=0):
+            seen.append(list(texts))
+            for _ in texts:
+                yield [1.0] + [0.0] * (EMBED_DIM - 1)
+
+    e = FastEmbedder()
+    e._model = Recorder()
+    set_embedder(e)
+    embed_texts(["Automobile Mechanics."])
+    embed_query("fixing cars")
+    embed_queries(["a", "b"])
+    assert seen == [
+        ["Automobile Mechanics."],
+        [BGE_QUERY_PREFIX + "fixing cars"],
+        [BGE_QUERY_PREFIX + "a", BGE_QUERY_PREFIX + "b"],
+    ]
+
+
+def test_fake_queries_match_passages() -> None:
+    f = FakeEmbedder()
+    assert f.embed_queries(["engine repair"]) == f.embed(["engine repair"])
 
 
 @pytest.mark.parametrize(

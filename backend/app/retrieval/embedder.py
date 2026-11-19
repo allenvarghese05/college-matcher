@@ -5,8 +5,14 @@ L2-normalised, so cosine similarity == dot product == ``1 - (a <=> b)`` in pgvec
 
 Usage::
 
-    from app.retrieval.embedder import embed_texts, embed_query
-    vecs = embed_texts(["fixing cars and engines"])  # list[list[float]], len 384 each
+    from app.retrieval.embedder import embed_query, embed_queries, embed_texts
+    q = embed_query("fixing cars and engines")   # student text -> 384 floats
+    docs = embed_texts(["Automobile Mechanics. A program that ..."])  # passages
+
+Queries and passages are embedded differently, as bge-v1.5 recommends for short
+query -> passage retrieval: queries get ``BGE_QUERY_PREFIX``, passages (CIP
+definitions) are embedded as-is. Use ``embed_query``/``embed_queries`` for student
+text and ``embed_texts`` only for stored documents.
 
 The real model is loaded lazily on first use (first call downloads ~70 MB from
 Hugging Face into ``FASTEMBED_CACHE_PATH`` or fastembed's temp-dir default).
@@ -29,16 +35,37 @@ import re
 import threading
 from typing import Any, Protocol
 
+from app.db.models import EMBED_DIM
+
+__all__ = [
+    "BGE_QUERY_PREFIX",
+    "EMBED_DIM",
+    "EMBED_MODEL",
+    "FAKE_MODEL",
+    "Embedder",
+    "FakeEmbedder",
+    "FastEmbedder",
+    "embed_queries",
+    "embed_query",
+    "embed_texts",
+    "get_embedder",
+    "set_embedder",
+]
+
 EMBED_MODEL = "BAAI/bge-small-en-v1.5"
-EMBED_DIM = 384
 FAKE_MODEL = "fake-hash-bow-v1"
+BGE_QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 
 
 class Embedder(Protocol):
     model_name: str
 
     def embed(self, texts: list[str]) -> list[list[float]]:
-        """Return one L2-normalised EMBED_DIM vector per text, in order."""
+        """Passages: one L2-normalised EMBED_DIM vector per text, in order."""
+        ...
+
+    def embed_queries(self, texts: list[str]) -> list[list[float]]:
+        """Queries: like ``embed`` but with the model's query instruction."""
         ...
 
 
@@ -81,6 +108,9 @@ class FastEmbedder:
                 raise ValueError(f"{self.model_name} returned dim {len(v)}, want {EMBED_DIM}")
         return out
 
+    def embed_queries(self, texts: list[str]) -> list[list[float]]:
+        return self.embed([BGE_QUERY_PREFIX + t for t in texts])
+
 
 _TOKEN = re.compile(r"[a-z0-9]+")
 
@@ -119,6 +149,9 @@ class FakeEmbedder:
             out.append(normalise(vec))
         return out
 
+    def embed_queries(self, texts: list[str]) -> list[list[float]]:
+        return self.embed(texts)  # no instruction: keeps fake query/doc vectors comparable
+
 
 _override: Embedder | None = None
 _default: Embedder | None = None
@@ -145,9 +178,14 @@ def get_embedder() -> Embedder:
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
-    """Embed documents or queries with the current embedder (normalised, 384-dim)."""
+    """Embed passages (stored documents) with the current embedder (normalised)."""
     return get_embedder().embed(list(texts))
 
 
+def embed_queries(texts: list[str]) -> list[list[float]]:
+    """Embed search queries (student text) with the query instruction (normalised)."""
+    return get_embedder().embed_queries(list(texts))
+
+
 def embed_query(text: str) -> list[float]:
-    return embed_texts([text])[0]
+    return embed_queries([text])[0]

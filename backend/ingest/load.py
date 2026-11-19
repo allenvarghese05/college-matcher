@@ -1,7 +1,7 @@
 """Load Scorecard records into Postgres (institution, cip_code, program).
 
 Idempotent: every table is upserted with ``INSERT ... ON CONFLICT DO UPDATE``, so
-re-running refreshes values in place. Batched (``batch_size`` rows per statement)
+re-running refreshes values in place. Batched (``32767 // ncols`` rows per statement)
 and run inside one transaction by the CLI. ``cip_code`` upserts only touch
 ``title``; definitions and embeddings written by ``ingest.cip`` / ``ingest.embed``
 survive a reload.
@@ -54,7 +54,7 @@ FIXTURES_DIR = Path(__file__).resolve().parents[2] / "data" / "fixtures"
 INST_FIXTURE = "institutions_sample.jsonl"
 PROG_FIXTURE = "programs_sample.jsonl"
 EMBED_FIXTURE = "cip_embeddings.jsonl"
-DEFAULT_BATCH = 1000
+MAX_BIND_PARAMS = 32767  # asyncpg / Postgres wire-protocol limit per statement
 
 _INST_T: Table = Institution.__table__  # type: ignore[assignment]
 _CIP_T: Table = CipCode.__table__  # type: ignore[assignment]
@@ -70,6 +70,13 @@ class LoadCounts:
     definitions: int = 0
 
 
+def rows_per_statement(ncols: int, requested: int | None = None) -> int:
+    """Rows per INSERT: as many as fit in asyncpg's 32,767 bind parameters
+    (``MAX_BIND_PARAMS // ncols``), or ``requested`` if that is smaller."""
+    cap = max(MAX_BIND_PARAMS // max(ncols, 1), 1)
+    return cap if requested is None else max(1, min(requested, cap))
+
+
 def _batches(rows: Sequence[dict[str, Any]], size: int) -> Iterable[Sequence[dict[str, Any]]]:
     for i in range(0, len(rows), size):
         yield rows[i : i + size]
@@ -81,10 +88,12 @@ async def _upsert(
     rows: Sequence[dict[str, Any]],
     conflict: list[str],
     update_cols: Iterable[str],
-    batch_size: int,
+    batch_size: int | None,
 ) -> int:
+    if not rows:
+        return 0
     cols = list(update_cols)
-    for chunk in _batches(rows, batch_size):
+    for chunk in _batches(rows, rows_per_statement(len(rows[0]), batch_size)):
         stmt = insert(table).values(list(chunk))
         stmt = stmt.on_conflict_do_update(
             index_elements=conflict, set_={c: stmt.excluded[c] for c in cols}
@@ -114,9 +123,12 @@ async def load_records(
     session: AsyncSession,
     institutions: Iterable[InstitutionRecord],
     programs: Iterable[ProgramRecord],
-    batch_size: int = DEFAULT_BATCH,
+    batch_size: int | None = None,
 ) -> LoadCounts:
     """Upsert institutions, their cip_code rows and programs. Does not commit.
+
+    ``batch_size=None`` packs ``32767 // ncols`` rows per statement (smaller values
+    are honoured, larger ones capped).
 
     Programs whose unitid isn't among ``institutions`` or the existing table
     would violate the FK; pass records from the same scope.
@@ -149,7 +161,7 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 async def load_cip_embeddings(
-    session: AsyncSession, path: Path, batch_size: int = 200
+    session: AsyncSession, path: Path, batch_size: int | None = None
 ) -> tuple[int, int]:
     """Upsert cip_code (title, definition, embedding) from a cip_embeddings.jsonl.
 
@@ -251,7 +263,9 @@ def main(argv: list[str] | None = None) -> int:
     src = ap.add_mutually_exclusive_group(required=True)
     src.add_argument("--raw", type=Path, help="dir with the Scorecard CSVs (full load)")
     src.add_argument("--fixture", action="store_true", help="load data/fixtures/*.jsonl")
-    ap.add_argument("--batch-size", type=int, default=DEFAULT_BATCH)
+    ap.add_argument(
+        "--batch-size", type=int, default=None, help="rows per INSERT (default: 32767 // ncols)"
+    )
     return asyncio.run(_main(ap.parse_args(argv)))
 
 

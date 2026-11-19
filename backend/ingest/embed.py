@@ -9,8 +9,10 @@ Usage::
     python -m ingest.embed                                    # re-embed every cip_code row
     python -m ingest.embed --export data/fixtures/cip_embeddings.jsonl
 
-Export refuses to write vectors from the FakeEmbedder (``EMBEDDER=fake``) so a
-test double can never end up in the committed fixture.
+Export refuses to write vectors from the FakeEmbedder (``EMBEDDER=fake``), refuses
+``--only-missing``, and refuses if any row's vector was not written by the real
+model in the same run, so a test double or stale vector can never end up in the
+committed fixture.
 """
 
 from __future__ import annotations
@@ -41,8 +43,13 @@ async def embed_cip_codes(
     embedder: Embedder | None = None,
     only_missing: bool = False,
     batch_size: int = 128,
+    written: set[str] | None = None,
 ) -> int:
-    """Compute and store embeddings for cip_code rows. Does not commit. Returns rows written."""
+    """Compute and store passage embeddings for cip_code rows. Does not commit.
+
+    Returns rows written; their cip4s are added to ``written`` if given (needed by
+    ``export_fixture`` to prove every exported vector came from this run).
+    """
     emb = embedder or get_embedder()
     q = select(CipCode.cip4, CipCode.title, CipCode.definition).order_by(CipCode.cip4)
     if only_missing:
@@ -62,22 +69,39 @@ async def embed_cip_codes(
             stmt, [{"k": r.cip4, "v": v} for r, v in zip(chunk, vecs, strict=True)]
         )
         n += len(chunk)
+        if written is not None:
+            written.update(r.cip4 for r in chunk)
     return n
 
 
-async def export_fixture(session: AsyncSession, path: Path, model_name: str) -> int:
-    """Write every embedded cip_code row to ``path`` as JSONL (sorted by cip4)."""
+async def export_fixture(
+    session: AsyncSession, path: Path, model_name: str, embedded_this_run: set[str]
+) -> int:
+    """Write every embedded cip_code row to ``path`` as JSONL (sorted by cip4).
+
+    Refuses (ValueError, nothing written) unless ``model_name`` is a real model and
+    EVERY cip_code row has an embedding written in this run by that model, i.e.
+    ``embedded_this_run`` covers all rows. Stale vectors (e.g. FakeEmbedder ones a
+    test fixture left behind, or rows skipped by ``--only-missing``) can't leak.
+    """
     if model_name == FAKE_MODEL:
         raise ValueError("refusing to export FakeEmbedder vectors to a fixture")
     rows = (
         await session.execute(
-            select(CipCode.cip4, CipCode.title, CipCode.definition, CipCode.embedding)
-            .where(CipCode.embedding.is_not(None))
-            .order_by(CipCode.cip4)
+            select(CipCode.cip4, CipCode.title, CipCode.definition, CipCode.embedding).order_by(
+                CipCode.cip4
+            )
         )
     ).all()
+    stale = sorted(r.cip4 for r in rows if r.cip4 not in embedded_this_run or r.embedding is None)
+    if stale:
+        raise ValueError(
+            f"refusing to export: {len(stale)} cip_code rows were not embedded by "
+            f"{model_name} in this run (e.g. {stale[:5]}); re-embed all rows first"
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with tmp.open("w", encoding="utf-8") as f:
         for r in rows:
             rec = {
                 "cip4": r.cip4,
@@ -88,6 +112,7 @@ async def export_fixture(session: AsyncSession, path: Path, model_name: str) -> 
                 "embedding": [round(float(x), ROUND) for x in r.embedding],
             }
             f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+    tmp.replace(path)
     return len(rows)
 
 
@@ -95,9 +120,10 @@ async def _main(args: argparse.Namespace) -> int:
     from app.db.session import dispose_engine, get_sessionmaker
 
     emb = get_embedder()
+    written: set[str] = set()
     try:
         async with get_sessionmaker()() as session, session.begin():
-            n = await embed_cip_codes(session, emb, only_missing=args.only_missing)
+            n = await embed_cip_codes(session, emb, only_missing=args.only_missing, written=written)
             with_def = len(
                 (
                     await session.scalars(
@@ -107,7 +133,7 @@ async def _main(args: argparse.Namespace) -> int:
             )
             exported = None
             if args.export is not None:
-                exported = await export_fixture(session, args.export, emb.model_name)
+                exported = await export_fixture(session, args.export, emb.model_name, written)
     finally:
         await dispose_engine()
     print(f"model:                     {emb.model_name}")
@@ -129,7 +155,10 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help=f"also write a JSONL fixture (default path: {DEFAULT_EXPORT})",
     )
-    return asyncio.run(_main(ap.parse_args(argv)))
+    args = ap.parse_args(argv)
+    if args.export is not None and args.only_missing:
+        ap.error("--export needs every row embedded in this run; drop --only-missing")
+    return asyncio.run(_main(args))
 
 
 if __name__ == "__main__":
