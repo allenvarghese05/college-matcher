@@ -1,0 +1,5 @@
+# Synthetic labels (unitids from data/fixtures) for the ablation runner test.
+synthetic-cs-tx:
+  acceptable_unitids: [228787, 207722, 207500, 159009, 107512, 160755]
+synthetic-nurse-oh:
+  acceptable_unitids: [200785, 206613, 170082, 172699, 214625, 211431]

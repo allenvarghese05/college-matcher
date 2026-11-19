@@ -1,0 +1,13 @@
+# Synthetic persona for the ablation runner test (not part of the real eval set).
+id: synthetic-nurse-oh
+hidden_profile:
+  home_state: OH
+  income_bracket: 30-48k
+  gpa: 3.4
+  interests: [helping people, hospitals, biology]
+  intended_majors: [nursing]
+  budget_cap: 20000
+  regions: [midwest, PA]
+  priorities: [cost]
+style: "chatty"
+reveal: only_when_asked
