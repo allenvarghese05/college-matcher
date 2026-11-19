@@ -35,6 +35,10 @@ export function Quiz() {
           </Link>
           <h1 className="text-title font-medium">How much would you enjoy…</h1>
           <p className="text-ink-muted">There are no right answers. Go with your first feeling.</p>
+          <p className="text-ink-muted">
+            This is a two-question preview. A later version will use your answers to suggest majors; for now they stay
+            on this page and aren't sent anywhere.
+          </p>
         </div>
 
         <form
@@ -76,7 +80,7 @@ export function Quiz() {
             <Button type="submit" size="lg" disabled={!done}>
               Done
             </Button>
-            <MonoLabel>Sample · 2 items</MonoLabel>
+            <MonoLabel>Preview · answers aren't saved yet</MonoLabel>
           </div>
         </form>
       </main>

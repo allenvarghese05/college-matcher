@@ -239,19 +239,19 @@
 
 /* Sheet */
 .sheet-overlay[data-state="open"] {
-  animation: fade-in 300ms var(--ease-out);
+  animation: fade-in 200ms var(--ease-out);
 }
 .sheet-overlay[data-state="closed"] {
   animation: fade-out 200ms ease-in forwards;
 }
 .sheet-content[data-state="open"] {
-  animation: sheet-in 450ms var(--ease-out);
+  animation: sheet-in 240ms var(--ease-out);
 }
 .sheet-content[data-state="closed"] {
   animation: sheet-out 220ms ease-in forwards;
 }
 .sheet-content[data-side="bottom"][data-state="open"] {
-  animation: sheet-up 450ms var(--ease-out);
+  animation: sheet-up 240ms var(--ease-out);
 }
 .sheet-content[data-side="bottom"][data-state="closed"] {
   animation: sheet-down 220ms ease-in forwards;

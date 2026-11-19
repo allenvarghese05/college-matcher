@@ -19,7 +19,7 @@ interface SheetContentProps extends ComponentPropsWithoutRef<typeof Dialog.Conte
 export const SheetContent = forwardRef<HTMLDivElement, SheetContentProps>(
   ({ side = "right", className, children, closeLabel = "Close", ...props }, ref) => (
     <Dialog.Portal>
-      <Dialog.Overlay className="sheet-overlay fixed inset-0 z-40 bg-[var(--overlay)] backdrop-blur-[2px]" />
+      <Dialog.Overlay className="sheet-overlay fixed inset-0 z-40 bg-[var(--overlay)]" />
       <Dialog.Content
         ref={ref}
         data-side={side}

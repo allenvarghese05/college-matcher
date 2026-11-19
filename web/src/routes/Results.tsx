@@ -10,7 +10,7 @@ import { WhySheet } from "@/components/WhySheet";
 import { Button } from "@/components/ui/button";
 import { DATA_RELEASE, USE_MOCKS, getRecommendations } from "@/lib/api";
 import { EARNINGS_CAVEAT } from "@/lib/claims";
-import { useSession } from "@/lib/session";
+import { useEnsureSession, useSession } from "@/lib/session";
 import type { AdmissionBand, RecommendationSet, RecommendationOut } from "@/lib/types";
 
 type Load = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; set: RecommendationSet };
@@ -19,6 +19,9 @@ const WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "E
 
 export function Results() {
   const { sessionId } = useSession();
+  // After a reload, rebuild the conversation context from the stored session id
+  // so "Refine with the counselor" lands back in the same conversation.
+  useEnsureSession({ create: false });
   const id = sessionId ?? (USE_MOCKS ? "mock-session" : null);
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const [open, setOpen] = useState<RecommendationOut | null>(null);
