@@ -15,6 +15,7 @@ protocol); wrap a plain function with ``FunctionEmbedder``.
 
 from __future__ import annotations
 
+import asyncio
 import difflib
 import re
 from collections.abc import Callable, Sequence
@@ -173,7 +174,8 @@ async def by_vector(
 ) -> list[CipScore]:
     if not query:
         return []
-    [vec] = embedder.embed([query])
+    # off the event loop: the model call is CPU-bound (and loads the model if cold)
+    [vec] = await asyncio.to_thread(embedder.embed, [query])
     rows = await session.execute(
         text(
             "SELECT c.cip4, c.title, 1 - (c.embedding <=> CAST(:q AS vector)) AS sim"
