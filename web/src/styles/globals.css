@@ -169,15 +169,16 @@
 }
 
 /* Gentle entrance, staggered by --i */
+/* Gentle entrance: readable within ~300ms. Stagger is capped so long lists don't trail. */
 .rise {
-  animation: rise 700ms var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 70ms);
+  animation: rise 320ms var(--ease-out) both;
+  animation-delay: calc(min(var(--i, 0), 5) * 30ms);
 }
 
 @keyframes rise {
   from {
-    opacity: 0;
-    transform: translate3d(0, 12px, 0);
+    opacity: 0.001;
+    transform: translate3d(0, 6px, 0);
   }
 }
 
@@ -208,8 +209,8 @@
 /* Score bars: transform-only growth to the value in --v (0..1) */
 .bar-grow {
   transform: scaleX(var(--v, 0));
-  animation: bar-grow 900ms var(--ease-out) both;
-  animation-delay: calc(150ms + var(--i, 0) * 60ms);
+  animation: bar-grow 600ms var(--ease-out) both;
+  animation-delay: calc(80ms + var(--i, 0) * 40ms);
 }
 
 @keyframes bar-grow {

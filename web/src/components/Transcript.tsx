@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
-import type { Turn } from "@/lib/types";
+import type { TurnOut } from "@/lib/types";
 import { useReducedMotion } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { MonoLabel } from "@/components/MonoLabel";
 
 interface TranscriptProps {
-  turns: Turn[];
+  turns: TurnOut[];
   /** Counselor reply currently streaming in. */
   streaming?: string | null;
   /** Student words heard so far while listening. */
@@ -32,12 +32,12 @@ export function Transcript({ turns, streaming, interim, className }: TranscriptP
       </ol>
       {interim && (
         <div aria-hidden>
-          <Line role="student" text={interim} pending />
+          <Line role="user" text={interim} pending />
         </div>
       )}
       {streaming !== null && streaming !== undefined && (
         <div aria-hidden>
-          <Line role="counselor" text={streaming} pending />
+          <Line role="assistant" text={streaming} pending />
         </div>
       )}
       <div ref={endRef} />
@@ -45,8 +45,8 @@ export function Transcript({ turns, streaming, interim, className }: TranscriptP
   );
 }
 
-function Line({ role, text, pending = false }: { role: Turn["role"]; text: string; pending?: boolean }) {
-  if (role === "student") {
+function Line({ role, text, pending = false }: { role: TurnOut["role"]; text: string; pending?: boolean }) {
+  if (role === "user") {
     return (
       <div className="ml-auto flex max-w-[85%] flex-col items-end gap-2">
         <MonoLabel>You</MonoLabel>

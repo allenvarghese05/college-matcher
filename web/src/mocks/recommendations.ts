@@ -6,11 +6,12 @@
  */
 import type {
   AdmissionBand,
-  CheckedClaim,
+  BandConfidence,
   ClaimField,
+  RecommendationOut,
   RecommendationSet,
-  RecommendationView,
   ScoreBreakdown,
+  VerifiedClaim,
 } from "@/lib/types";
 
 interface Seed {
@@ -25,7 +26,8 @@ interface Seed {
   schoolEarnings: string;
   completion: string;
   admission: string;
-  sat: string;
+  /** null when the school reports no test ranges (band is then lower confidence). */
+  sat: string | null;
   debt: string | null;
   size: string;
   scores: Omit<ScoreBreakdown, "total">;
@@ -124,7 +126,7 @@ const SEEDS: Seed[] = [
     schoolEarnings: "$47,600",
     completion: "67%",
     admission: "87%",
-    sat: "1040–1250",
+    sat: null,
     debt: "$23,500",
     size: "21,300",
     scores: { major_fit: 0.9, affordability: 0.88, outcomes: 0.58, admission_fit: 0.94, preferences: 0.8 },
@@ -248,16 +250,18 @@ function total(s: Omit<ScoreBreakdown, "total">): number {
   return Math.round(keys.reduce((acc, k) => acc + s[k] * WEIGHTS[k], 0) * 100) / 100;
 }
 
-function toView(seed: Seed, index: number): RecommendationView {
-  const c = (field: ClaimField, value: string, withMajor = false): CheckedClaim => ({
+function toOut(seed: Seed, index: number): RecommendationOut {
+  const [city = "", state = ""] = seed.cityState.split(", ");
+  const c = (field: ClaimField, value: string, withMajor = false, verified = true): VerifiedClaim => ({
     unitid: seed.unitid,
     field,
     cip4: withMajor ? seed.major.cip4 : null,
     value,
-    verified: true,
+    verified,
+    db_value: verified ? value : null,
   });
 
-  const claims: CheckedClaim[] = [
+  const claims: VerifiedClaim[] = [
     c("city_state", seed.cityState),
     c("net_price", seed.netPrice),
     seed.programEarnings
@@ -265,27 +269,39 @@ function toView(seed: Seed, index: number): RecommendationView {
       : c("median_earnings_10yr", seed.schoolEarnings),
     c("completion_rate", seed.completion),
     c("admission_rate", seed.admission),
-    c("sat_range", seed.sat),
     c("undergrad_size", seed.size),
   ];
+  if (seed.sat) claims.push(c("sat_range", seed.sat));
   if (seed.debt) claims.push(c("program_median_debt", seed.debt, true));
+  // One claim the checker rejected, to exercise the "verified only" filter.
+  if (index === 8) claims.push(c("median_debt", "$9,000", false, false));
+
+  const band_confidence: BandConfidence = seed.sat ? "normal" : "low";
 
   return {
-    rank: index + 1,
     unitid: seed.unitid,
+    name: seed.name,
+    city,
+    state,
     cip4: seed.major.cip4,
-    institution: { unitid: seed.unitid, name: seed.name },
-    major: seed.major,
+    cip_title: seed.major.title,
+    rank: index + 1,
     admission_band: seed.band,
+    band_confidence,
+    scores: { ...seed.scores, total: total(seed.scores) },
     reasons: seed.reasons,
     claims,
-    score_breakdown: { ...seed.scores, total: total(seed.scores) },
   };
 }
 
+const recommendations = SEEDS.map(toOut);
+const allClaims = recommendations.flatMap((r) => r.claims);
+
 export const MOCK_RECOMMENDATIONS: RecommendationSet = {
-  id: "mock-set-0001",
+  id: "00000000-0000-4000-8000-000000000001",
   session_id: "mock-session",
-  data_release: "College Scorecard, 2026 release",
-  recommendations: SEEDS.map(toView),
+  retrieval_mode: "hybrid_rerank",
+  recommendations,
+  groundedness: allClaims.filter((c) => c.verified).length / allClaims.length,
+  created_at: "2026-11-20T12:00:00Z",
 };

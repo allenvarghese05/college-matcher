@@ -1,13 +1,13 @@
 import { ArrowUpRight } from "lucide-react";
 import type { CSSProperties } from "react";
-import type { RecommendationView } from "@/lib/types";
-import { claimValue, keyNumbers } from "@/lib/claims";
+import type { RecommendationOut } from "@/lib/types";
+import { keyNumbers, place as placeOf } from "@/lib/claims";
 import { BandChip } from "@/components/BandChip";
 import { MonoLabel } from "@/components/MonoLabel";
 
 interface SchoolCardProps {
-  rec: RecommendationView;
-  onOpen: (rec: RecommendationView) => void;
+  rec: RecommendationOut;
+  onOpen: (rec: RecommendationOut) => void;
   index?: number;
 }
 
@@ -17,7 +17,7 @@ interface SchoolCardProps {
  * markup stays valid and screen readers hear a single control.
  */
 export function SchoolCard({ rec, onOpen, index = 0 }: SchoolCardProps) {
-  const place = claimValue(rec, "city_state");
+  const place = placeOf(rec);
   const numbers = keyNumbers(rec);
 
   return (
@@ -27,7 +27,7 @@ export function SchoolCard({ rec, onOpen, index = 0 }: SchoolCardProps) {
     >
       <div className="flex items-center justify-between gap-4">
         <MonoLabel>{String(rec.rank).padStart(2, "0")}</MonoLabel>
-        <BandChip band={rec.admission_band} />
+        <BandChip band={rec.admission_band} low={rec.band_confidence === "low"} />
       </div>
 
       <div className="flex flex-col gap-1">
@@ -37,12 +37,12 @@ export function SchoolCard({ rec, onOpen, index = 0 }: SchoolCardProps) {
             onClick={() => onOpen(rec)}
             className="text-left after:absolute after:inset-0 after:rounded-lg after:content-[''] focus-visible:outline-none"
           >
-            {rec.institution.name}
+            {rec.name}
             <span className="sr-only">: why this school</span>
           </button>
         </h3>
         <p className="text-ink-muted">
-          {rec.major?.title ?? "Undecided major"}
+          {rec.cip_title ?? "Undecided major"}
           {place && (
             <>
               <span aria-hidden className="px-2 text-ink-faint">

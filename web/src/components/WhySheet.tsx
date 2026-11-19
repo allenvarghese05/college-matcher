@@ -1,7 +1,7 @@
 import { Check } from "lucide-react";
 import type { CSSProperties } from "react";
-import type { RecommendationView, ScoreBreakdown } from "@/lib/types";
-import { CLAIM_LABEL, EARNINGS_CAVEAT, claimValue, visibleClaims } from "@/lib/claims";
+import type { RecommendationOut, ScoreBreakdown } from "@/lib/types";
+import { CLAIM_LABEL, EARNINGS_CAVEAT, place as placeOf, visibleClaims } from "@/lib/claims";
 import { BandChip } from "@/components/BandChip";
 import { MonoLabel } from "@/components/MonoLabel";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -21,8 +21,11 @@ const BAND_NOTE = {
   unknown: "Share a GPA or test score and I can estimate your chances.",
 } as const;
 
+const LOW_NOTE =
+  "A rougher estimate: this school doesn't report test ranges, so it leans on your GPA and the admission rate.";
+
 interface WhySheetProps {
-  rec: RecommendationView | null;
+  rec: RecommendationOut | null;
   dataRelease: string;
   onClose: () => void;
 }
@@ -30,30 +33,31 @@ interface WhySheetProps {
 export function WhySheet({ rec, dataRelease, onClose }: WhySheetProps) {
   return (
     <Sheet open={rec !== null} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent aria-describedby={undefined}>{rec && <Body rec={rec} dataRelease={dataRelease} />}</SheetContent>
+      <SheetContent>{rec && <Body rec={rec} dataRelease={dataRelease} />}</SheetContent>
     </Sheet>
   );
 }
 
-function Body({ rec, dataRelease }: { rec: RecommendationView; dataRelease: string }) {
-  const place = claimValue(rec, "city_state");
+function Body({ rec, dataRelease }: { rec: RecommendationOut; dataRelease: string }) {
+  const place = placeOf(rec);
   const claims = visibleClaims(rec).filter((c) => c.field !== "city_state");
-  const s = rec.score_breakdown;
+  const s = rec.scores;
+  const low = rec.band_confidence === "low";
 
   return (
     <div className="flex h-full flex-col overflow-y-auto overscroll-contain px-6 pb-12 pt-6 md:px-10">
       <header className="flex flex-col gap-4 pr-12">
         <MonoLabel>Why this school</MonoLabel>
         <div className="flex flex-col gap-1">
-          <SheetTitle className="text-title font-medium">{rec.institution.name}</SheetTitle>
+          <SheetTitle className="text-title font-medium">{rec.name}</SheetTitle>
           <SheetDescription className="text-ink-muted">
-            {rec.major?.title ?? "Undecided major"}
+            {rec.cip_title ?? "Undecided major"}
             {place && <> · {place}</>}
           </SheetDescription>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <BandChip band={rec.admission_band} />
-          <span className="text-ink-muted">{BAND_NOTE[rec.admission_band]}</span>
+          <BandChip band={rec.admission_band} low={low} />
+          <span className="text-ink-muted">{low ? LOW_NOTE : BAND_NOTE[rec.admission_band]}</span>
         </div>
       </header>
 
@@ -118,7 +122,7 @@ function Body({ rec, dataRelease }: { rec: RecommendationView; dataRelease: stri
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
                 <span className="font-mono tabular-nums text-ink">{c.value}</span>
-                <span className="mono-label inline-flex items-center gap-1" style={{ color: "var(--band-safety-ink)" }}>
+                <span className="mono-label inline-flex items-center gap-1" style={{ color: "var(--verified)" }}>
                   <Check className="size-3" strokeWidth={2.5} aria-hidden />
                   Verified
                 </span>

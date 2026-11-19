@@ -9,7 +9,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { Transcript } from "@/components/Transcript";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { VOICE_AVAILABLE, createSession, mockNextUtterance, sendTurn } from "@/lib/api";
+import { VOICE_AVAILABLE, createSession, getSession, mockNextUtterance, sendTurn } from "@/lib/api";
 import { filledCount } from "@/lib/profile";
 import { useSession } from "@/lib/session";
 import type { EvidenceSource, ProfileKey, StudentProfile } from "@/lib/types";
@@ -26,7 +26,8 @@ export function Talk() {
   const [params] = useSearchParams();
   const textMode = params.get("mode") === "text" || !VOICE_AVAILABLE;
   const navigate = useNavigate();
-  const { sessionId, setSessionId, turns, setTurns, profile, setProfile } = useSession();
+  const { sessionId, setSessionId, turns, setTurns, profile, setProfile, ready, setReady, missing, setMissing } =
+    useSession();
 
   const [orb, setOrb] = useState<OrbState>("idle");
   const [streaming, setStreaming] = useState<string | null>(null);
@@ -37,6 +38,8 @@ export function Talk() {
 
   const composerRef = useRef<HTMLInputElement>(null);
   const listenTimer = useRef<number | null>(null);
+  const finishTimer = useRef<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const utterance = useRef("");
   const sessionRef = useRef<string | null>(sessionId);
   const profileRef = useRef(profile);
@@ -45,34 +48,50 @@ export function Talk() {
   }, [profile]);
 
   const stopListening = useCallback(() => {
-    if (listenTimer.current !== null) {
-      window.clearInterval(listenTimer.current);
-      listenTimer.current = null;
-    }
+    if (listenTimer.current !== null) window.clearInterval(listenTimer.current);
+    if (finishTimer.current !== null) window.clearTimeout(finishTimer.current);
+    listenTimer.current = null;
+    finishTimer.current = null;
   }, []);
 
-  // Open (or resume) a session.
+  // Open a session (or keep the one already in context) and load its state.
   useEffect(() => {
     if (sessionRef.current) return;
     let cancelled = false;
-    createSession(textMode ? "text" : "voice")
-      .then((s) => {
-        if (cancelled) return;
-        sessionRef.current = s.id;
-        setSessionId(s.id);
-        setTurns([{ idx: 0, role: "counselor", text: GREETING }]);
-      })
-      .catch(() => setError("I can't reach the counselor right now. Check your connection and reload."));
+    (async () => {
+      const s = await createSession(textMode ? "text" : "voice");
+      const state = await getSession(s.id);
+      if (cancelled) return;
+      sessionRef.current = s.id;
+      setSessionId(s.id);
+      setTurns(
+        state.turns.length
+          ? state.turns
+          : [{ idx: 0, role: "assistant", text: GREETING, interrupted: false, at: s.created_at }],
+      );
+      setProfile(state.profile);
+      setReady(state.ready);
+      setMissing(state.missing);
+    })().catch(() => {
+      if (!cancelled) setError("I can't reach the counselor right now. Check your connection and reload.");
+    });
     return () => {
       cancelled = true;
     };
-  }, [textMode, setSessionId, setTurns]);
+  }, [textMode, setSessionId, setTurns, setProfile, setReady, setMissing]);
 
   useEffect(() => {
     if (textMode) composerRef.current?.focus();
   }, [textMode]);
 
-  useEffect(() => stopListening, [stopListening]);
+  // On leaving the page: stop the fake mic and cancel any reply in flight.
+  useEffect(
+    () => () => {
+      stopListening();
+      abortRef.current?.abort();
+    },
+    [stopListening],
+  );
 
   const busy = orb === "thinking" || orb === "speaking";
 
@@ -81,30 +100,54 @@ export function Talk() {
       const id = sessionRef.current;
       if (!id) return;
       setError(null);
-      setTurns((t) => [...t, { idx: t.length, role: "student", text, source }]);
+      const at = new Date().toISOString();
+      setTurns((t) => [...t, { idx: t.length, role: "user", text, interrupted: false, at }]);
       setOrb("thinking");
+      const controller = new AbortController();
+      abortRef.current = controller;
       let reply = "";
+      let finalText: string | null = null;
       try {
-        for await (const ev of sendTurn(id, text, source)) {
-          if (ev.type === "token") {
-            if (!reply) setOrb("speaking");
-            reply += ev.text;
-            setStreaming(reply);
-          } else if (ev.type === "profile") {
-            setJustLearned(changedKeys(profileRef.current, ev.profile));
-            profileRef.current = ev.profile;
-            setProfile(ev.profile);
+        for await (const ev of sendTurn(id, text, source, controller.signal)) {
+          switch (ev.type) {
+            case "token":
+              if (!reply) setOrb("speaking");
+              reply += ev.text;
+              setStreaming(reply);
+              break;
+            case "profile":
+              setJustLearned(changedKeys(profileRef.current, ev.profile));
+              profileRef.current = ev.profile;
+              setProfile(ev.profile);
+              break;
+            case "ready":
+              setReady(ev.ready);
+              setMissing(ev.missing);
+              break;
+            case "done":
+              finalText = ev.assistant_text;
+              break;
+            case "error":
+              setError("The counselor lost its train of thought. Try saying that again.");
+              break;
           }
         }
-        setTurns((t) => [...t, { idx: t.length, role: "counselor", text: reply.trim() }]);
-      } catch {
-        setError("Something interrupted that reply. Try again?");
+        const said = (finalText ?? reply).trim();
+        if (said) {
+          setTurns((t) => [
+            ...t,
+            { idx: t.length, role: "assistant", text: said, interrupted: false, at: new Date().toISOString() },
+          ]);
+        }
+      } catch (e) {
+        if ((e as Error).name !== "AbortError") setError("Something interrupted that reply. Try again?");
       } finally {
+        if (abortRef.current === controller) abortRef.current = null;
         setStreaming(null);
         setOrb("idle");
       }
     },
-    [setTurns, setProfile],
+    [setTurns, setProfile, setReady, setMissing],
   );
 
   const finishListening = useCallback(() => {
@@ -132,14 +175,21 @@ export function Talk() {
       i += 1;
       setInterim(words.slice(0, i).join(" "));
       if (i >= words.length) {
-        stopListening();
-        window.setTimeout(finishListening, 700);
+        if (listenTimer.current !== null) window.clearInterval(listenTimer.current);
+        listenTimer.current = null;
+        finishTimer.current = window.setTimeout(finishListening, 700);
       }
     }, 170);
   };
 
   const panel = (
-    <ProfilePanel profile={profile} justLearned={justLearned} onShowMatches={() => navigate("/results")} />
+    <ProfilePanel
+      profile={profile}
+      ready={ready}
+      missing={missing}
+      justLearned={justLearned}
+      onShowMatches={() => navigate("/results")}
+    />
   );
   const count = filledCount(profile);
 

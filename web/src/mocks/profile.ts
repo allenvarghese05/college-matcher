@@ -2,9 +2,9 @@
  * MOCK DATA. A fictional Ohio student, matching the `maya-oh` persona in
  * docs/SPEC.md §10. Not a real person.
  */
-import type { Evidence, Field, ProfileKey, StudentProfile } from "@/lib/types";
+import type { Evidence, ProfileField, ProfileKey, StudentProfile } from "@/lib/types";
 
-const empty = <T,>(): Field<T> => ({ value: null, confidence: 0, evidence: [] });
+const empty = <T,>(): ProfileField<T> => ({ value: null, confidence: 0, evidence: [] });
 
 export function emptyProfile(): StudentProfile {
   return {
@@ -67,7 +67,7 @@ export const SCRIPT: ScriptStep[] = [
       },
       interests: { value: ["Drawing", "Fixing bikes"], confidence: 0.82, quote: "I draw a lot, and I fix bikes" },
       activities: {
-        value: [{ name: "Bike repair for neighbors", kind: "job", role: null }],
+        value: [{ name: "Bike repair for neighbors", role: null, years: 2, hours_per_week: 4 }],
         confidence: 0.74,
         quote: "I fix bikes for my neighbors",
       },
@@ -134,8 +134,8 @@ export function applyPatch(
   for (const key of Object.keys(patch) as ProfileKey[]) {
     const update = patch[key];
     if (!update) continue;
-    const prev = profile[key] as Field<unknown>;
-    (next as Record<ProfileKey, Field<unknown>>)[key] = {
+    const prev = profile[key] as ProfileField<unknown>;
+    (next as Record<ProfileKey, ProfileField<unknown>>)[key] = {
       value: update.value,
       confidence: update.confidence,
       evidence: [...prev.evidence, { quote: update.quote, turn_idx: turnIdx, source }],

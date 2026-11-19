@@ -1,14 +1,31 @@
-import type { Activity, Field, IncomeBracket, ProfileKey, StudentProfile } from "@/lib/types";
+import type { Activity, IncomeBracket, ProfileField, ProfileKey, Riasec, StudentProfile } from "@/lib/types";
 
-/** Readiness rule from SPEC §8. */
+/** Readiness rule from SPEC §8 (StudentProfile.READY_MIN_CONFIDENCE). */
 export const READY_CONFIDENCE = 0.6;
 
-const known = (f: Field<unknown>) =>
-  f.value !== null && f.confidence >= READY_CONFIDENCE && (!Array.isArray(f.value) || f.value.length > 0);
+export const known = (f: ProfileField<unknown>): boolean =>
+  f.value !== null &&
+  f.value !== "" &&
+  f.confidence >= READY_CONFIDENCE &&
+  (!Array.isArray(f.value) || f.value.length > 0);
 
-export function isReady(p: StudentProfile): boolean {
-  return known(p.home_state) && known(p.income_bracket) && (known(p.interests) || known(p.intended_majors));
+/** Mirrors StudentProfile.missing_for_recommendation() in schemas.py. */
+export function missingForRecommendation(p: StudentProfile): string[] {
+  const missing: string[] = [];
+  if (!known(p.home_state)) missing.push("home_state");
+  if (!known(p.income_bracket)) missing.push("income_bracket");
+  if (!(known(p.interests) || known(p.intended_majors))) missing.push("interests");
+  return missing;
 }
+
+export const isReady = (p: StudentProfile): boolean => missingForRecommendation(p).length === 0;
+
+/** Plain words for the server's `missing` keys. */
+export const MISSING_LABEL: Record<string, string> = {
+  home_state: "home state",
+  income_bracket: "family income",
+  interests: "interests",
+};
 
 /** Fields the side panel shows, in the order the counselor tends to learn them. */
 export const PANEL_FIELDS: { key: ProfileKey; label: string }[] = [
@@ -61,7 +78,7 @@ const STATES: Record<string, string> = {
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export function formatField(key: ProfileKey, f: Field<unknown>): string | null {
+export function formatField(key: ProfileKey, f: ProfileField<unknown>): string | null {
   const v = f.value;
   if (v === null || v === undefined) return null;
   if (Array.isArray(v) && v.length === 0) return null;
@@ -80,8 +97,15 @@ export function formatField(key: ProfileKey, f: Field<unknown>): string | null {
       return (v as Activity[]).map((a) => a.name).join(", ");
     case "priorities":
       return (v as string[]).map(cap).join(", ");
-    case "riasec":
-      return Object.keys(v as object).join("");
+    case "riasec": {
+      const r = v as Riasec;
+      return (Object.keys(r) as (keyof Riasec)[])
+        .sort((a, b) => r[b] - r[a])
+        .slice(0, 3)
+        .join("");
+    }
+    case "work_values":
+      return (v as string[]).map((w) => cap(w.replace(/_/g, " "))).join(", ");
     default:
       if (Array.isArray(v)) return v.join(", ");
       return typeof v === "string" ? cap(v) : String(v);

@@ -1,12 +1,16 @@
 import { createContext, useContext, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { emptyProfile } from "@/mocks/profile";
-import type { StudentProfile, Turn } from "@/lib/types";
+import type { StudentProfile, TurnOut } from "@/lib/types";
 
 interface SessionState {
   sessionId: string | null;
   setSessionId: Dispatch<SetStateAction<string | null>>;
-  turns: Turn[];
-  setTurns: Dispatch<SetStateAction<Turn[]>>;
+  turns: TurnOut[];
+  setTurns: Dispatch<SetStateAction<TurnOut[]>>;
+  ready: boolean;
+  setReady: Dispatch<SetStateAction<boolean>>;
+  missing: string[];
+  setMissing: Dispatch<SetStateAction<string[]>>;
   profile: StudentProfile;
   setProfile: Dispatch<SetStateAction<StudentProfile>>;
 }
@@ -16,12 +20,14 @@ const Ctx = createContext<SessionState | null>(null);
 /** Keeps the conversation alive while the student moves between /talk, /quiz and /results. */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [turns, setTurns] = useState<Turn[]>([]);
+  const [turns, setTurns] = useState<TurnOut[]>([]);
+  const [ready, setReady] = useState(false);
+  const [missing, setMissing] = useState<string[]>(["home_state", "income_bracket", "interests"]);
   const [profile, setProfile] = useState<StudentProfile>(emptyProfile);
 
   const value = useMemo(
-    () => ({ sessionId, setSessionId, turns, setTurns, profile, setProfile }),
-    [sessionId, turns, profile],
+    () => ({ sessionId, setSessionId, turns, setTurns, ready, setReady, missing, setMissing, profile, setProfile }),
+    [sessionId, turns, ready, missing, profile],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

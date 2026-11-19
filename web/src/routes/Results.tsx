@@ -8,10 +8,10 @@ import { SchoolCard } from "@/components/SchoolCard";
 import { SiteHeader } from "@/components/SiteHeader";
 import { WhySheet } from "@/components/WhySheet";
 import { Button } from "@/components/ui/button";
-import { USE_MOCKS, getRecommendations } from "@/lib/api";
+import { DATA_RELEASE, USE_MOCKS, getRecommendations } from "@/lib/api";
 import { EARNINGS_CAVEAT } from "@/lib/claims";
 import { useSession } from "@/lib/session";
-import type { AdmissionBand, RecommendationSet, RecommendationView } from "@/lib/types";
+import type { AdmissionBand, RecommendationSet, RecommendationOut } from "@/lib/types";
 
 type Load = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; set: RecommendationSet };
 
@@ -21,7 +21,7 @@ export function Results() {
   const { sessionId } = useSession();
   const id = sessionId ?? (USE_MOCKS ? "mock-session" : null);
   const [load, setLoad] = useState<Load>({ status: "loading" });
-  const [open, setOpen] = useState<RecommendationView | null>(null);
+  const [open, setOpen] = useState<RecommendationOut | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -50,13 +50,13 @@ export function Results() {
         )}
       </main>
       {load.status === "ready" && (
-        <WhySheet rec={open} dataRelease={load.set.data_release} onClose={() => setOpen(null)} />
+        <WhySheet rec={open} dataRelease={DATA_RELEASE} onClose={() => setOpen(null)} />
       )}
     </div>
   );
 }
 
-function Ready({ set, onOpen }: { set: RecommendationSet; onOpen: (r: RecommendationView) => void }) {
+function Ready({ set, onOpen }: { set: RecommendationSet; onOpen: (r: RecommendationOut) => void }) {
   const recs = set.recommendations;
   const mix = useMemo(() => bandMix(recs), [recs]);
   const n = recs.length;
@@ -134,7 +134,7 @@ function ErrorState({ message }: { message: string }) {
   );
 }
 
-function bandMix(recs: RecommendationView[]): string {
+function bandMix(recs: RecommendationOut[]): string {
   const order: AdmissionBand[] = ["safety", "target", "reach", "unknown"];
   const counts = order
     .map((b) => [b, recs.filter((r) => r.admission_band === b).length] as const)

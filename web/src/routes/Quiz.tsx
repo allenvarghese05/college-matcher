@@ -5,10 +5,10 @@ import { Atmosphere } from "@/components/Atmosphere";
 import { MonoLabel } from "@/components/MonoLabel";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
-import type { RiasecCode } from "@/lib/types";
+import type { Riasec } from "@/lib/types";
 
 /** Stub of the optional RIASEC quiz (SPEC D10). Items are our own wording. */
-const ITEMS: { id: string; code: RiasecCode; text: string }[] = [
+const ITEMS: { id: string; code: keyof Riasec; text: string }[] = [
   { id: "q1", code: "R", text: "Taking something apart to see how it works, then putting it back together." },
   { id: "q2", code: "S", text: "Helping a friend talk through a problem until they feel better about it." },
 ];

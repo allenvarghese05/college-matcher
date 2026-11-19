@@ -9,16 +9,16 @@ const LABEL: Record<AdmissionBand, string> = {
 };
 
 /** Admission band, always labelled "estimated" (SPEC D9, §13). */
-export function BandChip({ band, className }: { band: AdmissionBand; className?: string }) {
+export function BandChip({ band, low = false, className }: { band: AdmissionBand; low?: boolean; className?: string }) {
   return (
     <span
       className={cn("mono-label inline-flex h-6 items-center gap-[0.5em] rounded-full px-2.5", className)}
       style={{ background: `var(--band-${band}-bg)`, color: `var(--band-${band}-ink)` }}
     >
-      <span className="opacity-75">Est.</span>
+      <span className="opacity-75">{low ? "Rough est." : "Est."}</span>
       <span aria-hidden>·</span>
       <span>{LABEL[band]}</span>
-      <span className="sr-only"> (estimated admission chance)</span>
+      <span className="sr-only">{low ? " (estimated admission chance, lower confidence)" : " (estimated admission chance)"}</span>
     </span>
   );
 }

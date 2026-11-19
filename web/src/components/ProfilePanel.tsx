@@ -1,30 +1,29 @@
 import { ArrowRight } from "lucide-react";
 import { useId, useState } from "react";
 import { Link } from "react-router-dom";
-import type { Field, ProfileKey, StudentProfile } from "@/lib/types";
-import { CORE_FIELDS, PANEL_FIELDS, READY_CONFIDENCE, filledCount, formatField, isReady } from "@/lib/profile";
+import type { ProfileField, ProfileKey, StudentProfile } from "@/lib/types";
+import { CORE_FIELDS, MISSING_LABEL, PANEL_FIELDS, READY_CONFIDENCE, filledCount, formatField } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { MonoLabel } from "@/components/MonoLabel";
 
 interface ProfilePanelProps {
   profile: StudentProfile;
+  /** Readiness as reported by the server (`ready` SSE event / SessionState). */
+  ready: boolean;
+  /** Server `missing` keys, e.g. ["home_state", "interests"]. */
+  missing: string[];
   /** Keys learned on the latest turn, for a brief highlight. */
   justLearned?: ReadonlySet<ProfileKey>;
   onShowMatches: () => void;
   className?: string;
 }
 
-export function ProfilePanel({ profile, justLearned, onShowMatches, className }: ProfilePanelProps) {
-  const ready = isReady(profile);
+export function ProfilePanel({ profile, ready, missing, justLearned, onShowMatches, className }: ProfilePanelProps) {
   const count = filledCount(profile);
   const rows = PANEL_FIELDS.filter(({ key }) => formatField(key, profile[key]) !== null || CORE_FIELDS.includes(key));
 
-  const missing = [
-    !known(profile.home_state) && "home state",
-    !known(profile.income_bracket) && "family income",
-    !known(profile.interests) && !known(profile.intended_majors) && "interests",
-  ].filter(Boolean) as string[];
+  const missingWords = missing.map((m) => MISSING_LABEL[m] ?? m.replace(/_/g, " "));
 
   return (
     <section aria-labelledby="profile-heading" className={cn("flex h-full flex-col", className)}>
@@ -41,7 +40,7 @@ export function ProfilePanel({ profile, justLearned, onShowMatches, className }:
             key={key}
             label={label}
             value={formatField(key, profile[key])}
-            field={profile[key] as Field<unknown>}
+            field={profile[key] as ProfileField<unknown>}
             highlight={justLearned?.has(key) ?? false}
           />
         ))}
@@ -53,7 +52,7 @@ export function ProfilePanel({ profile, justLearned, onShowMatches, className }:
           <ArrowRight aria-hidden />
         </Button>
         <p className="text-center text-ink-muted" aria-live="polite">
-          {ready ? "Ready whenever you are." : `Still need your ${listJoin(missing)}.`}
+          {ready ? "Ready whenever you are." : missingWords.length ? `Still need your ${listJoin(missingWords)}.` : "Almost there."}
         </p>
         <Link
           to="/quiz"
@@ -74,7 +73,7 @@ function ProfileRow({
 }: {
   label: string;
   value: string | null;
-  field: Field<unknown>;
+  field: ProfileField<unknown>;
   highlight: boolean;
 }) {
   const [hover, setHover] = useState(false);
@@ -125,10 +124,6 @@ function ProfileRow({
       </div>
     </li>
   );
-}
-
-function known(f: Field<unknown>): boolean {
-  return f.value !== null && f.confidence >= READY_CONFIDENCE;
 }
 
 function listJoin(items: string[]): string {

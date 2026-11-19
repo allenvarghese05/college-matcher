@@ -1,25 +1,31 @@
 /**
- * Typed API client. With USE_MOCKS (the default) everything is served from
- * src/mocks with realistic timing; set VITE_USE_MOCKS=false to talk to the
- * FastAPI backend at VITE_API_BASE (default http://localhost:8000).
- *
- * Endpoint shapes follow docs/SPEC.md §4/§8 and are provisional until the
- * backend's OpenAPI schema lands.
+ * Typed API client for the routes in backend/app/schemas.py (prefix /api).
+ * With USE_MOCKS (the default) everything is served from src/mocks with
+ * realistic timing; set VITE_USE_MOCKS=false to talk to the FastAPI backend
+ * at VITE_API_BASE (default http://localhost:8000).
  */
 import { MOCK_RECOMMENDATIONS } from "@/mocks/recommendations";
-import { FALLBACK_REPLY, SCRIPT, applyPatch, emptyProfile } from "@/mocks/profile";
-import { isReady } from "@/lib/profile";
+import { FALLBACK_REPLY, GREETING, SCRIPT, applyPatch, emptyProfile } from "@/mocks/profile";
+import { missingForRecommendation } from "@/lib/profile";
 import type {
   EvidenceSource,
+  RecommendRequest,
   RecommendationSet,
-  Session,
+  SessionCreate,
   SessionMode,
+  SessionOut,
+  SessionState,
   StudentProfile,
   TurnEvent,
+  TurnIn,
+  TurnOut,
 } from "@/lib/types";
 
 export const USE_MOCKS: boolean = import.meta.env.VITE_USE_MOCKS !== "false";
-export const API_BASE: string = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
+export const API_BASE: string = `${import.meta.env.VITE_API_BASE ?? "http://localhost:8000"}/api`;
+
+/** Data release every claim is checked against (shown in "Sources"). */
+export const DATA_RELEASE = "College Scorecard, 2026 release";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -42,15 +48,21 @@ async function json<T>(path: string, init?: RequestInit): Promise<T> {
 // Public API
 // ---------------------------------------------------------------------------
 
-export async function createSession(mode: SessionMode = "text"): Promise<Session> {
+export async function createSession(mode: SessionMode = "text"): Promise<SessionOut> {
   if (USE_MOCKS) return mock.createSession(mode);
-  return json<Session>("/sessions", { method: "POST", body: JSON.stringify({ mode }) });
+  const body: SessionCreate = { mode };
+  return json<SessionOut>("/sessions", { method: "POST", body: JSON.stringify(body) });
+}
+
+export async function getSession(sessionId: string): Promise<SessionState> {
+  if (USE_MOCKS) return mock.getSession(sessionId);
+  return json<SessionState>(`/sessions/${sessionId}`);
 }
 
 /**
- * Send a student turn and stream the counselor's reply.
- * Yields `token` events as text arrives, a `profile` event when extraction
- * finishes (it runs in parallel with the reply), and finally `done`.
+ * Send a student turn and stream the counselor's reply as TurnEvents.
+ * `source` stays client-side (it only feeds the mock extractor): TurnIn is
+ * strict on the server and rejects any key but `text`.
  */
 export async function* sendTurn(
   sessionId: string,
@@ -62,19 +74,26 @@ export async function* sendTurn(
     yield* mock.sendTurn(sessionId, text, source, signal);
     return;
   }
+  const body: TurnIn = { text };
   const res = await fetch(`${API_BASE}/sessions/${sessionId}/turns`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify({ text, source }),
+    body: JSON.stringify(body),
     signal,
   });
   if (!res.ok || !res.body) throw new ApiError(res.status, await res.text());
   yield* parseSse(res.body);
 }
 
-export async function getRecommendations(sessionId: string): Promise<RecommendationSet> {
+export async function getRecommendations(
+  sessionId: string,
+  request: RecommendRequest = {},
+): Promise<RecommendationSet> {
   if (USE_MOCKS) return mock.getRecommendations(sessionId);
-  return json<RecommendationSet>(`/sessions/${sessionId}/recommendations`);
+  return json<RecommendationSet>(`/sessions/${sessionId}/recommendations`, {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }
 
 /** Voice is mocked in the browser until the WebSocket gateway exists (SPEC §11). */
@@ -86,44 +105,59 @@ export function mockNextUtterance(sessionId: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// SSE parsing (event: <type>\ndata: <json>\n\n)
+// SSE parsing (event: <name>\ndata: <json>\n\n)
 // ---------------------------------------------------------------------------
 
 async function* parseSse(body: ReadableStream<Uint8Array>): AsyncGenerator<TurnEvent> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let sep: number;
-    while ((sep = buffer.indexOf("\n\n")) !== -1) {
-      const raw = buffer.slice(0, sep);
-      buffer = buffer.slice(sep + 2);
-      const event = toTurnEvent(raw);
-      if (event) yield event;
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+      buffer = buffer.replace(/\r\n?/g, "\n");
+      let sep: number;
+      while ((sep = buffer.indexOf("\n\n")) !== -1) {
+        const event = toTurnEvent(buffer.slice(0, sep));
+        buffer = buffer.slice(sep + 2);
+        if (event) yield event;
+      }
+      if (done) {
+        const tail = buffer.trim() ? toTurnEvent(buffer) : null;
+        if (tail) yield tail;
+        return;
+      }
     }
+  } finally {
+    await reader.cancel().catch(() => undefined);
   }
 }
 
 function toTurnEvent(raw: string): TurnEvent | null {
-  let type = "message";
+  let name = "message";
   const data: string[] = [];
   for (const line of raw.split("\n")) {
-    if (line.startsWith("event:")) type = line.slice(6).trim();
-    else if (line.startsWith("data:")) data.push(line.slice(5).trimStart());
+    if (line.startsWith("event:")) name = line.slice(6).trim();
+    else if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
   }
-  const payload: unknown = data.length ? JSON.parse(data.join("\n")) : {};
-  switch (type) {
+  let p: Record<string, unknown>;
+  try {
+    p = data.length ? (JSON.parse(data.join("\n")) as Record<string, unknown>) : {};
+  } catch {
+    return null; // a malformed frame should not kill the stream
+  }
+  switch (name) {
     case "token":
-      return { type, text: (payload as { text: string }).text };
+      return { type: "token", text: String(p.text ?? "") };
     case "profile":
-      return { type, profile: payload as StudentProfile };
-    case "recommendations_available":
-      return { type };
+      return { type: "profile", profile: p.profile as StudentProfile };
+    case "ready":
+      return { type: "ready", ready: Boolean(p.ready), missing: (p.missing as string[] | undefined) ?? [] };
     case "done":
-      return { type, turn_idx: (payload as { turn_idx: number }).turn_idx };
+      return { type: "done", turn_id: String(p.turn_id ?? ""), assistant_text: String(p.assistant_text ?? "") };
+    case "error":
+      return { type: "error", message: String(p.message ?? "") };
     default:
       return null;
   }
@@ -135,54 +169,73 @@ function toTurnEvent(raw: string): TurnEvent | null {
 
 const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) return reject(new DOMException("Aborted", "AbortError"));
     const t = setTimeout(resolve, ms);
-    signal?.addEventListener("abort", () => {
-      clearTimeout(t);
-      reject(new DOMException("Aborted", "AbortError"));
-    });
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(t);
+        reject(new DOMException("Aborted", "AbortError"));
+      },
+      { once: true },
+    );
   });
 
 interface MockSession {
+  session: SessionOut;
   step: number;
-  turnIdx: number;
   profile: StudentProfile;
+  turns: TurnOut[];
 }
 
 const mock = (() => {
   const sessions = new Map<string, MockSession>();
+  const now = () => new Date().toISOString();
 
   const get = (id: string): MockSession => {
     let s = sessions.get(id);
     if (!s) {
-      s = { step: 0, turnIdx: 0, profile: emptyProfile() };
+      s = {
+        session: { id, mode: "text", created_at: now() },
+        step: 0,
+        profile: emptyProfile(),
+        turns: [{ idx: 0, role: "assistant", text: GREETING, interrupted: false, at: now() }],
+      };
       sessions.set(id, s);
     }
     return s;
   };
 
   return {
-    async createSession(mode: SessionMode): Promise<Session> {
+    async createSession(mode: SessionMode): Promise<SessionOut> {
       await sleep(150);
       const id = `mock-${Math.random().toString(36).slice(2, 10)}`;
-      get(id);
-      return { id, mode, created_at: new Date().toISOString() };
+      const s = get(id);
+      s.session.mode = mode;
+      return s.session;
+    },
+
+    async getSession(id: string): Promise<SessionState> {
+      await sleep(80);
+      const s = get(id);
+      const missing = missingForRecommendation(s.profile);
+      return { session: s.session, profile: s.profile, turns: s.turns, ready: missing.length === 0, missing };
     },
 
     nextUtterance(sessionId: string): string {
-      const s = get(sessionId);
-      return SCRIPT[s.step]?.student ?? "Can you show me what you found?";
+      return SCRIPT[get(sessionId).step]?.student ?? "Can you show me what you found?";
     },
 
     async *sendTurn(
       sessionId: string,
-      _text: string,
+      text: string,
       source: EvidenceSource,
       signal?: AbortSignal,
     ): AsyncGenerator<TurnEvent> {
       const s = get(sessionId);
       const step = SCRIPT[s.step];
-      const studentIdx = s.turnIdx + 1;
-      s.turnIdx += 2;
+      const studentIdx = s.turns.length;
+      s.turns.push({ idx: studentIdx, role: "user", text, interrupted: false, at: now() });
       s.step += 1;
 
       await sleep(650, signal); // time to first token
@@ -192,19 +245,21 @@ const mock = (() => {
       const half = Math.floor(words.length / 2);
       for (let i = 0; i < words.length; i++) {
         if (i === half && step) {
-          // Extraction finishes mid-reply, as it does on the real backend.
+          // Extraction finishes mid-reply, as on the real backend.
           s.profile = applyPatch(s.profile, step.patch, studentIdx, source);
           yield { type: "profile", profile: s.profile };
+          const missing = missingForRecommendation(s.profile);
+          yield { type: "ready", ready: missing.length === 0, missing };
         }
         yield { type: "token", text: words[i] ?? "" };
         await sleep(38 + Math.random() * 40, signal);
       }
-      if (isReady(s.profile)) yield { type: "recommendations_available" };
-      yield { type: "done", turn_idx: s.turnIdx };
+      s.turns.push({ idx: s.turns.length, role: "assistant", text: reply, interrupted: false, at: now() });
+      yield { type: "done", turn_id: `mock-turn-${s.turns.length}`, assistant_text: reply };
     },
 
     async getRecommendations(sessionId: string): Promise<RecommendationSet> {
-      await sleep(900);
+      await sleep(400);
       return { ...MOCK_RECOMMENDATIONS, session_id: sessionId };
     },
   };
