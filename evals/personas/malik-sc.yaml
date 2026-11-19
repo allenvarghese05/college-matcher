@@ -15,7 +15,7 @@ hidden_profile:
     - {name: football, role: safety, years: 3}
   work_values: [support, achievement]
   max_distance_miles: 500
-  regions: [Southeast]
+  regions: [south_atlantic, east_south_central]
   size_pref: any
   setting_pref: any
   priorities: [cost, outcomes]

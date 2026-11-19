@@ -16,7 +16,7 @@ hidden_profile:
     - {name: CyberPatriot, role: team captain, years: 3}
     - {name: fixing neighbors' computers, role: side gig, years: 3}
     - {name: gas station, role: cashier, years: 1}
-  work_values: [independence, conditions]
+  work_values: [independence, working_conditions]
   regions: []
   size_pref: any
   setting_pref: any

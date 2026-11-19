@@ -18,7 +18,7 @@ hidden_profile:
     - {name: fast food, role: crew member, years: 1}
   work_values: [relationships, support]
   max_distance_miles: 200
-  regions: [Mid-Atlantic]
+  regions: [MD, DC, DE, VA, PA, NJ]
   size_pref: any
   setting_pref: any
   priorities: [cost, fit]

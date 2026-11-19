@@ -15,9 +15,9 @@ hidden_profile:
   activities:
     - {name: diner, role: line cook, years: 2}
     - {name: county fair baking, role: competitor, years: 3}
-  work_values: [independence, conditions]
+  work_values: [independence, working_conditions]
   max_distance_miles: 350
-  regions: [Midwest]
+  regions: [midwest]
   size_pref: medium
   setting_pref: town
   priorities: [cost, outcomes]

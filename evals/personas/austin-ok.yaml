@@ -18,7 +18,7 @@ hidden_profile:
     - {name: family farm, role: hand, years: 6}
   work_values: [achievement, support]
   max_distance_miles: 400
-  regions: [Great Plains, Texas]
+  regions: [west_north_central, OK, TX]
   size_pref: large
   setting_pref: town
   priorities: [cost, outcomes]

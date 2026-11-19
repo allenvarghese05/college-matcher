@@ -17,7 +17,7 @@ hidden_profile:
     - {name: after-school program, role: art helper for little kids, years: 2}
   work_values: [independence, recognition]
   max_distance_miles: 250
-  regions: [Northeast]
+  regions: [northeast]
   size_pref: any
   setting_pref: city
   priorities: [cost, fit]

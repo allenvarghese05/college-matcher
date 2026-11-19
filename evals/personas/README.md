@@ -29,11 +29,29 @@ meta:                       # eval bookkeeping; NOT given to the simulator
   voice_subset: true
 ```
 
-What the profile fields hold:
+**The simulator receives only `summary`, `hidden_profile`, `style`, `reveal` and `quirks`. `meta` must be stripped before the persona is handed to the simulator.** It holds eval labels (edge cases, articulateness), and giving them to the simulator could make it overact.
 
-- A field that is **missing** from `hidden_profile` means the student doesn't have that information or won't share it, for example no GPA (homeschooled, or doesn't know it), no test score, or no budget number. The counselor should *not* extract a value for it. If the extracted profile contains a value for a missing key, that counts as a false positive.
+### Three states for a profile field
+
+| In `hidden_profile` | Meaning | Extraction scoring |
+|---|---|---|
+| **Key absent** | The student has no value or won't share it (homeschooled with no GPA, never tested, no budget number). | The correct extraction is null. Any extracted value is a **false positive**. |
+| **Empty list `[]`** | Known to be empty, e.g. `intended_majors: []` (no major in mind) or `regions: []` (no regional preference). | Nothing to recall. An empty or null extraction is correct and is **never a false positive**, and it doesn't count toward recall. A non-empty extraction counts as false positives. |
+| **Value** | Ground truth. | Exact match for enums and numbers (GPA ±0.05, SAT ±10). Set overlap for lists. |
+
+SPEC §6 ("missing vs none") stores both "absent" and "never asked" as null in the live profile. Telling them apart for the questions-asked metric is a tier-2 follow-up.
+
+### Other field notes
+
 - `riasec` is the student's true interest profile, used for the RIASEC retrieval path (tier 2) and for diversity tracking. The student never says these numbers. They come out only through what the student says about interests, or through the optional quiz.
-- `activities` items are `{name, role, years}` (SPEC §6 names `Activity` but doesn't define it; see the ambiguities below).
+- `activities` items follow `app.schemas.Activity`: `{name, role, years, hours_per_week}`, all optional except `name`.
+- `regions` uses the SPEC §6 vocabulary:
+  - Census regions: `northeast`, `midwest`, `south`, `west`
+  - Census divisions: `new_england`, `mid_atlantic`, `east_north_central`, `west_north_central`, `south_atlantic`, `east_south_central`, `west_south_central`, `mountain`, `pacific`
+  - two-letter state codes
+  - `out_of_state`
+
+  How the personas read a list: a school qualifies if its state is in **any** listed region, division or state (union). `out_of_state` also **excludes the home state**. On its own it means "anywhere but home". Every `leave_home_far` persona includes it, and the validator enforces that.
 - When a persona changes their mind (`jose-nm` on distance, `harper-ut` on budget), the hidden profile holds the **final** answer, and the quirk describes the earlier one.
 
 ## The reveal rule
@@ -118,20 +136,40 @@ Run `validate.py --table` to regenerate this table, and check it against the fil
   - ROTC: diego (Army), malik (Navy), austin (Air Force)
   - small rural college: hannah
 
+**Low-n warning:** `small_rural_college` (hannah), `undecided` (megan) and `unrealistic_budget` (bella) each have **n = 1**. Read results for these as anecdotes, not rates, and don't report a per-edge-case metric for them.
+
 ## Validating
 
+From the repo root:
+
 ```bash
-uv run --python 3.12 --no-project --with pyyaml python -I evals/personas/validate.py [--table]
+UV_CACHE_DIR="$TMPDIR/uv-cache" uv run --directory backend python ../evals/personas/validate.py [--table]
 ```
 
-It checks required keys, enum values, that every `hidden_profile` key is a SPEC §6 field (the list is hard-coded), ZIP-in-state, RIASEC ranges with a unique dominant type, unique ids, and the diversity requirements above. It exits non-zero on any failure.
+Field names, enum values (`IncomeBracket`, `WorkValue`, `SizePref`, `SettingPref`, `Priority`) and `Activity` keys are **imported from `backend/app/schemas.py`**. Every `hidden_profile` value is validated with a pydantic `TypeAdapter` against its `StudentProfile` field type, so the personas can't drift from the contract.
 
-## SPEC §6 ambiguities (assumptions made here)
+On top of that, the validator checks:
+- required keys and ranges (GPA 0–4, SAT, ACT);
+- ZIP is in the home state;
+- the regions vocabulary;
+- `out_of_state` is present for every `leave_home_far` persona;
+- RIASEC has a unique dominant type;
+- ids are unique;
+- the diversity requirements above.
 
-1. **`Activity` is not defined.** The personas use `{name, role, years}`. If `schemas.py` defines it differently, update the personas and `ACTIVITY_KEYS` in `validate.py`.
-2. **`regions` has no vocabulary.** The personas use informal labels such as `Midwest`, `Mountain West`, `Pacific Northwest`, `West Coast` and `Southeast`, plus single states such as `Texas` and `California`. Someone needs to choose a canonical list, region → states, so that both the retriever and the extraction scorer can use it.
-3. **There is no "far from home" field.** Students who want to leave (`ethan-vt`, `kenji-hi`, `riley-nh`) are encoded as out-of-state `regions` with no `max_distance_miles`. A `min_distance_miles`, or an `exclude_home_state` flag, would represent them more faithfully.
-4. **`work_values` vocabulary** is taken from the SPEC comment (the O\*NET six: achievement, independence, recognition, relationships, support, conditions), and the validator enforces it.
-5. **Matching `intended_majors`** is free text such as "construction management" or "professional pilot", so extraction scoring needs fuzzy or CIP-mapped comparison rather than exact match.
-6. **"Unknown" vs "won't say".** SPEC has no way to record "the student explicitly has no GPA". An absent key covers both "never asked" and "doesn't have one", so the questions-asked metric can't separate them.
-7. **ROTC, team sports, studios.** Several quirks ask about features that aren't in Scorecard (ROTC detachments, varsity teams, studios). The counselor should say it doesn't have that data. These quirks are there to test honesty, not retrieval.
+It exits non-zero on any failure.
+
+## SPEC §6 notes
+
+Resolved since the first draft:
+- `Activity` is defined in `schemas.py`.
+- `work_values` uses `working_conditions`.
+- `regions` has a fixed vocabulary.
+- "Far from home" is expressed as `out_of_state`.
+
+Still open:
+
+1. **How `regions` entries combine.** SPEC defines the vocabulary but not how a list like `[out_of_state, CA, OR, WA]` combines. The personas assume union, with `out_of_state` also excluding the home state (see above). The retriever (`app/retrieval/geo.py`, not written yet) and the extraction scorer should use the same rule. The region → state table is copied in `validate.py` and frozen in `evals/labels/criteria.md`, because `geo.py` doesn't exist yet.
+2. **Colloquial regions.** Students say "Mid-Atlantic" or "the Southeast", which don't match Census divisions (Census `mid_atlantic` leaves out MD/DE/DC). The personas use explicit state lists in those cases (`jamal-md`, `claire-ma`). The extractor will face the same mapping choice.
+3. **Matching `intended_majors`** is free text such as "construction management" or "professional pilot", so extraction scoring needs fuzzy or CIP-mapped comparison rather than exact match.
+4. **ROTC, team sports, studios.** Several quirks ask about features that aren't in Scorecard (ROTC detachments, varsity teams, studios, CPA pass rates). The counselor should say it doesn't have that data. These quirks are there to test honesty, not retrieval.

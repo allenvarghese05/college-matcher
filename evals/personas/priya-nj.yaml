@@ -17,7 +17,7 @@ hidden_profile:
     - {name: hackathon club, role: president, years: 2}
     - {name: Kumon, role: tutor, years: 2}
   work_values: [achievement, recognition]
-  regions: [Northeast, West Coast]
+  regions: [northeast, CA, OR, WA]
   size_pref: any
   setting_pref: any
   priorities: [prestige, outcomes]

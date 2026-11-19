@@ -16,9 +16,9 @@ hidden_profile:
     - {name: FFA, role: member, years: 3}
     - {name: family repair shop, role: helper, years: 4}
     - {name: football, role: lineman, years: 2}
-  work_values: [independence, conditions]
+  work_values: [independence, working_conditions]
   max_distance_miles: 450
-  regions: [Mountain West]
+  regions: [mountain]
   size_pref: any
   setting_pref: town
   priorities: [cost, location]

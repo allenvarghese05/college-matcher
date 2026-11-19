@@ -16,8 +16,8 @@ hidden_profile:
   activities:
     - {name: FRC robotics, role: electrical lead, years: 3}
     - {name: family restaurant, role: cashier, years: 4}
-  work_values: [achievement, conditions]
-  regions: [California]
+  work_values: [achievement, working_conditions]
+  regions: [CA]
   size_pref: large
   setting_pref: any
   priorities: [outcomes, cost]

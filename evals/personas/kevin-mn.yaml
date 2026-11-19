@@ -17,9 +17,9 @@ hidden_profile:
     - {name: hockey, role: defenseman, years: 4}
     - {name: grocery store, role: cashier, years: 2}
     - {name: math league, role: member, years: 2}
-  work_values: [conditions, achievement]
+  work_values: [working_conditions, achievement]
   max_distance_miles: 300
-  regions: [Midwest]
+  regions: [midwest]
   size_pref: medium
   setting_pref: any
   priorities: [outcomes, cost]

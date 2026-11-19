@@ -1,11 +1,15 @@
 """Validate simulated-student persona files and print diversity stats.
 
+Field names, enum values and value types come from the backend contract
+(backend/app/schemas.py) so the personas can't drift from it. Each
+hidden_profile value is validated with a pydantic TypeAdapter against the
+StudentProfile field's value type.
+
 Usage (from repo root):
-    uv run --python 3.12 --no-project --with pyyaml python -I evals/personas/validate.py
+    UV_CACHE_DIR="$TMPDIR/uv-cache" uv run --directory backend python ../evals/personas/validate.py
     ... validate.py --table      # also print the README table rows
 
 Exit code 0 when every file is valid AND every diversity requirement holds.
-Only stdlib + PyYAML.
 """
 
 from __future__ import annotations
@@ -14,35 +18,54 @@ import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
+from typing import get_args
 
 import yaml
+from pydantic import TypeAdapter, ValidationError
 
 HERE = Path(__file__).resolve().parent
+BACKEND = HERE.parents[1] / "backend"
+sys.path.insert(0, str(BACKEND))
 
-# --- SPEC §6 StudentProfile field names (hard-coded on purpose) -------------
-PROFILE_FIELDS = {
-    "home_state", "home_zip",
-    "gpa", "sat", "act",
-    "income_bracket", "budget_cap",
-    "interests", "dream_without_money", "intended_majors", "riasec",
-    "strengths", "favorite_subjects", "activities", "work_values",
-    "max_distance_miles", "regions", "size_pref", "setting_pref", "priorities",
-}
-# Fields every persona must carry (others are omitted when the student
-# genuinely has / would not share them).
+from app.schemas import (  # noqa: E402
+    Activity,
+    IncomeBracket,
+    Priority,
+    SettingPref,
+    SizePref,
+    StudentProfile,
+    WorkValue,
+)
+
+# --- from the contract -------------------------------------------------------
+PROFILE_FIELDS = set(StudentProfile.model_fields)
+INCOME = list(get_args(IncomeBracket))
+SIZE = set(get_args(SizePref))
+SETTING = set(get_args(SettingPref))
+PRIORITIES = set(get_args(Priority))
+WORK_VALUES = set(get_args(WorkValue))
+ACTIVITY_KEYS = set(Activity.model_fields)
+
+
+def _value_adapter(field: str) -> TypeAdapter:
+    """TypeAdapter for the `value` type inside ProfileField[T] (i.e. T | None)."""
+    pf = StudentProfile.model_fields[field].annotation
+    return TypeAdapter(pf.model_fields["value"].annotation)
+
+
+ADAPTERS = {f: _value_adapter(f) for f in PROFILE_FIELDS}
+
+# --- persona policy (not in the contract) ------------------------------------
+# Fields every persona must carry. Others are omitted when the student
+# genuinely has / won't share them (key absent = unknown, SPEC §6).
 REQUIRED_PROFILE = {
     "home_state", "home_zip", "income_bracket",
     "interests", "dream_without_money", "intended_majors", "riasec",
     "strengths", "favorite_subjects", "activities", "work_values",
     "size_pref", "setting_pref", "priorities",
 }
+assert REQUIRED_PROFILE <= PROFILE_FIELDS, REQUIRED_PROFILE - PROFILE_FIELDS
 
-INCOME = ["0-30k", "30-48k", "48-75k", "75-110k", "110k+"]
-SIZE = {"small", "medium", "large", "any"}
-SETTING = {"city", "suburb", "town", "rural", "any"}
-PRIORITIES = {"cost", "outcomes", "prestige", "location", "fit"}
-WORK_VALUES = {"achievement", "independence", "recognition",
-               "relationships", "support", "conditions"}
 RIASEC = ["R", "I", "A", "S", "E", "C"]
 REVEAL = {"only_when_asked"}
 ARTICULATENESS = {"terse", "casual", "rambling", "anxious", "confident"}
@@ -52,19 +75,34 @@ EDGE_CASES = {
     "contradicts_self", "unrealistic_budget", "nursing_health", "cs",
     "military_rotc", "small_rural_college",
 }
-
 TOP_REQUIRED = {"id", "summary", "hidden_profile", "style", "reveal", "meta"}
 TOP_OPTIONAL = {"quirks"}
 META_KEYS = {"articulateness", "edge_cases", "voice_subset"}
-ACTIVITY_KEYS = {"name", "role", "years"}
 
-STATES = {
-    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI",
-    "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN",
-    "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH",
-    "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA",
-    "WV", "WI", "WY",
+# --- regions vocabulary (SPEC §6, decided Nov 19) ----------------------------
+# Census divisions -> states. Same table is frozen in evals/labels/criteria.md.
+DIVISIONS = {
+    "new_england": {"CT", "ME", "MA", "NH", "RI", "VT"},
+    "mid_atlantic": {"NJ", "NY", "PA"},
+    "east_north_central": {"IL", "IN", "MI", "OH", "WI"},
+    "west_north_central": {"IA", "KS", "MN", "MO", "NE", "ND", "SD"},
+    "south_atlantic": {"DE", "DC", "FL", "GA", "MD", "NC", "SC", "VA", "WV"},
+    "east_south_central": {"AL", "KY", "MS", "TN"},
+    "west_south_central": {"AR", "LA", "OK", "TX"},
+    "mountain": {"AZ", "CO", "ID", "MT", "NV", "NM", "UT", "WY"},
+    "pacific": {"AK", "CA", "HI", "OR", "WA"},
 }
+CENSUS_REGIONS = {
+    "northeast": DIVISIONS["new_england"] | DIVISIONS["mid_atlantic"],
+    "midwest": DIVISIONS["east_north_central"] | DIVISIONS["west_north_central"],
+    "south": DIVISIONS["south_atlantic"] | DIVISIONS["east_south_central"]
+             | DIVISIONS["west_south_central"],
+    "west": DIVISIONS["mountain"] | DIVISIONS["pacific"],
+}
+STATES = set().union(*DIVISIONS.values())
+assert len(STATES) == 51
+REGION_VOCAB = set(DIVISIONS) | set(CENSUS_REGIONS) | STATES | {"out_of_state"}
+
 # Mostly-rural states (lowest urban share per Census); used for the stats only.
 RURAL_STATES = {"VT", "ME", "WV", "MS", "MT", "AR", "SD", "KY", "AL", "ND",
                 "NH", "WY", "IA", "NE", "KS", "ID", "NM", "OK"}
@@ -90,6 +128,7 @@ ZIP3 = {
     "WA": [(980, 994)], "WV": [(247, 268)], "WI": [(530, 549)],
     "WY": [(820, 831)],
 }
+assert set(ZIP3) == STATES
 
 FILENAME_RE = re.compile(r"^[a-z]+-[a-z]{2}$")
 
@@ -152,10 +191,22 @@ def validate(path: Path, data) -> list[str]:
 
     hkeys = set(hp)
     for k in hkeys - PROFILE_FIELDS:
-        e(f"hidden_profile.{k} is not a SPEC §6 StudentProfile field")
+        e(f"hidden_profile.{k} is not a StudentProfile field (app/schemas.py)")
     for k in REQUIRED_PROFILE - hkeys:
         e(f"hidden_profile missing '{k}'")
 
+    # Type check every value against the contract.
+    for k in hkeys & PROFILE_FIELDS:
+        if hp[k] is None:
+            e(f"{k}: null value; omit the key instead (absent = unknown)")
+            continue
+        try:
+            ADAPTERS[k].validate_python(hp[k], strict=k not in ("gpa", "activities"))
+        except ValidationError as ex:
+            first = ex.errors()[0]
+            e(f"{k}: does not match schemas.py type: {first['msg']} at {first['loc']}")
+
+    # Extra domain checks the type system doesn't express.
     st = hp.get("home_state")
     if st not in STATES:
         e(f"home_state '{st}' is not a US state/DC code")
@@ -169,68 +220,51 @@ def validate(path: Path, data) -> list[str]:
         if not any(lo <= z3 <= hi for lo, hi in ZIP3[st]):
             e(f"home_zip {z} is not in {st}")
 
-    if "gpa" in hp:
-        g = hp["gpa"]
-        if not (isinstance(g, (int, float)) and not isinstance(g, bool) and 0 <= g <= 4.0):
-            e(f"gpa {g!r} must be a number in 0..4 (unweighted)")
-    if "sat" in hp:
-        s = hp["sat"]
-        if not (isinstance(s, int) and 400 <= s <= 1600 and s % 10 == 0):
-            e(f"sat {s!r} must be an int 400..1600, multiple of 10")
-    if "act" in hp:
-        a = hp["act"]
-        if not (isinstance(a, int) and 1 <= a <= 36):
-            e(f"act {a!r} must be an int 1..36")
-
-    if hp.get("income_bracket") not in INCOME:
-        e(f"income_bracket {hp.get('income_bracket')!r} not in {INCOME}")
+    g = hp.get("gpa")
+    if g is not None and not (isinstance(g, (int, float)) and 0 <= g <= 4.0):
+        e(f"gpa {g!r} must be in 0..4 (unweighted)")
+    s = hp.get("sat")
+    if s is not None and not (isinstance(s, int) and 400 <= s <= 1600 and s % 10 == 0):
+        e(f"sat {s!r} must be 400..1600, multiple of 10")
+    a = hp.get("act")
+    if a is not None and not (isinstance(a, int) and 1 <= a <= 36):
+        e(f"act {a!r} must be 1..36")
     for k in ("budget_cap", "max_distance_miles"):
-        if k in hp and not (isinstance(hp[k], int) and not isinstance(hp[k], bool) and hp[k] >= 0):
-            e(f"{k} must be a non-negative int")
+        if k in hp and isinstance(hp[k], int) and hp[k] < 0:
+            e(f"{k} must be non-negative")
 
-    for k in ("interests", "intended_majors", "strengths", "favorite_subjects",
-              "regions"):
-        if k in hp and not (isinstance(hp[k], list) and _is_str_list(hp[k])):
-            e(f"{k} must be a list of non-empty strings")
-    if "interests" in hp and not hp["interests"]:
+    for k in ("interests", "intended_majors", "strengths", "favorite_subjects", "regions"):
+        if k in hp and isinstance(hp[k], list) and not _is_str_list(hp[k]):
+            e(f"{k} items must be non-empty strings")
+    if hp.get("interests") == []:
         e("interests must not be empty")
-    if "dream_without_money" in hp and not (
-            isinstance(hp["dream_without_money"], str) and hp["dream_without_money"].strip()):
-        e("dream_without_money must be a non-empty string")
+    if isinstance(hp.get("dream_without_money"), str) and not hp["dream_without_money"].strip():
+        e("dream_without_money must be non-empty")
 
-    wv = hp.get("work_values", [])
-    if not isinstance(wv, list) or any(x not in WORK_VALUES for x in wv):
-        e(f"work_values {wv!r} must be a subset of {sorted(WORK_VALUES)}")
+    regions = hp.get("regions", [])
+    if isinstance(regions, list):
+        for r in regions:
+            if r not in REGION_VOCAB:
+                e(f"regions: '{r}' not in SPEC §6 vocabulary")
+        if len(set(regions)) != len(regions):
+            e("regions has duplicates")
     pr = hp.get("priorities", [])
-    if not isinstance(pr, list) or any(x not in PRIORITIES for x in pr):
-        e(f"priorities {pr!r} must be a subset of {sorted(PRIORITIES)}")
-    elif len(set(pr)) != len(pr):
+    if isinstance(pr, list) and len(set(pr)) != len(pr):
         e("priorities has duplicates")
-    if hp.get("size_pref") not in SIZE:
-        e(f"size_pref {hp.get('size_pref')!r} not in {sorted(SIZE)}")
-    if hp.get("setting_pref") not in SETTING:
-        e(f"setting_pref {hp.get('setting_pref')!r} not in {sorted(SETTING)}")
+    edge = meta.get("edge_cases") or []
+    if "leave_home_far" in edge and "out_of_state" not in (regions or []):
+        e("leave_home_far persona must include out_of_state in regions")
 
     acts = hp.get("activities", [])
-    if not isinstance(acts, list):
-        e("activities must be a list")
-    else:
-        for i, a in enumerate(acts):
-            if not isinstance(a, dict) or "name" not in a:
-                e(f"activities[{i}] must be a mapping with 'name'")
-                continue
-            for k in set(a) - ACTIVITY_KEYS:
-                e(f"activities[{i}] unknown key '{k}'")
-            if "years" in a and not (isinstance(a["years"], int) and 0 < a["years"] <= 6):
-                e(f"activities[{i}].years must be an int 1..6")
+    if isinstance(acts, list):
+        for i, act in enumerate(acts):
+            if isinstance(act, dict):
+                y = act.get("years")
+                if y is not None and not (isinstance(y, (int, float)) and 0 < y <= 6):
+                    e(f"activities[{i}].years must be in (0, 6]")
 
     r = hp.get("riasec")
-    if not isinstance(r, dict) or set(r) != set(RIASEC):
-        e(f"riasec must have exactly keys {RIASEC}")
-    else:
-        for k, v in r.items():
-            if not (isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 1):
-                e(f"riasec.{k}={v!r} must be in 0..1")
+    if isinstance(r, dict) and set(r) == set(RIASEC):
         vals = sorted(r.values(), reverse=True)
         if vals[0] == vals[1]:
             e("riasec has a tie for dominant type (make the top score unique)")

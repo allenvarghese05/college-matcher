@@ -17,9 +17,9 @@ hidden_profile:
     - {name: math club, role: treasurer, years: 3}
     - {name: softball, role: scorekeeper and stats, years: 2}
     - {name: tutoring center, role: math tutor, years: 2}
-  work_values: [conditions, achievement]
+  work_values: [working_conditions, achievement]
   max_distance_miles: 700
-  regions: [Mountain West, West Coast]
+  regions: [mountain, CA, OR, WA]
   size_pref: medium
   setting_pref: any
   priorities: [outcomes, cost]

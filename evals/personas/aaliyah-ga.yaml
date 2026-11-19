@@ -19,7 +19,7 @@ hidden_profile:
     - {name: babysitting siblings, role: caregiver, years: 4}
   work_values: [achievement, support]
   max_distance_miles: 700
-  regions: [Southeast]
+  regions: [south_atlantic, east_south_central]
   size_pref: any
   setting_pref: any
   priorities: [cost, outcomes]

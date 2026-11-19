@@ -14,9 +14,9 @@ hidden_profile:
   activities:
     - {name: game jams, role: programmer, years: 2}
     - {name: grocery store, role: bagger, years: 1}
-  work_values: [independence, conditions]
+  work_values: [independence, working_conditions]
   max_distance_miles: 400
-  regions: [Pacific Northwest]
+  regions: [WA, OR]
   size_pref: any
   setting_pref: city
   priorities: [cost, outcomes]

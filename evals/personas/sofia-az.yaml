@@ -19,7 +19,7 @@ hidden_profile:
     - {name: family taqueria, role: cashier and translator, years: 5}
   work_values: [achievement, support]
   max_distance_miles: 400
-  regions: [Southwest]
+  regions: [AZ, NM, NV, UT]
   size_pref: large
   setting_pref: city
   priorities: [cost, outcomes]

@@ -18,7 +18,7 @@ hidden_profile:
     - {name: lifeguard, role: lifeguard, years: 2}
   work_values: [support, achievement]
   max_distance_miles: 350
-  regions: [Midwest, Great Plains]
+  regions: [midwest]
   size_pref: medium
   setting_pref: town
   priorities: [cost, outcomes]

@@ -16,7 +16,7 @@ hidden_profile:
     - {name: investment club, role: founder, years: 2}
     - {name: field hockey, role: varsity, years: 3}
   work_values: [achievement, recognition]
-  regions: [Northeast, Mid-Atlantic]
+  regions: [northeast, MD, DE, DC]
   size_pref: any
   setting_pref: any
   priorities: [prestige, outcomes]

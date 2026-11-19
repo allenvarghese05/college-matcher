@@ -18,7 +18,7 @@ hidden_profile:
     - {name: daycare, role: summer aide, years: 2}
   work_values: [support, relationships]
   max_distance_miles: 250
-  regions: [Pennsylvania, Northeast]
+  regions: [northeast]
   size_pref: medium
   setting_pref: suburb
   priorities: [cost, fit]

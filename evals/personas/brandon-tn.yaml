@@ -18,7 +18,7 @@ hidden_profile:
     - {name: lacrosse, role: midfield, years: 2}
   work_values: [achievement, independence]
   max_distance_miles: 500
-  regions: [Southeast]
+  regions: [south_atlantic, east_south_central]
   size_pref: large
   setting_pref: any
   priorities: [outcomes, fit]

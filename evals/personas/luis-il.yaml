@@ -14,7 +14,7 @@ hidden_profile:
   activities:
     - {name: warehouse, role: night shift picker, years: 1}
     - {name: soccer, role: defender, years: 3}
-  work_values: [achievement, conditions]
+  work_values: [achievement, working_conditions]
   max_distance_miles: 100
   regions: []
   size_pref: any

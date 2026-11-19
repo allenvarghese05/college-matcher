@@ -14,7 +14,7 @@ hidden_profile:
     - {name: yearbook, role: editor, years: 2}
     - {name: volleyball, role: libero, years: 3}
     - {name: babysitting, role: sitter, years: 3}
-  work_values: [relationships, conditions]
+  work_values: [relationships, working_conditions]
   max_distance_miles: 250
   regions: []
   size_pref: small

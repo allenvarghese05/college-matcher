@@ -17,7 +17,7 @@ hidden_profile:
     - {name: school news broadcast, role: director, years: 2}
     - {name: surf shop, role: part-time, years: 1}
   work_values: [achievement, recognition]
-  regions: [West Coast, Northeast]
+  regions: [out_of_state, CA, OR, WA, northeast]
   size_pref: any
   setting_pref: city
   priorities: [fit, outcomes]

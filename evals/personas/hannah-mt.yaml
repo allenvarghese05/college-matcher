@@ -16,7 +16,7 @@ hidden_profile:
     - {name: 4-H, role: livestock showing, years: 6}
     - {name: family ranch, role: hand, years: 5}
     - {name: volleyball, role: setter, years: 3}
-  work_values: [independence, conditions]
+  work_values: [independence, working_conditions]
   max_distance_miles: 600
   regions: []
   size_pref: small

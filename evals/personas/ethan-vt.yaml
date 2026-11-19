@@ -16,7 +16,7 @@ hidden_profile:
     - {name: astronomy club, role: founder, years: 2}
     - {name: ski area, role: lift operator, years: 2}
   work_values: [independence, achievement]
-  regions: [West Coast, Pacific Northwest, Mountain West]
+  regions: [out_of_state, CA, OR, WA, mountain]
   size_pref: medium
   setting_pref: any
   priorities: [fit, location]

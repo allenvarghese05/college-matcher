@@ -16,8 +16,8 @@ hidden_profile:
     - {name: cross country, role: runner, years: 3}
     - {name: Scouts, role: Eagle Scout, years: 6}
     - {name: tire shop, role: part-time, years: 1}
-  work_values: [conditions, independence]
-  regions: [Southwest, Mountain West]
+  work_values: [working_conditions, independence]
+  regions: [mountain]
   size_pref: any
   setting_pref: any
   priorities: [cost, fit]

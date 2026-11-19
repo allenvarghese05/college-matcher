@@ -16,7 +16,7 @@ hidden_profile:
     - {name: catering company, role: server, years: 2}
     - {name: theater, role: stage manager, years: 2}
   work_values: [relationships, recognition]
-  regions: [Southeast, Southwest]
+  regions: [out_of_state, south, AZ, NM, NV]
   size_pref: large
   setting_pref: city
   priorities: [location, fit]

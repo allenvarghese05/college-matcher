@@ -17,7 +17,7 @@ hidden_profile:
     - {name: debate, role: captain, years: 3}
     - {name: health fair, role: organizer, years: 1}
   work_values: [achievement, recognition]
-  regions: [Northeast, Southeast]
+  regions: [northeast, south_atlantic, east_south_central]
   size_pref: any
   setting_pref: city
   priorities: [prestige, outcomes]

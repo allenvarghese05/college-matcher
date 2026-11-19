@@ -16,7 +16,7 @@ hidden_profile:
     - {name: summer youth employment program, role: camp counselor, years: 2}
   work_values: [achievement, recognition]
   max_distance_miles: 300
-  regions: [Midwest]
+  regions: [midwest]
   size_pref: large
   setting_pref: any
   priorities: [cost, fit]

@@ -15,9 +15,9 @@ hidden_profile:
     - {name: local library teen board, role: member, years: 2}
     - {name: zine, role: writer and editor, years: 3}
     - {name: coffee shop, role: barista, years: 1}
-  work_values: [independence, conditions]
+  work_values: [independence, working_conditions]
   max_distance_miles: 800
-  regions: [Mountain West, Southwest, West Coast]
+  regions: [mountain, CA, OR, WA]
   size_pref: small
   setting_pref: town
   priorities: [fit, cost]

@@ -15,7 +15,7 @@ hidden_profile:
   activities:
     - {name: dental office, role: front desk, years: 1}
     - {name: HOSA, role: member, years: 2}
-  work_values: [conditions, support]
+  work_values: [working_conditions, support]
   max_distance_miles: 300
   regions: []
   size_pref: any
