@@ -149,6 +149,7 @@ class ProfileSnapshot(Base):
     )
     after_turn: Mapped[int] = mapped_column(Integer)
     profile: Mapped[dict] = mapped_column(JSONB)  # StudentProfile.model_dump()
+    next_topic: Mapped[str | None] = mapped_column(String(32))  # extractor's NextTopic
     created_at: Mapped[datetime] = _now()
 
 
@@ -219,5 +220,8 @@ class TurnMetricRow(Base):
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)
     cache_read_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cache_creation_tokens: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
     cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
     at: Mapped[datetime] = _now()

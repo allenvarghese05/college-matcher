@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import SecretStr
@@ -29,6 +30,8 @@ class Settings(BaseSettings):
 
     # live: call APIs; record: call APIs and save cassettes; replay: read cassettes only.
     LLM_MODE: LLMMode = "replay"
+    # Cassette directory for record/replay; None -> <repo>/evals/recordings.
+    LLM_CASSETTE_DIR: Path | None = None
 
     MODEL_FAST: str = "claude-sonnet-5-5"
     MODEL_STRONG: str = "claude-opus-5-5"

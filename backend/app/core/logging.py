@@ -77,6 +77,7 @@ class Stage:
     input_tokens: int = 0
     output_tokens: int = 0
     cache_read_tokens: int = 0
+    cache_creation_tokens: int = 0
     cost_usd: float | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -87,6 +88,7 @@ class Stage:
         input_tokens: int = 0,
         output_tokens: int = 0,
         cache_read_tokens: int = 0,
+        cache_creation_tokens: int = 0,
         cost: float | None = None,
     ) -> None:
         """Accumulate token usage (a stage may make several calls)."""
@@ -94,9 +96,12 @@ class Stage:
         self.input_tokens += input_tokens
         self.output_tokens += output_tokens
         self.cache_read_tokens += cache_read_tokens
+        self.cache_creation_tokens += cache_creation_tokens
         if cost is None:
             try:
-                cost = cost_usd(model, input_tokens, output_tokens, cache_read_tokens)
+                cost = cost_usd(
+                    model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens
+                )
             except KeyError:
                 cost = None
         if cost is not None:
@@ -153,6 +158,7 @@ class TurnLogger:
                 "input_tokens": st.input_tokens,
                 "output_tokens": st.output_tokens,
                 "cache_read_tokens": st.cache_read_tokens,
+                "cache_creation_tokens": st.cache_creation_tokens,
                 "cost_usd": round(st.cost_usd, 6) if st.cost_usd is not None else None,
                 **st.extra,
             }
