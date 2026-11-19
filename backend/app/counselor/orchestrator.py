@@ -35,7 +35,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
-from app.core.llm import Effort, LLMClient, LLMError, LLMRefusalError
+from app.core.llm import (
+    ACCOUNT_ERROR_MESSAGE,
+    Effort,
+    LLMAccountError,
+    LLMClient,
+    LLMError,
+    LLMRefusalError,
+)
 from app.core.logging import TurnLogger, get_logger
 from app.counselor.context import HistoryTurn, plan_next_topic, profile_json
 from app.counselor.extractor import ExtractionOutcome, Extractor, add_extra_evidence
@@ -76,6 +83,7 @@ log = get_logger(__name__)
 
 HISTORY_WINDOW = 20  # turns of history sent to the reply model
 RETRIEVE_K = 40  # candidates handed to the recommender (SPEC §8)
+REPLY_ERROR_MESSAGE = "The counselor couldn't reply. Please retry."
 REFUSAL_FALLBACK = (
     "I'm not able to help with that one, but I'm happy to keep talking about college, "
     "majors and careers. What's been on your mind about life after high school?"
@@ -378,6 +386,7 @@ class CounselorOrchestrator:
         )
         reply_parts: list[str] = []
         reply_error: str | None = None
+        reply_error_message = REPLY_ERROR_MESSAGE
         stream_stage = None
         finished = False
         try:
@@ -395,6 +404,8 @@ class CounselorOrchestrator:
                         yield TurnEvent("token", {"text": REFUSAL_FALLBACK})
                 except LLMError as exc:
                     reply_error = type(exc).__name__
+                    if isinstance(exc, LLMAccountError):
+                        reply_error_message = ACCOUNT_ERROR_MESSAGE
                     log.error("reply_failed", error=reply_error)
                 st.record_usage(
                     model=self.reply_model,
@@ -454,7 +465,7 @@ class CounselorOrchestrator:
 
         # 5. remaining events
         if reply_error is not None:
-            yield TurnEvent("error", {"message": "The counselor couldn't reply. Please retry."})
+            yield TurnEvent("error", {"message": reply_error_message})
             return
         yield TurnEvent("profile", {"profile": profile.model_dump(mode="json")})
         yield TurnEvent(
