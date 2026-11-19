@@ -484,3 +484,10 @@ async def test_client_disconnect_mid_turn_persists_partial(
         time.sleep(0.05)
     assert [(t.role, t.interrupted) for t in turns] == [("user", False), ("assistant", True)]
     assert turns[1].text.startswith("That's awesome!")
+
+
+async def test_voice_status_endpoint(sm: async_sessionmaker[AsyncSession], tmp_path: Path) -> None:
+    on = _harness(sm, tmp_path, barge_in=True).client.get("/api/voice/status")
+    assert on.json() == {"available": True, "provider": "fake", "barge_in": True}
+    off = _harness(sm, tmp_path, config=False).client.get("/api/voice/status")
+    assert off.json() == {"available": False, "provider": None, "barge_in": False}

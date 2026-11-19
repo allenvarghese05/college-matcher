@@ -194,3 +194,53 @@ export type TurnEvent =
   | { type: "ready"; ready: boolean; missing: string[] }
   | { type: "done"; turn_id: string; assistant_text: string }
   | { type: "error"; message: string };
+
+// ------------------------------------------------------------- voice (WS)
+// WS /api/sessions/{id}/voice — protocol in backend/app/voice/gateway.py.
+
+export type VoiceServerState = "listening" | "thinking" | "speaking";
+
+/** GET /api/voice/status */
+export interface VoiceStatus {
+  available: boolean;
+  provider: string | null;
+  barge_in: boolean;
+}
+
+/** Time-to-first-audio breakdown for one voice turn (ms; null = not measured). */
+export interface VoiceTurnMetrics {
+  turn: number;
+  turn_id: string | null;
+  stt_final_ms: number | null;
+  llm_ttft_ms: number | null;
+  first_sentence_ms: number | null;
+  tts_first_chunk_ms: number | null;
+  playback_ms: number | null;
+  ttfa_total_ms: number | null;
+  interrupted: boolean;
+  audio: boolean;
+}
+
+/** JSON frames the server sends (binary frames are PCM16 audio for the last audio_start). */
+export type VoiceServerEvent =
+  | { type: "hello"; barge_in: boolean; input_sample_rate: number; output_sample_rate: number; provider: string }
+  | { type: "state"; state: VoiceServerState }
+  | { type: "transcript_interim"; text: string }
+  | { type: "transcript_final"; text: string; turn: number }
+  | { type: "assistant_text"; delta: string; turn: number }
+  | { type: "profile"; profile: StudentProfile }
+  | { type: "ready"; ready: boolean; missing: string[] }
+  | { type: "audio_start"; turn: number; sentence: number; text: string; sample_rate: number }
+  | { type: "audio_end"; turn: number; sentence: number }
+  | { type: "done"; turn: number; turn_id: string | null; assistant_text: string; audio: boolean }
+  | { type: "interrupted"; turn: number; turn_id: string | null; played_through: number; assistant_text: string }
+  | ({ type: "metrics" } & VoiceTurnMetrics)
+  | { type: "error"; code: string; message: string; fatal: boolean };
+
+/** JSON frames the client sends (mic audio goes as binary PCM16 16 kHz mono). */
+export type VoiceClientMessage =
+  | { type: "speech_end"; t_ms: number; sent_ms: number }
+  | { type: "playback_start"; turn: number; t_ms: number; sent_ms: number }
+  | { type: "played"; turn: number; sentence: number }
+  | { type: "interrupt"; turn: number; last_played: number; sent_ms: number }
+  | { type: "stop" };

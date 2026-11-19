@@ -1,4 +1,5 @@
-"""Voice WebSocket: ``WS /api/sessions/{id}/voice`` (protocol: ``app.voice.gateway``).
+"""Voice routes: ``WS /api/sessions/{id}/voice`` (protocol: ``app.voice.gateway``) and
+``GET /api/voice/status`` (lets the UI show "Voice isn't connected yet" without a socket).
 
 Dependencies (override in tests via ``app.dependency_overrides``):
 ``get_voice_config`` (STT/TTS providers + barge-in flag; ``None`` = voice unavailable)
@@ -26,7 +27,7 @@ from app.voice.gateway import VoiceGateway
 from app.voice.stt import DeepgramSTT, FakeSTT, STTProvider
 from app.voice.tts import DeepgramTTS, FakeTTS, TTSProvider
 
-router = APIRouter(prefix="/api/sessions", tags=["voice"])
+router = APIRouter(tags=["voice"])
 log = get_logger(__name__)
 
 FAKE_UTTERANCES = [
@@ -101,13 +102,20 @@ class StarletteTransport:
         return data if isinstance(data, dict) else {}
 
 
+@router.get("/api/voice/status")
+async def voice_status(config: VoiceConfig | None = Depends(get_voice_config)) -> dict[str, Any]:
+    if config is None:
+        return {"available": False, "provider": None, "barge_in": False}
+    return {"available": True, "provider": config.provider, "barge_in": config.barge_in}
+
+
 async def _fatal(ws: WebSocket, code: str, message: str, close_code: int) -> None:
     await ws.send_text(json.dumps({"type": "error", "code": code, "message": message,
                                    "fatal": True}))  # fmt: skip
     await ws.close(code=close_code)
 
 
-@router.websocket("/{session_id}/voice")
+@router.websocket("/api/sessions/{session_id}/voice")
 async def voice_socket(
     websocket: WebSocket,
     session_id: uuid.UUID,

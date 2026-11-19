@@ -9,10 +9,14 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { Transcript } from "@/components/Transcript";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { VOICE_AVAILABLE, mockNextUtterance, sendTurn } from "@/lib/api";
+import { USE_MOCKS, mockNextUtterance, sendTurn } from "@/lib/api";
 import { filledCount } from "@/lib/profile";
 import { useEnsureSession, useSession } from "@/lib/session";
-import type { EvidenceSource, ProfileKey, StudentProfile } from "@/lib/types";
+import type { EvidenceSource, ProfileKey, StudentProfile, VoiceServerEvent } from "@/lib/types";
+import { MicPermissionError, VoiceSession, fetchVoiceStatus, type VoiceUiState } from "@/lib/voice";
+
+/** Mock mode fakes the mic in the browser; live mode streams to WS /api/sessions/{id}/voice. */
+const LIVE_VOICE = !USE_MOCKS;
 
 const STATUS: Record<OrbState, string> = {
   idle: "Tap the orb to talk",
@@ -21,14 +25,30 @@ const STATUS: Record<OrbState, string> = {
   speaking: "Speaking",
 };
 
+const LIVE_STATUS: Record<VoiceUiState, string> = {
+  connecting: "Connecting",
+  listening: "Listening · tap the orb to stop",
+  thinking: "Thinking",
+  speaking: "Speaking",
+};
+
+const MIC_BLOCKED =
+  "I can't hear you because microphone access is off. You can allow it in your browser's site settings, or keep typing below.";
+
+type VoiceAvailability = "unknown" | "available" | "unavailable";
+
 export function Talk() {
   const [params] = useSearchParams();
-  const textMode = params.get("mode") === "text" || !VOICE_AVAILABLE;
+  const [availability, setAvailability] = useState<VoiceAvailability>(LIVE_VOICE ? "unknown" : "available");
+  const voiceAvailable = availability === "available";
+  const textMode = params.get("mode") === "text" || !voiceAvailable;
   const navigate = useNavigate();
   const { sessionId, hydrated, turns, setTurns, profile, setProfile, ready, setReady, missing, setMissing } =
     useSession();
 
   const [orb, setOrb] = useState<OrbState>("idle");
+  const [voiceUi, setVoiceUi] = useState<VoiceUiState | null>(null); // null = no live voice session
+  const [voiceLevel, setVoiceLevel] = useState<(() => number) | undefined>(undefined);
   const [streaming, setStreaming] = useState<string | null>(null);
   const [interim, setInterim] = useState<string | null>(null);
   const [justLearned, setJustLearned] = useState<ReadonlySet<ProfileKey>>(new Set());
@@ -39,12 +59,24 @@ export function Talk() {
   const listenTimer = useRef<number | null>(null);
   const finishTimer = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const voiceRef = useRef<VoiceSession | null>(null);
+  const voiceReply = useRef("");
   const utterance = useRef("");
   const sessionRef = useRef<string | null>(null);
   const profileRef = useRef(profile);
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
+
+  // Live mode: ask the backend whether voice is configured (DEEPGRAM_API_KEY).
+  useEffect(() => {
+    if (!LIVE_VOICE) return;
+    const controller = new AbortController();
+    void fetchVoiceStatus(controller.signal).then((s) => {
+      if (!controller.signal.aborted) setAvailability(s.available ? "available" : "unavailable");
+    });
+    return () => controller.abort();
+  }, []);
 
   const stopListening = useCallback(() => {
     if (listenTimer.current !== null) window.clearInterval(listenTimer.current);
@@ -63,24 +95,43 @@ export function Talk() {
     if (textMode) composerRef.current?.focus();
   }, [textMode]);
 
-  // On leaving the page: stop the fake mic and cancel any reply in flight.
+  // On leaving the page: stop the mic and cancel any reply in flight.
   useEffect(
     () => () => {
       stopListening();
       abortRef.current?.abort();
+      voiceRef.current?.stop();
+      voiceRef.current = null;
     },
     [stopListening],
   );
 
-  const busy = orb === "thinking" || orb === "speaking";
+  const applyProfile = useCallback(
+    (next: StudentProfile) => {
+      setJustLearned(changedKeys(profileRef.current, next));
+      profileRef.current = next;
+      setProfile(next);
+    },
+    [setProfile],
+  );
+
+  const addTurn = useCallback(
+    (role: "user" | "assistant", text: string, interrupted = false) => {
+      const at = new Date().toISOString();
+      setTurns((t) => [...t, { idx: t.length, role, text, interrupted, at }]);
+    },
+    [setTurns],
+  );
+
+  const textBusy = orb === "thinking" || orb === "speaking";
+  const voiceBusy = voiceUi === "thinking" || voiceUi === "speaking";
 
   const runTurn = useCallback(
     async (text: string, source: EvidenceSource) => {
       const id = sessionRef.current;
       if (!id) return;
       setError(null);
-      const at = new Date().toISOString();
-      setTurns((t) => [...t, { idx: t.length, role: "user", text, interrupted: false, at }]);
+      addTurn("user", text);
       setOrb("thinking");
       const controller = new AbortController();
       abortRef.current = controller;
@@ -95,9 +146,7 @@ export function Talk() {
               setStreaming(reply);
               break;
             case "profile":
-              setJustLearned(changedKeys(profileRef.current, ev.profile));
-              profileRef.current = ev.profile;
-              setProfile(ev.profile);
+              applyProfile(ev.profile);
               break;
             case "ready":
               setReady(ev.ready);
@@ -107,17 +156,13 @@ export function Talk() {
               finalText = ev.assistant_text;
               break;
             case "error":
-              setError("The counselor lost its train of thought. Try saying that again.");
+              // The server's message is written for the student (e.g. a usage limit).
+              setError(ev.message.trim() || "The counselor lost its train of thought. Try saying that again.");
               break;
           }
         }
         const said = (finalText ?? reply).trim();
-        if (said) {
-          setTurns((t) => [
-            ...t,
-            { idx: t.length, role: "assistant", text: said, interrupted: false, at: new Date().toISOString() },
-          ]);
-        }
+        if (said) addTurn("assistant", said);
       } catch (e) {
         if ((e as Error).name !== "AbortError") setError("Something interrupted that reply. Try again?");
       } finally {
@@ -126,8 +171,95 @@ export function Talk() {
         setOrb("idle");
       }
     },
-    [setTurns, setProfile, setReady, setMissing],
+    [addTurn, applyProfile, setReady, setMissing],
   );
+
+  // ------------------------------------------------------------- live voice
+
+  const onVoiceEvent = useCallback(
+    (ev: VoiceServerEvent) => {
+      switch (ev.type) {
+        case "transcript_interim":
+          setInterim(ev.text);
+          break;
+        case "transcript_final":
+          setInterim(null);
+          setError(null);
+          addTurn("user", ev.text);
+          voiceReply.current = "";
+          break;
+        case "assistant_text":
+          voiceReply.current += ev.delta;
+          setStreaming(voiceReply.current);
+          break;
+        case "profile":
+          applyProfile(ev.profile);
+          break;
+        case "ready":
+          setReady(ev.ready);
+          setMissing(ev.missing);
+          break;
+        case "done": {
+          const said = (ev.assistant_text || voiceReply.current).trim();
+          if (said) addTurn("assistant", said);
+          voiceReply.current = "";
+          setStreaming(null);
+          break;
+        }
+        case "interrupted":
+          // History keeps only what the student actually heard.
+          addTurn("assistant", ev.assistant_text, true);
+          voiceReply.current = "";
+          setStreaming(null);
+          break;
+        case "error":
+          if (!ev.fatal) setError(ev.message);
+          break;
+        case "metrics":
+          if (import.meta.env.DEV) console.debug("[voice] ttfa", ev);
+          break;
+      }
+    },
+    [addTurn, applyProfile, setReady, setMissing],
+  );
+
+  const startVoice = useCallback(async () => {
+    const id = sessionRef.current;
+    if (!id || voiceRef.current) return;
+    setError(null);
+    const session = new VoiceSession(id, {
+      onUiState: setVoiceUi,
+      onEvent: onVoiceEvent,
+      onClose: (reason) => {
+        if (voiceRef.current === session) voiceRef.current = null;
+        setVoiceUi(null);
+        setVoiceLevel(undefined);
+        setInterim(null);
+        if (voiceReply.current) {
+          addTurn("assistant", voiceReply.current.trim(), true);
+          voiceReply.current = "";
+        }
+        setStreaming(null);
+        if (reason.kind === "error") {
+          if (reason.code === "voice_unavailable") setAvailability("unavailable");
+          setError(reason.message);
+        }
+      },
+    });
+    voiceRef.current = session;
+    setVoiceUi("connecting");
+    setVoiceLevel(() => session.level);
+    try {
+      await session.start();
+    } catch (e) {
+      if (voiceRef.current === session) voiceRef.current = null;
+      setVoiceUi(null);
+      setVoiceLevel(undefined);
+      setError(e instanceof MicPermissionError ? MIC_BLOCKED : "I couldn't start the microphone. You can keep typing below.");
+    }
+  }, [addTurn, onVoiceEvent]);
+
+  // ------------------------------------------------------------- mock voice
 
   const finishListening = useCallback(() => {
     stopListening();
@@ -138,13 +270,7 @@ export function Talk() {
   }, [runTurn, stopListening]);
 
   /** Mock microphone: "hears" the next scripted student line word by word. */
-  const onOrbPress = () => {
-    const id = sessionRef.current;
-    if (!id || busy) return;
-    if (orb === "listening") {
-      finishListening();
-      return;
-    }
+  const startMockListening = (id: string) => {
     const words = mockNextUtterance(id).split(" ");
     let i = 0;
     utterance.current = words.join(" ");
@@ -160,6 +286,37 @@ export function Talk() {
       }
     }, 170);
   };
+
+  const onOrbPress = () => {
+    const id = sessionRef.current;
+    if (!id) return;
+    if (LIVE_VOICE) {
+      // Tapping toggles the voice session; turn-taking inside it is automatic.
+      if (voiceRef.current) voiceRef.current.stop();
+      else if (!textBusy) void startVoice();
+      return;
+    }
+    if (textBusy) return;
+    if (orb === "listening") finishListening();
+    else startMockListening(id);
+  };
+
+  // ------------------------------------------------------------- render
+
+  const orbState: OrbState = voiceUi ? (voiceUi === "connecting" ? "thinking" : voiceUi) : orb;
+  const status = voiceUi
+    ? LIVE_STATUS[voiceUi]
+    : !voiceAvailable && orb === "idle"
+      ? availability === "unknown"
+        ? " "
+        : "Voice isn't connected yet"
+      : STATUS[orb];
+  const orbDisabled = LIVE_VOICE ? !voiceUi && textBusy : textBusy;
+  const orbLabel = voiceUi
+    ? "End voice conversation"
+    : orb === "listening"
+      ? "Stop and send"
+      : "Talk to the counselor";
 
   const panel = (
     <ProfilePanel
@@ -188,24 +345,26 @@ export function Talk() {
       >
         <section aria-label="Conversation with the counselor" className="flex min-h-0 flex-col">
           <div className="flex shrink-0 flex-col items-center gap-4 pb-6 pt-2">
-            {VOICE_AVAILABLE ? (
+            {voiceAvailable ? (
               <button
                 type="button"
                 onClick={onOrbPress}
-                aria-disabled={busy}
-                aria-pressed={orb === "listening"}
-                aria-label={orb === "listening" ? "Stop and send" : "Talk to the counselor"}
+                aria-disabled={orbDisabled}
+                aria-pressed={voiceUi !== null || orb === "listening"}
+                aria-label={orbLabel}
                 className="rounded-full p-2 transition-transform duration-300 ease-calm active:scale-[0.98] aria-disabled:cursor-default"
               >
-                <Orb state={orb} size={textMode ? 112 : 176} />
+                <Orb
+                  state={orbState}
+                  size={textMode ? 112 : 176}
+                  getLevel={voiceUi ? voiceLevel : undefined}
+                />
               </button>
             ) : (
-              <Orb state={orb} size={112} />
+              <Orb state={orbState} size={112} />
             )}
             <p aria-live="polite" className="h-4">
-              <MonoLabel>
-                {VOICE_AVAILABLE ? STATUS[orb] : orb === "idle" ? "Voice isn't connected yet" : STATUS[orb]}
-              </MonoLabel>
+              <MonoLabel>{status}</MonoLabel>
             </p>
           </div>
 
@@ -221,7 +380,7 @@ export function Talk() {
           <Composer
             ref={composerRef}
             onSend={(t) => void runTurn(t, "chat")}
-            busy={busy || orb === "listening" || !hydrated}
+            busy={textBusy || voiceBusy || orb === "listening" || !hydrated}
             className="mx-auto mt-4 w-full max-w-2xl shrink-0"
           />
         </section>
