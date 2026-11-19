@@ -1,0 +1,15 @@
+# Synthetic labels (unitids from data/fixtures) for the ablation runner test.
+_meta:
+  criteria_commit: synthetic
+  labeler: test fixture
+
+synthetic-cs-tx:
+  acceptable_unitids: [228787, 207722, 207500, 159009, 107512, 160755]
+  judged_unitids: [228787, 207722, 207500, 159009, 107512, 160755, 166027, 166683]
+  notes: "synthetic"
+  labeled_at: 2026-11-19
+synthetic-nurse-oh:
+  acceptable_unitids: [200785, 206613, 170082, 172699, 214625, 211431]
+  judged_unitids: [200785, 206613, 170082, 172699, 214625, 211431]
+  notes: "synthetic"
+  labeled_at: 2026-11-19

@@ -1,0 +1,18 @@
+# Synthetic persona for the ablation runner test (not part of the real eval set).
+id: synthetic-cs-tx
+hidden_profile:
+  home_state: TX
+  income_bracket: 48-75k
+  gpa: 3.7
+  sat: 1300
+  interests: [computer programming, building apps, video games]
+  dream_without_money: "write software that people use"
+  strengths: [math, logic]
+  max_distance_miles: 600
+  priorities: [cost, outcomes]
+style: "terse"
+reveal: only_when_asked
+meta:
+  articulateness: terse
+  edge_cases: []
+  voice_subset: false
