@@ -342,7 +342,7 @@ class StudentProfile(BaseModel):
     strengths: Field[list[str]]
     favorite_subjects: Field[list[str]]
     activities: Field[list[Activity]]      # clubs, sports, jobs, volunteering, leadership
-    work_values: Field[list[str]]          # achievement, independence, recognition, relationships, support, conditions
+    work_values: Field[list[str]]          # achievement, independence, recognition, relationships, support, working_conditions
     # fit preferences
     max_distance_miles: Field[int]
     regions: Field[list[str]]
