@@ -58,7 +58,10 @@ export function SchoolCard({ rec, onOpen, index = 0 }: SchoolCardProps) {
         {numbers.map((n) => (
           <div key={n.field} className="flex min-w-0 flex-col gap-1">
             <dt className="mono-label text-ink-muted">{n.label}</dt>
-            <dd className="font-mono text-body tabular-nums tracking-[-0.02em] text-ink">{n.value}</dd>
+            <dd className="flex flex-col gap-0.5">
+              <span className="font-mono text-body tabular-nums tracking-[-0.02em] text-ink">{n.value}</span>
+              {n.note && <span className="mono-label text-ink-faint">{n.note}</span>}
+            </dd>
           </div>
         ))}
       </dl>

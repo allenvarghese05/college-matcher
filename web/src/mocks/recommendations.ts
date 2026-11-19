@@ -8,6 +8,7 @@ import type {
   AdmissionBand,
   BandConfidence,
   ClaimField,
+  NetPriceBasis,
   RecommendationOut,
   RecommendationSet,
   ScoreBreakdown,
@@ -20,7 +21,10 @@ interface Seed {
   cityState: string;
   major: { cip4: string; title: string };
   band: AdmissionBand;
-  netPrice: string;
+  /** null when the school reports no usable price for this student */
+  netPrice: string | null;
+  /** How netPrice was derived; Ohio publics are in_state for the mock Ohio student. */
+  priceBasis: NetPriceBasis;
   /** By-major earnings, or null when the program is too small to report. */
   programEarnings: string | null;
   schoolEarnings: string;
@@ -42,6 +46,7 @@ const SEEDS: Seed[] = [
     major: { cip4: "14.19", title: "Mechanical Engineering" },
     band: "target",
     netPrice: "$17,400",
+    priceBasis: "in_state",
     programEarnings: "$78,900",
     schoolEarnings: "$61,300",
     completion: "88%",
@@ -62,6 +67,7 @@ const SEEDS: Seed[] = [
     major: { cip4: "50.04", title: "Industrial Design" },
     band: "target",
     netPrice: "$16,800",
+    priceBasis: "in_state",
     programEarnings: "$58,200",
     schoolEarnings: "$54,700",
     completion: "73%",
@@ -82,6 +88,7 @@ const SEEDS: Seed[] = [
     major: { cip4: "14.19", title: "Mechanical Engineering" },
     band: "safety",
     netPrice: "$15,600",
+    priceBasis: "in_state",
     programEarnings: "$69,800",
     schoolEarnings: "$48,900",
     completion: "66%",
@@ -102,6 +109,7 @@ const SEEDS: Seed[] = [
     major: { cip4: "14.19", title: "Mechanical Engineering" },
     band: "target",
     netPrice: "$21,900",
+    priceBasis: "in_state",
     programEarnings: "$74,300",
     schoolEarnings: "$66,200",
     completion: "83%",
@@ -122,6 +130,7 @@ const SEEDS: Seed[] = [
     major: { cip4: "50.04", title: "Industrial Design" },
     band: "safety",
     netPrice: "$14,200",
+    priceBasis: "in_state",
     programEarnings: null,
     schoolEarnings: "$47,600",
     completion: "67%",
@@ -142,6 +151,7 @@ const SEEDS: Seed[] = [
     major: { cip4: "14.19", title: "Mechanical Engineering" },
     band: "target",
     netPrice: "$24,300",
+    priceBasis: "private",
     programEarnings: "$76,500",
     schoolEarnings: "$63,900",
     completion: "81%",
@@ -161,7 +171,8 @@ const SEEDS: Seed[] = [
     cityState: "Bowling Green, OH",
     major: { cip4: "15.08", title: "Mechanical Engineering Technology" },
     band: "safety",
-    netPrice: "$13,900",
+    netPrice: null,
+    priceBasis: "unknown",
     programEarnings: "$61,200",
     schoolEarnings: "$46,800",
     completion: "65%",
@@ -172,7 +183,7 @@ const SEEDS: Seed[] = [
     scores: { major_fit: 0.78, affordability: 0.9, outcomes: 0.69, admission_fit: 0.95, preferences: 0.74 },
     reasons: [
       "An applied program for people who like fixing and building more than theory.",
-      "Lowest price on this list for your income range.",
+      "Hands-on classes and small sections from the first semester.",
     ],
   },
   {
@@ -182,6 +193,7 @@ const SEEDS: Seed[] = [
     major: { cip4: "14.19", title: "Mechanical Engineering" },
     band: "reach",
     netPrice: "$22,100",
+    priceBasis: "private",
     programEarnings: "$84,700",
     schoolEarnings: "$80,200",
     completion: "87%",
@@ -201,7 +213,8 @@ const SEEDS: Seed[] = [
     cityState: "West Lafayette, IN",
     major: { cip4: "14.19", title: "Mechanical Engineering" },
     band: "reach",
-    netPrice: "$24,800",
+    netPrice: "$38,900",
+    priceBasis: "est_out_of_state",
     programEarnings: "$80,100",
     schoolEarnings: "$72,400",
     completion: "84%",
@@ -222,6 +235,7 @@ const SEEDS: Seed[] = [
     major: { cip4: "50.04", title: "Industrial Design" },
     band: "reach",
     netPrice: "$28,600",
+    priceBasis: "private",
     programEarnings: null,
     schoolEarnings: "$98,400",
     completion: "93%",
@@ -263,7 +277,7 @@ function toOut(seed: Seed, index: number): RecommendationOut {
 
   const claims: VerifiedClaim[] = [
     c("city_state", seed.cityState),
-    c("net_price", seed.netPrice),
+    ...(seed.netPrice ? [c("net_price", seed.netPrice)] : []),
     seed.programEarnings
       ? c("program_median_earnings", seed.programEarnings, true)
       : c("median_earnings_10yr", seed.schoolEarnings),
@@ -291,6 +305,7 @@ function toOut(seed: Seed, index: number): RecommendationOut {
     scores: { ...seed.scores, total: total(seed.scores) },
     reasons: seed.reasons,
     claims,
+    net_price_basis: seed.priceBasis,
   };
 }
 

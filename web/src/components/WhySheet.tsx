@@ -1,7 +1,14 @@
 import { Check } from "lucide-react";
 import type { CSSProperties } from "react";
 import type { RecommendationOut, ScoreBreakdown } from "@/lib/types";
-import { CLAIM_LABEL, EARNINGS_CAVEAT, place as placeOf, visibleClaims } from "@/lib/claims";
+import {
+  CLAIM_LABEL,
+  EARNINGS_CAVEAT,
+  PRICE_BASIS_LABEL,
+  PRICE_BASIS_NOTE,
+  place as placeOf,
+  visibleClaims,
+} from "@/lib/claims";
 import { BandChip } from "@/components/BandChip";
 import { MonoLabel } from "@/components/MonoLabel";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -43,6 +50,8 @@ function Body({ rec, dataRelease }: { rec: RecommendationOut; dataRelease: strin
   const claims = visibleClaims(rec).filter((c) => c.field !== "city_state");
   const s = rec.scores;
   const low = rec.band_confidence === "low";
+  const basis = rec.net_price_basis ?? "unknown";
+  const hasPrice = claims.some((c) => c.field === "net_price");
 
   return (
     <div className="flex h-full flex-col overflow-y-auto overscroll-contain px-6 pb-12 pt-6 md:px-10">
@@ -117,7 +126,13 @@ function Body({ rec, dataRelease }: { rec: RecommendationOut; dataRelease: strin
           {claims.map((c) => (
             <li key={`${c.field}-${c.cip4 ?? ""}`} className="flex items-start justify-between gap-4 border-t border-line py-4">
               <div className="flex min-w-0 flex-col gap-1">
-                <span className="text-ink">{CLAIM_LABEL[c.field]}</span>
+                <span className="text-ink">
+                  {CLAIM_LABEL[c.field]}
+                  {c.field === "net_price" && PRICE_BASIS_LABEL[basis] && (
+                    <span className="text-ink-muted"> ({PRICE_BASIS_LABEL[basis]})</span>
+                  )}
+                </span>
+                {c.field === "net_price" && <span className="text-pretty text-ink-muted">{PRICE_BASIS_NOTE[basis]}</span>}
                 <span className="mono-label text-ink-muted">{dataRelease}</span>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
@@ -129,6 +144,14 @@ function Body({ rec, dataRelease }: { rec: RecommendationOut; dataRelease: strin
               </div>
             </li>
           ))}
+          {!hasPrice && basis === "unknown" && (
+            <li className="flex flex-col gap-1 border-t border-line py-4">
+              <span className="text-ink">
+                {CLAIM_LABEL.net_price} <span className="text-ink-muted">({PRICE_BASIS_LABEL.unknown})</span>
+              </span>
+              <span className="text-pretty text-ink-muted">{PRICE_BASIS_NOTE.unknown}</span>
+            </li>
+          )}
         </ul>
         <p className="mt-6 border-t border-line pt-4 text-ink-muted">{EARNINGS_CAVEAT}</p>
       </section>

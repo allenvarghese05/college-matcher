@@ -22,6 +22,13 @@ export type WorkValue =
   | "working_conditions";
 export type AdmissionBand = "safety" | "target" | "reach" | "unknown";
 export type BandConfidence = "normal" | "low";
+/**
+ * How a recommendation's net price was derived (backend app/retrieval/pricing.py):
+ * in_state / private = Scorecard net price at the student's income;
+ * est_out_of_state = that price + (out-of-state - in-state tuition) at a public
+ * school outside the home state; unknown = not reported for this student.
+ */
+export type NetPriceBasis = "in_state" | "est_out_of_state" | "private" | "unknown";
 export type SessionMode = "text" | "voice";
 export type RetrievalMode = "sql_only" | "hybrid" | "hybrid_rerank" | "hybrid_riasec_rerank";
 
@@ -137,6 +144,7 @@ export interface RecommendationOut {
   /** Short prose, never numbers. */
   reasons: string[];
   claims: VerifiedClaim[];
+  net_price_basis: NetPriceBasis;
 }
 
 export interface RecommendationSet {
