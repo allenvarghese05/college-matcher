@@ -1,0 +1,34 @@
+id: sofia-az
+summary: Maryvale (Phoenix) debate captain, first in her family to apply to college, wants political science on the way to law school.
+hidden_profile:
+  home_state: AZ
+  home_zip: "85033"
+  gpa: 3.7
+  act: 27
+  income_bracket: 30-48k
+  budget_cap: 12000
+  interests: [debate, immigration law, student government, true crime, mock trial]
+  dream_without_money: "be an immigration lawyer. fight for families like mine"
+  intended_majors: [political science]
+  riasec: {R: 0.15, I: 0.6, A: 0.4, S: 0.7, E: 0.85, C: 0.45}
+  strengths: [arguing, public speaking, research, Spanish]
+  favorite_subjects: [government, AP Language]
+  activities:
+    - {name: debate, role: captain, years: 3}
+    - {name: student council, role: class president, years: 2}
+    - {name: family taqueria, role: cashier and translator, years: 5}
+  work_values: [achievement, support]
+  max_distance_miles: 400
+  regions: [Southwest]
+  size_pref: large
+  setting_pref: city
+  priorities: [cost, outcomes]
+style: "confident, articulate, quick. structured answers like a debater ('two things:'). warm."
+reveal: only_when_asked
+quirks:
+  - "first-gen: her parents didn't finish high school; she handles the family's paperwork"
+  - "wants to stay close enough to help at the restaurant on weekends"
+meta:
+  articulateness: confident
+  edge_cases: [first_gen]
+  voice_subset: false

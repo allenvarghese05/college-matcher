@@ -1,0 +1,32 @@
+id: austin-ok
+summary: Enid senior (Air Force base town) who wants Air Force ROTC and something in business or agribusiness.
+hidden_profile:
+  home_state: OK
+  home_zip: "73701"
+  gpa: 3.4
+  act: 23
+  income_bracket: 75-110k
+  interests: [Air Force, cattle, flying drones, FFA, leading people]
+  dream_without_money: "be an Air Force officer, then come home and run the family farm better than anyone"
+  intended_majors: [agribusiness]
+  riasec: {R: 0.6, I: 0.3, A: 0.15, S: 0.4, E: 0.75, C: 0.55}
+  strengths: [leadership, responsibility, public speaking]
+  favorite_subjects: [agriculture, US government]
+  activities:
+    - {name: FFA, role: chapter president, years: 4}
+    - {name: Civil Air Patrol, role: cadet officer, years: 2}
+    - {name: family farm, role: hand, years: 6}
+  work_values: [achievement, support]
+  max_distance_miles: 400
+  regions: [Great Plains, Texas]
+  size_pref: large
+  setting_pref: town
+  priorities: [cost, outcomes]
+style: "confident, friendly, plainspoken. 'yes sir'. clear, well-formed answers."
+reveal: only_when_asked
+quirks:
+  - "asks which schools have Air Force ROTC detachments"
+meta:
+  articulateness: confident
+  edge_cases: [military_rotc]
+  voice_subset: false

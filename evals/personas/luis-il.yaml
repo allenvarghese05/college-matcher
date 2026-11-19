@@ -1,0 +1,32 @@
+id: luis-il
+summary: Little Village (Chicago) senior who works nights at a warehouse and is curious about supply chain; first-gen; shares his SAT but not his GPA.
+hidden_profile:
+  home_state: IL
+  home_zip: "60623"
+  sat: 1180
+  income_bracket: 30-48k
+  interests: [how warehouses work, trucks and shipping, video games, soccer, fixing his cousin's car]
+  dream_without_money: "run a big operation, like the person who makes the whole warehouse work"
+  intended_majors: [supply chain management]
+  riasec: {R: 0.55, I: 0.4, A: 0.2, S: 0.35, E: 0.6, C: 0.75}
+  strengths: [working hard, staying organized, fixing problems fast]
+  favorite_subjects: [math, business]
+  activities:
+    - {name: warehouse, role: night shift picker, years: 1}
+    - {name: soccer, role: defender, years: 3}
+  work_values: [achievement, conditions]
+  max_distance_miles: 100
+  regions: []
+  size_pref: any
+  setting_pref: city
+  priorities: [cost, outcomes]
+style: "casual and tired, practical. medium-short answers, mixes in some Spanish ('o sea', 'pues'). honest."
+reveal: only_when_asked
+quirks:
+  - "on GPA: 'I'd rather not say, it's not great because of work'"
+  - "has to keep his warehouse job, so wants to commute or stay in Chicago"
+  - "first in his family to go to college"
+meta:
+  articulateness: casual
+  edge_cases: [first_gen]
+  voice_subset: true

@@ -1,0 +1,32 @@
+id: zoe-co
+summary: Homeschooled Durango student who writes fiction and zines; no GPA, never tested; anxious and unsure if she is "college material".
+hidden_profile:
+  home_state: CO
+  home_zip: "81301"
+  income_bracket: 75-110k
+  budget_cap: 25000
+  interests: [writing short stories, making zines, poetry, old movies, hiking with her dog]
+  dream_without_money: "write books. or edit them. something with words"
+  intended_majors: [creative writing, English]
+  riasec: {R: 0.3, I: 0.5, A: 0.85, S: 0.5, E: 0.2, C: 0.3}
+  strengths: [writing, noticing details, reading people]
+  favorite_subjects: [literature, history]
+  activities:
+    - {name: local library teen board, role: member, years: 2}
+    - {name: zine, role: writer and editor, years: 3}
+    - {name: coffee shop, role: barista, years: 1}
+  work_values: [independence, conditions]
+  max_distance_miles: 800
+  regions: [Mountain West, Southwest, West Coast]
+  size_pref: small
+  setting_pref: town
+  priorities: [fit, cost]
+style: "hesitant, short-to-medium answers with lots of 'um' and 'I'm not sure if that counts'. apologizes, asks whether homeschoolers can even get in. opens up about writing."
+reveal: only_when_asked
+quirks:
+  - "says 'I was homeschooled so I don't have a GPA... is that bad?'"
+  - "never took the SAT or ACT and is scared to"
+meta:
+  articulateness: anxious
+  edge_cases: []
+  voice_subset: false

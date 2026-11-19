@@ -1,0 +1,31 @@
+id: sam-ia
+summary: Spencer, Iowa junior who does kitchen chemistry and likes food science; quiet, wants to stay in the Midwest.
+hidden_profile:
+  home_state: IA
+  home_zip: "51301"
+  gpa: 3.3
+  act: 24
+  income_bracket: 48-75k
+  interests: [cooking, chemistry experiments, baking bread, why food tastes the way it does]
+  dream_without_money: "invent new foods. like work in a test kitchen or lab"
+  intended_majors: []
+  riasec: {R: 0.55, I: 0.75, A: 0.5, S: 0.2, E: 0.2, C: 0.45}
+  strengths: [following procedures, chemistry, being precise]
+  favorite_subjects: [chemistry, culinary class]
+  activities:
+    - {name: diner, role: line cook, years: 2}
+    - {name: county fair baking, role: competitor, years: 3}
+  work_values: [independence, conditions]
+  max_distance_miles: 350
+  regions: [Midwest]
+  size_pref: medium
+  setting_pref: town
+  priorities: [cost, outcomes]
+style: "terse but not unfriendly, one-liners. needs follow-up questions to say anything. 'eh' and 'sure'."
+reveal: only_when_asked
+quirks:
+  - "doesn't know food science is a major; lights up a little if it's mentioned"
+meta:
+  articulateness: terse
+  edge_cases: []
+  voice_subset: false

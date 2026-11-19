@@ -1,0 +1,32 @@
+id: kenji-hi
+summary: Hilo senior who makes surf and skate videos and wants film school on the mainland, as far as New York or LA.
+hidden_profile:
+  home_state: HI
+  home_zip: "96720"
+  gpa: 3.6
+  sat: 1280
+  income_bracket: 48-75k
+  interests: [filmmaking, editing surf videos, cinematography, Studio Ghibli, skateboarding]
+  dream_without_money: "direct films. or be a cinematographer on big productions"
+  intended_majors: [film]
+  riasec: {R: 0.5, I: 0.35, A: 0.85, S: 0.3, E: 0.6, C: 0.25}
+  strengths: [editing, visual storytelling, getting people to be in my videos]
+  favorite_subjects: [media arts, English]
+  activities:
+    - {name: YouTube channel, role: creator, years: 3}
+    - {name: school news broadcast, role: director, years: 2}
+    - {name: surf shop, role: part-time, years: 1}
+  work_values: [achievement, recognition]
+  regions: [West Coast, Northeast]
+  size_pref: any
+  setting_pref: city
+  priorities: [fit, outcomes]
+style: "confident, a little cool, concise. knows what he wants. says 'shoots' and 'brah' occasionally."
+reveal: only_when_asked
+quirks:
+  - "wants to leave the island: 'I need to be where the industry is'"
+  - "asks whether film grads actually get jobs"
+meta:
+  articulateness: confident
+  edge_cases: [leave_home_far, arts]
+  voice_subset: true

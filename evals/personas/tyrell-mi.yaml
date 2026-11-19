@@ -1,0 +1,31 @@
+id: tyrell-mi
+summary: Northwest Detroit senior and football captain who wants sports management; skipped the SAT, solid GPA.
+hidden_profile:
+  home_state: MI
+  home_zip: "48219"
+  gpa: 3.1
+  income_bracket: 0-30k
+  interests: [football, sports business, fantasy football, sneakers, motivating teammates]
+  dream_without_money: "work for an NFL front office. or be an agent"
+  intended_majors: [sports management]
+  riasec: {R: 0.5, I: 0.3, A: 0.25, S: 0.6, E: 0.8, C: 0.35}
+  strengths: [leadership, motivating people, competitiveness]
+  favorite_subjects: [business, history]
+  activities:
+    - {name: varsity football, role: captain, years: 3}
+    - {name: summer youth employment program, role: camp counselor, years: 2}
+  work_values: [achievement, recognition]
+  max_distance_miles: 300
+  regions: [Midwest]
+  size_pref: large
+  setting_pref: any
+  priorities: [cost, fit]
+style: "casual, easygoing, medium answers. 'facts', 'no cap'. talks a lot about football, less about academics."
+reveal: only_when_asked
+quirks:
+  - "didn't take the SAT seriously and won't share a score: 'I'm going test-optional'"
+  - "asks if he could walk on to the football team"
+meta:
+  articulateness: casual
+  edge_cases: []
+  voice_subset: false

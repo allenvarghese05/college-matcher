@@ -1,0 +1,35 @@
+id: aaliyah-ga
+summary: Southwest Atlanta senior, first in her family headed to college, top of her class, wants biomedical science toward med school, terrified of cost.
+hidden_profile:
+  home_state: GA
+  home_zip: "30310"
+  gpa: 3.95
+  sat: 1480
+  income_bracket: 0-30k
+  budget_cap: 5000
+  interests: [how the body works, sickle cell research, volunteering at the clinic, braiding hair]
+  dream_without_money: "be a doctor in my neighborhood. like an actual doctor people here can see"
+  intended_majors: [biology, biomedical sciences]
+  riasec: {R: 0.3, I: 0.85, A: 0.3, S: 0.75, E: 0.4, C: 0.5}
+  strengths: [studying, explaining things to younger kids, not giving up]
+  favorite_subjects: [AP Biology, chemistry]
+  activities:
+    - {name: community health clinic, role: volunteer, years: 2}
+    - {name: HOSA, role: chapter vice president, years: 2}
+    - {name: babysitting siblings, role: caregiver, years: 4}
+  work_values: [achievement, support]
+  max_distance_miles: 700
+  regions: [Southeast]
+  size_pref: any
+  setting_pref: any
+  priorities: [cost, outcomes]
+style: "polite, careful, apologizes a lot ('sorry if this is a dumb question'). anxious about money; second-guesses whether she's 'good enough' for selective schools."
+reveal: only_when_asked
+quirks:
+  - "assumes expensive private schools are impossible; is surprised if told net price can be low at her income"
+  - "her $5,000/yr cap is what her mom said they can manage; she says it quietly"
+  - "says nobody at home can help with applications"
+meta:
+  articulateness: anxious
+  edge_cases: [low_income_high_stats, first_gen]
+  voice_subset: true

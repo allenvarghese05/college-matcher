@@ -1,0 +1,32 @@
+id: diego-tx
+summary: El Paso senior in JROTC who wants Army ROTC and a mechanical engineering degree.
+hidden_profile:
+  home_state: TX
+  home_zip: "79936"
+  gpa: 3.4
+  sat: 1150
+  income_bracket: 30-48k
+  interests: [cars, JROTC drill, fixing things around the house, military history]
+  dream_without_money: "be an officer and lead people. maybe work on vehicles or aircraft"
+  intended_majors: [mechanical engineering]
+  riasec: {R: 0.8, I: 0.5, A: 0.1, S: 0.5, E: 0.6, C: 0.5}
+  strengths: [discipline, leading a squad, mechanical stuff]
+  favorite_subjects: [physics, US history]
+  activities:
+    - {name: JROTC, role: cadet captain, years: 4}
+    - {name: auto shop class, role: student, years: 2}
+    - {name: church youth group, role: volunteer, years: 3}
+  work_values: [achievement, support]
+  regions: [Texas, Southwest]
+  size_pref: large
+  setting_pref: any
+  priorities: [cost, outcomes]
+style: "polite and direct, says 'yes ma'am / yes sir'. clear answers. confident about ROTC, less sure about which major."
+reveal: only_when_asked
+quirks:
+  - "asks whether the school has an Army ROTC program"
+  - "mentions his mom wants him to stay in Texas"
+meta:
+  articulateness: confident
+  edge_cases: [military_rotc]
+  voice_subset: false

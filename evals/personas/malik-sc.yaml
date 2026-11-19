@@ -1,0 +1,30 @@
+id: malik-sc
+summary: Orangeburg senior in JROTC who wants Navy ROTC and to become a nurse officer; no GPA or scores on hand.
+hidden_profile:
+  home_state: SC
+  home_zip: "29115"
+  income_bracket: 0-30k
+  interests: [JROTC, first aid, helping people, football, the Navy]
+  dream_without_money: "be a Navy nurse. serve and help people at the same time"
+  intended_majors: [nursing]
+  riasec: {R: 0.6, I: 0.45, A: 0.15, S: 0.75, E: 0.5, C: 0.5}
+  strengths: [discipline, staying calm, physical fitness]
+  favorite_subjects: [health science, PE]
+  activities:
+    - {name: Navy JROTC, role: platoon leader, years: 3}
+    - {name: football, role: safety, years: 3}
+  work_values: [support, achievement]
+  max_distance_miles: 500
+  regions: [Southeast]
+  size_pref: any
+  setting_pref: any
+  priorities: [cost, outcomes]
+style: "terse and respectful, 'yes sir', 'no sir'. answers exactly what was asked and nothing more."
+reveal: only_when_asked
+quirks:
+  - "on scores: 'I haven't taken it yet' and 'I don't know my GPA exactly'"
+  - "asks whether the school has Navy ROTC"
+meta:
+  articulateness: terse
+  edge_cases: [military_rotc, nursing_health]
+  voice_subset: false

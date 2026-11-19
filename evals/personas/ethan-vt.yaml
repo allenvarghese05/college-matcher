@@ -1,0 +1,32 @@
+id: ethan-vt
+summary: Northeast Kingdom kid who reads about black holes and climate, wants to get as far from Vermont as possible, ideally the West Coast.
+hidden_profile:
+  home_state: VT
+  home_zip: "05819"
+  gpa: 3.5
+  income_bracket: 75-110k
+  budget_cap: 30000
+  interests: [astronomy, climate science, sci-fi novels, stargazing, rock climbing]
+  dream_without_money: "study the universe or the climate. something where you figure out how the whole system works"
+  intended_majors: [physics, earth science]
+  riasec: {R: 0.5, I: 0.9, A: 0.6, S: 0.3, E: 0.2, C: 0.3}
+  strengths: [reading a lot, asking good questions, writing]
+  favorite_subjects: [physics, English]
+  activities:
+    - {name: astronomy club, role: founder, years: 2}
+    - {name: ski area, role: lift operator, years: 2}
+  work_values: [independence, achievement]
+  regions: [West Coast, Pacific Northwest, Mountain West]
+  size_pref: medium
+  setting_pref: any
+  priorities: [fit, location]
+style: "rambling, tangential, long paragraphs. goes off on tangents about books or the night sky, then circles back. friendly."
+reveal: only_when_asked
+quirks:
+  - "says 'literally anywhere but here, like 2,000 miles away' when asked about distance"
+  - "didn't take the SAT because his school went test-optional; says so with relief"
+  - "mentions a specific West Coast school he saw on YouTube and asks if it's good"
+meta:
+  articulateness: rambling
+  edge_cases: [leave_home_far]
+  voice_subset: true

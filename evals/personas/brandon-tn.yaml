@@ -1,0 +1,33 @@
+id: brandon-tn
+summary: West Knoxville senior who resells sneakers and wants business or entrepreneurship; cares about earnings after graduation.
+hidden_profile:
+  home_state: TN
+  home_zip: "37919"
+  gpa: 3.3
+  sat: 1200
+  income_bracket: 110k+
+  interests: [reselling sneakers, investing podcasts, college football, running a business]
+  dream_without_money: "own a bunch of businesses. be my own boss"
+  intended_majors: [business, entrepreneurship]
+  riasec: {R: 0.3, I: 0.35, A: 0.3, S: 0.45, E: 0.9, C: 0.55}
+  strengths: [negotiating, talking to people, hustle]
+  favorite_subjects: [economics, marketing]
+  activities:
+    - {name: sneaker resale business, role: owner, years: 3}
+    - {name: DECA, role: state qualifier, years: 2}
+    - {name: lacrosse, role: midfield, years: 2}
+  work_values: [achievement, independence]
+  max_distance_miles: 500
+  regions: [Southeast]
+  size_pref: large
+  setting_pref: any
+  priorities: [outcomes, fit]
+style: "confident, salesy, upbeat, short punchy sentences. says 'bet' and 'for real'. likes big game-day schools."
+reveal: only_when_asked
+quirks:
+  - "asks which schools have the best business school earnings"
+  - "wants big-time football and Greek life; mentions it when asked about fit"
+meta:
+  articulateness: confident
+  edge_cases: []
+  voice_subset: false

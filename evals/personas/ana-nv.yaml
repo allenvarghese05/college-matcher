@@ -1,0 +1,32 @@
+id: ana-nv
+summary: East Las Vegas senior who works front desk at a dental office and wants a health career that isn't blood-heavy, like health information management.
+hidden_profile:
+  home_state: NV
+  home_zip: "89110"
+  gpa: 3.3
+  income_bracket: 30-48k
+  budget_cap: 10000
+  interests: [healthcare, organizing records, medical TV shows, helping patients check in]
+  dream_without_money: "work in a hospital but not like surgery. making sure everything runs right"
+  intended_majors: [health information management, health administration]
+  riasec: {R: 0.25, I: 0.45, A: 0.2, S: 0.6, E: 0.4, C: 0.8}
+  strengths: [organization, being careful, customer service]
+  favorite_subjects: [health science, computer applications]
+  activities:
+    - {name: dental office, role: front desk, years: 1}
+    - {name: HOSA, role: member, years: 2}
+  work_values: [conditions, support]
+  max_distance_miles: 300
+  regions: []
+  size_pref: any
+  setting_pref: city
+  priorities: [cost, outcomes]
+style: "nervous, second-guesses herself, short answers followed by 'is that okay?' or 'sorry I don't really know'."
+reveal: only_when_asked
+quirks:
+  - "faints at the sight of blood, so rules out nursing when asked"
+  - "didn't take the SAT; her school paid for it but she was sick that day"
+meta:
+  articulateness: anxious
+  edge_cases: [nursing_health]
+  voice_subset: false

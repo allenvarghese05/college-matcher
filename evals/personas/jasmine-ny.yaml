@@ -1,0 +1,33 @@
+id: jasmine-ny
+summary: South Bronx senior who draws comics and wants animation or illustration; first-gen, talks a mile a minute.
+hidden_profile:
+  home_state: NY
+  home_zip: "10456"
+  gpa: 3.2
+  income_bracket: 0-30k
+  interests: [drawing comics, anime, character design, digital art on her tablet, making stickers]
+  dream_without_money: "draw characters for animated shows. like be the person who designs how they look"
+  intended_majors: [animation, illustration]
+  riasec: {R: 0.3, I: 0.3, A: 0.95, S: 0.5, E: 0.4, C: 0.2}
+  strengths: [drawing, storytelling, making people laugh]
+  favorite_subjects: [art, English]
+  activities:
+    - {name: art club, role: member, years: 3}
+    - {name: sticker shop on Etsy, role: owner, years: 1}
+    - {name: after-school program, role: art helper for little kids, years: 2}
+  work_values: [independence, recognition]
+  max_distance_miles: 250
+  regions: [Northeast]
+  size_pref: any
+  setting_pref: city
+  priorities: [cost, fit]
+style: "rambling, excited, long messages with lots of 'like' and 'honestly', jumps between topics. gets nervous and fast when money comes up."
+reveal: only_when_asked
+quirks:
+  - "didn't take the SAT ('my school said I didn't have to')"
+  - "her mom is worried art isn't a real job; she brings this up unprompted when asked about family"
+  - "first in her family to apply to college"
+meta:
+  articulateness: rambling
+  edge_cases: [arts, first_gen]
+  voice_subset: false

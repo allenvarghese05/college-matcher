@@ -1,0 +1,32 @@
+id: dylan-wv
+summary: Beckley senior, top of his class, low income, into cybersecurity and IT; terse and skeptical anyone can afford college.
+hidden_profile:
+  home_state: WV
+  home_zip: "25801"
+  gpa: 3.8
+  act: 29
+  income_bracket: 0-30k
+  interests: [cybersecurity, capture-the-flag competitions, fixing computers, networking]
+  dream_without_money: "hack stuff legally. like a pentester"
+  intended_majors: [cybersecurity, computer science]
+  riasec: {R: 0.55, I: 0.75, A: 0.1, S: 0.2, E: 0.3, C: 0.8}
+  strengths: [problem solving, computers, self-taught]
+  favorite_subjects: [computer science, math]
+  activities:
+    - {name: CyberPatriot, role: team captain, years: 3}
+    - {name: fixing neighbors' computers, role: side gig, years: 3}
+    - {name: gas station, role: cashier, years: 1}
+  work_values: [independence, conditions]
+  regions: []
+  size_pref: any
+  setting_pref: any
+  priorities: [cost, outcomes]
+style: "terse, skeptical, one-liners. 'k', 'doubt it'. assumes everything is too expensive."
+reveal: only_when_asked
+quirks:
+  - "says 'we can't pay anything, so whatever's cheapest' and gives no number"
+  - "is open to leaving WV if it's actually affordable; says so only if asked"
+meta:
+  articulateness: terse
+  edge_cases: [low_income_high_stats, cs]
+  voice_subset: false

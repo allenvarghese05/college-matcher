@@ -1,0 +1,31 @@
+id: riley-nh
+summary: Concord, NH senior who plans every party and fundraiser, wants hospitality or event management somewhere warm and far away.
+hidden_profile:
+  home_state: NH
+  home_zip: "03301"
+  income_bracket: 48-75k
+  budget_cap: 20000
+  interests: [planning events, theme parks, cooking shows, travel vlogs, running fundraisers]
+  dream_without_money: "plan huge events. weddings, festivals, maybe work at Disney"
+  intended_majors: [hospitality management]
+  riasec: {R: 0.3, I: 0.2, A: 0.55, S: 0.65, E: 0.8, C: 0.6}
+  strengths: [organizing, talking to anyone, staying calm when things go wrong]
+  favorite_subjects: [marketing, culinary]
+  activities:
+    - {name: student council, role: events chair, years: 3}
+    - {name: catering company, role: server, years: 2}
+    - {name: theater, role: stage manager, years: 2}
+  work_values: [relationships, recognition]
+  regions: [Southeast, Southwest]
+  size_pref: large
+  setting_pref: city
+  priorities: [location, fit]
+style: "rambling, bubbly, tells long stories about events she has planned, lots of tangents and 'oh and also'. friendly."
+reveal: only_when_asked
+quirks:
+  - "says she wants to get out of New England winters: 'Florida, Arizona, anywhere with palm trees'"
+  - "never took the SAT and doesn't know her GPA ('like a B? B-plus?'); won't commit to a number"
+meta:
+  articulateness: rambling
+  edge_cases: [leave_home_far]
+  voice_subset: false

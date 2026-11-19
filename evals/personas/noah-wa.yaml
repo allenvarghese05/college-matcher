@@ -1,0 +1,31 @@
+id: noah-wa
+summary: Spokane senior who switched high schools twice and doesn't know his GPA; strong SAT, wants computer science or game development.
+hidden_profile:
+  home_state: WA
+  home_zip: "99205"
+  sat: 1390
+  income_bracket: 30-48k
+  interests: [making games in Godot, modding, Linux, speedrunning]
+  dream_without_money: "make indie games with a couple friends"
+  intended_majors: [computer science]
+  riasec: {R: 0.4, I: 0.8, A: 0.65, S: 0.2, E: 0.3, C: 0.5}
+  strengths: [teaching myself stuff, debugging, math]
+  favorite_subjects: [computer science, algebra]
+  activities:
+    - {name: game jams, role: programmer, years: 2}
+    - {name: grocery store, role: bagger, years: 1}
+  work_values: [independence, conditions]
+  max_distance_miles: 400
+  regions: [Pacific Northwest]
+  size_pref: any
+  setting_pref: city
+  priorities: [cost, outcomes]
+style: "casual, a bit dry and sarcastic, gamer slang ('lowkey', 'ngl'). gives real answers when asked."
+reveal: only_when_asked
+quirks:
+  - "on GPA: 'ngl I switched schools twice, I genuinely don't know, my transcript is a mess'"
+  - "asks if game design is a real major or a scam"
+meta:
+  articulateness: casual
+  edge_cases: [cs]
+  voice_subset: false

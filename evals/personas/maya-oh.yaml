@@ -1,0 +1,33 @@
+id: maya-oh
+summary: Columbus junior who sketches and fixes bikes; probably industrial design but has never heard the term.
+hidden_profile:
+  home_state: OH
+  home_zip: "43210"
+  gpa: 3.6
+  sat: 1310
+  income_bracket: 48-75k
+  budget_cap: 22000
+  interests: [drawing, fixing bikes, how things are built]
+  dream_without_money: "design things people use every day"
+  intended_majors: []
+  riasec: {R: 0.7, I: 0.5, A: 0.8, S: 0.2, E: 0.3, C: 0.3}
+  strengths: [drawing, figuring out how stuff works, patience with fiddly things]
+  favorite_subjects: [art, physics]
+  activities:
+    - {name: robotics club, role: build lead, years: 2}
+    - {name: bike shop, role: part-time mechanic, years: 1}
+  work_values: [independence, achievement]
+  max_distance_miles: 300
+  regions: []
+  size_pref: medium
+  setting_pref: any
+  priorities: [cost, outcomes]
+style: "short answers, a bit unsure, says 'idk' sometimes. lowercase. warms up if asked about bikes."
+reveal: only_when_asked
+quirks:
+  - "says 'idk, art stuff?' when first asked about majors"
+  - "only mentions the $22k cap after being asked directly what her family can pay"
+meta:
+  articulateness: terse
+  edge_cases: []
+  voice_subset: true
