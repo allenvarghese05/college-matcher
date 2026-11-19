@@ -9,11 +9,10 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { Transcript } from "@/components/Transcript";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { VOICE_AVAILABLE, createSession, getSession, mockNextUtterance, sendTurn } from "@/lib/api";
+import { VOICE_AVAILABLE, mockNextUtterance, sendTurn } from "@/lib/api";
 import { filledCount } from "@/lib/profile";
-import { useSession } from "@/lib/session";
+import { useEnsureSession, useSession } from "@/lib/session";
 import type { EvidenceSource, ProfileKey, StudentProfile } from "@/lib/types";
-import { GREETING } from "@/mocks/profile";
 
 const STATUS: Record<OrbState, string> = {
   idle: "Tap the orb to talk",
@@ -26,7 +25,7 @@ export function Talk() {
   const [params] = useSearchParams();
   const textMode = params.get("mode") === "text" || !VOICE_AVAILABLE;
   const navigate = useNavigate();
-  const { sessionId, setSessionId, turns, setTurns, profile, setProfile, ready, setReady, missing, setMissing } =
+  const { sessionId, hydrated, turns, setTurns, profile, setProfile, ready, setReady, missing, setMissing } =
     useSession();
 
   const [orb, setOrb] = useState<OrbState>("idle");
@@ -41,7 +40,7 @@ export function Talk() {
   const finishTimer = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const utterance = useRef("");
-  const sessionRef = useRef<string | null>(sessionId);
+  const sessionRef = useRef<string | null>(null);
   const profileRef = useRef(profile);
   useEffect(() => {
     profileRef.current = profile;
@@ -54,31 +53,11 @@ export function Talk() {
     finishTimer.current = null;
   }, []);
 
-  // Open a session (or keep the one already in context) and load its state.
+  // Open a session, or restore the one stored for this tab, and load its state.
+  const openError = useEnsureSession({ create: true, mode: textMode ? "text" : "voice" });
   useEffect(() => {
-    if (sessionRef.current) return;
-    let cancelled = false;
-    (async () => {
-      const s = await createSession(textMode ? "text" : "voice");
-      const state = await getSession(s.id);
-      if (cancelled) return;
-      sessionRef.current = s.id;
-      setSessionId(s.id);
-      setTurns(
-        state.turns.length
-          ? state.turns
-          : [{ idx: 0, role: "assistant", text: GREETING, interrupted: false, at: s.created_at }],
-      );
-      setProfile(state.profile);
-      setReady(state.ready);
-      setMissing(state.missing);
-    })().catch(() => {
-      if (!cancelled) setError("I can't reach the counselor right now. Check your connection and reload.");
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [textMode, setSessionId, setTurns, setProfile, setReady, setMissing]);
+    sessionRef.current = hydrated ? sessionId : null;
+  }, [sessionId, hydrated]);
 
   useEffect(() => {
     if (textMode) composerRef.current?.focus();
@@ -234,15 +213,15 @@ export function Talk() {
             <Transcript turns={turns} streaming={streaming} interim={interim} className="mx-auto max-w-2xl pb-4 pt-8" />
           </div>
 
-          {error && (
+          {(error ?? openError) && (
             <p role="alert" className="mx-auto w-full max-w-2xl pb-2 text-ink-muted">
-              {error}
+              {error ?? openError}
             </p>
           )}
           <Composer
             ref={composerRef}
             onSend={(t) => void runTurn(t, "chat")}
-            busy={busy || orb === "listening"}
+            busy={busy || orb === "listening" || !hydrated}
             className="mx-auto mt-4 w-full max-w-2xl shrink-0"
           />
         </section>

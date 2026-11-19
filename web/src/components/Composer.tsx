@@ -2,6 +2,11 @@ import { ArrowUp } from "lucide-react";
 import { forwardRef, useState, type FormEvent } from "react";
 import { cn } from "@/lib/utils";
 
+/** TurnIn.text max_length in schemas.py. */
+const MAX = 4000;
+/** Show the remaining-characters hint only near the limit. */
+const HINT_AT = 3600;
+
 interface ComposerProps {
   onSend: (text: string) => void;
   busy?: boolean;
@@ -12,6 +17,7 @@ interface ComposerProps {
 export const Composer = forwardRef<HTMLInputElement, ComposerProps>(({ onSend, busy = false, className }, ref) => {
   const [text, setText] = useState("");
   const canSend = text.trim().length > 0 && !busy;
+  const left = MAX - text.length;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -38,8 +44,15 @@ export const Composer = forwardRef<HTMLInputElement, ComposerProps>(({ onSend, b
         onChange={(e) => setText(e.target.value)}
         placeholder="Type instead…"
         autoComplete="off"
+        maxLength={MAX}
+        aria-describedby={text.length >= HINT_AT ? "composer-count" : undefined}
         className="h-full min-w-0 flex-1 bg-transparent text-body text-ink placeholder:text-ink-muted focus:outline-none focus-visible:outline-none"
       />
+      {text.length >= HINT_AT && (
+        <span id="composer-count" className="mono-label shrink-0 text-ink-muted">
+          {left.toLocaleString()} left
+        </span>
+      )}
       <button
         type="submit"
         disabled={!canSend}

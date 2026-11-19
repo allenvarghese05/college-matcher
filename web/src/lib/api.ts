@@ -116,6 +116,13 @@ async function* parseSse(body: ReadableStream<Uint8Array>): AsyncGenerator<TurnE
     for (;;) {
       const { value, done } = await reader.read();
       buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+      // A chunk may end between "\r" and "\n" (sse-starlette uses CRLF). Hold a
+      // trailing "\r" until the next chunk so the pair normalises to one "\n".
+      let held = "";
+      if (!done && buffer.endsWith("\r")) {
+        held = "\r";
+        buffer = buffer.slice(0, -1);
+      }
       buffer = buffer.replace(/\r\n?/g, "\n");
       let sep: number;
       while ((sep = buffer.indexOf("\n\n")) !== -1) {
@@ -123,6 +130,7 @@ async function* parseSse(body: ReadableStream<Uint8Array>): AsyncGenerator<TurnE
         buffer = buffer.slice(sep + 2);
         if (event) yield event;
       }
+      buffer += held;
       if (done) {
         const tail = buffer.trim() ? toTurnEvent(buffer) : null;
         if (tail) yield tail;
@@ -141,19 +149,25 @@ function toTurnEvent(raw: string): TurnEvent | null {
     if (line.startsWith("event:")) name = line.slice(6).trim();
     else if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
   }
-  let p: Record<string, unknown>;
+  let parsed: unknown;
   try {
-    p = data.length ? (JSON.parse(data.join("\n")) as Record<string, unknown>) : {};
+    parsed = data.length ? JSON.parse(data.join("\n")) : {};
   } catch {
     return null; // a malformed frame should not kill the stream
   }
+  if (!isObject(parsed)) return null;
+  const p = parsed;
   switch (name) {
     case "token":
-      return { type: "token", text: String(p.text ?? "") };
+      return typeof p.text === "string" ? { type: "token", text: p.text } : null;
     case "profile":
-      return { type: "profile", profile: p.profile as StudentProfile };
+      return isObject(p.profile) ? { type: "profile", profile: p.profile as unknown as StudentProfile } : null;
     case "ready":
-      return { type: "ready", ready: Boolean(p.ready), missing: (p.missing as string[] | undefined) ?? [] };
+      return {
+        type: "ready",
+        ready: p.ready === true,
+        missing: Array.isArray(p.missing) ? p.missing.filter((m): m is string => typeof m === "string") : [],
+      };
     case "done":
       return { type: "done", turn_id: String(p.turn_id ?? ""), assistant_text: String(p.assistant_text ?? "") };
     case "error":
@@ -161,6 +175,10 @@ function toTurnEvent(raw: string): TurnEvent | null {
     default:
       return null;
   }
+}
+
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
 // ---------------------------------------------------------------------------

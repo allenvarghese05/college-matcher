@@ -115,7 +115,7 @@ function Body({ rec, dataRelease }: { rec: RecommendationOut; dataRelease: strin
         </MonoLabel>
         <ul className="mt-4 flex flex-col">
           {claims.map((c) => (
-            <li key={c.field} className="flex items-start justify-between gap-4 border-t border-line py-4">
+            <li key={`${c.field}-${c.cip4 ?? ""}`} className="flex items-start justify-between gap-4 border-t border-line py-4">
               <div className="flex min-w-0 flex-col gap-1">
                 <span className="text-ink">{CLAIM_LABEL[c.field]}</span>
                 <span className="mono-label text-ink-muted">{dataRelease}</span>

@@ -284,19 +284,41 @@ def iter_institutions(
         yield institution_from_row(row)
 
 
+@dataclass(slots=True)
+class SkipCounter:
+    """Mutable tally of rows ``iter_programs`` dropped because UNITID didn't parse.
+
+    The field-of-study file has rows whose UNITID is literally ``NA`` (5,573 on
+    the 2026-10-15 release); they can't be joined to a school, so they are
+    skipped and counted rather than crashing ``program_from_row``.
+    """
+
+    no_unitid: int = 0
+
+
 def iter_programs(
     path: str | Path,
     credential_level: int | None = BACHELORS,
     in_scope_unitids: Iterable[int] | None = None,
+    skipped: SkipCounter | None = None,
 ) -> Iterator[ProgramRecord]:
     """Yield ProgramRecords at ``credential_level`` (None = all levels),
-    optionally restricted to ``in_scope_unitids``."""
+    optionally restricted to ``in_scope_unitids``.
+
+    Rows at the wanted level whose UNITID doesn't parse are skipped and, if
+    ``skipped`` is given, counted in ``skipped.no_unitid``.
+    """
     scope = None if in_scope_unitids is None else set(in_scope_unitids)
     want = None if credential_level is None else str(credential_level)
     for row in _rows(path):
         if want is not None and (row.get("CREDLEV") or "").strip() != want:
             continue
-        if scope is not None and parse_int(row.get("UNITID")) not in scope:
+        uid = parse_int(row.get("UNITID"))
+        if uid is None:
+            if skipped is not None:
+                skipped.no_unitid += 1
+            continue
+        if scope is not None and uid not in scope:
             continue
         yield program_from_row(row)
 
@@ -351,8 +373,9 @@ def main(argv: list[str] | None = None) -> int:
     n_inst = write_jsonl(args.out / "institutions.jsonl", iter_institutions(inst_path, scope))
 
     n_prog = n_earn = n_debt = 0
+    skipped = SkipCounter()
     with (args.out / "programs.jsonl").open("w", encoding="utf-8") as f:
-        for p in iter_programs(fos_path, BACHELORS, scope):
+        for p in iter_programs(fos_path, BACHELORS, scope, skipped):
             f.write(to_json(p) + "\n")
             n_prog += 1
             n_earn += p.median_earnings is not None
@@ -363,6 +386,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"bachelor's programs:     {n_prog:,}")
     print(f"  with median earnings:  {n_earn:,} ({n_earn / max(n_prog, 1):.1%})")
     print(f"  with median debt:      {n_debt:,} ({n_debt / max(n_prog, 1):.1%})")
+    print(f"rows skipped (no UNITID): {skipped.no_unitid:,}")
     return 0
 
 
