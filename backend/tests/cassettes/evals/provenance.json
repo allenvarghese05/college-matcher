@@ -1,0 +1,11 @@
+{
+  "transport": "fake",
+  "sim": "scripted",
+  "recorded_at": "2026-11-20T00:02:14.421721+00:00",
+  "git_sha": "2e6548ee8b7f2333693815d8702ddee2667a5ba3",
+  "personas": [
+    "aaliyah-ga",
+    "maya-oh",
+    "zoe-co"
+  ]
+}
