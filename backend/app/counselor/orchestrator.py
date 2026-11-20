@@ -397,7 +397,12 @@ class CounselorOrchestrator:
             user_turn_id = user_turn.id
 
         tl = TurnLogger(session_id=str(session_id), turn_id=str(user_turn_id))
-        topic = plan_next_topic(prev_profile, asked, student_wants_matches=wants_matches(text))
+        previous_offer = bool(asked) and asked[-1] == "ready_to_recommend"
+        topic = plan_next_topic(
+            prev_profile,
+            asked,
+            student_wants_matches=wants_matches(text, previous_offer=previous_offer),
+        )
         extractor = self.extractor
 
         async def run_extraction() -> ExtractionOutcome:

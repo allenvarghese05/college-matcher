@@ -136,27 +136,63 @@ def test_asked_from_history_tells_home_state_from_location_preference() -> None:
     assert asked_from_history(history) == ["dream_without_money", "location", LOCATION_PREF]
 
 
-@pytest.mark.parametrize(
-    ("text", "want"),
-    [
-        ("just show me schools", True),
-        ("can I see my matches?", True),
-        ("ok show me some colleges please", True),
-        ("what colleges would fit me?", True),
-        ("can you recommend some schools", True),
-        ("give me my recommendations", True),
-        ("i love drawing and fixing bikes", False),
-        ("i live in ohio", False),
-        ("i want a school with good art", False),
-        ("my sister goes to a big college", False),
-        ("i'd like to see more of the country", False),
-        ("I don't want to see schools yet", False),
-        ("I'm not ready to see colleges", False),
-        ("I went to see the school last week", False),
-        ("please don't show me schools yet", False),
-        ("we visited some colleges, show me more later maybe", False),
-        ("no idea what to major in, just show me schools", True),
-    ],
-)
-def test_wants_matches(text: str, want: bool) -> None:
-    assert wants_matches(text) is want
+# (text, without a previous offer, right after the counselor offered matches)
+WANTS_MATCHES_TABLE: list[tuple[str, bool, bool]] = [
+    # explicit requests (allow-list)
+    ("just show me schools", True, True),
+    ("show me my matches please", True, True),
+    ("ok show me some colleges please", True, True),
+    ("no idea what to major in, just show me schools", True, True),
+    ("show me my options for colleges", True, True),
+    ("can I see my matches?", True, True),
+    ("could I have the list", True, True),
+    ("what are my matches?", True, True),
+    ("what colleges would fit me?", True, True),
+    ("which schools would work for me", True, True),
+    ("I'm ready to see my matches", True, True),
+    ("give me my recommendations", True, True),
+    ("can you recommend some schools", True, True),
+    # affirmations: only right after an offer
+    ("ok show me", False, True),
+    ("sure, show me", False, True),
+    ("ok let's see them", False, True),
+    ("go ahead", False, True),
+    # not requests
+    ("i love drawing and fixing bikes", False, False),
+    ("i live in ohio", False, False),
+    ("i want a school with good art", False, False),
+    ("my sister goes to a big college", False, False),
+    ("i'd like to see more of the country", False, False),
+    ("I don't want to see schools yet", False, False),
+    ("I'm not ready to see colleges", False, False),
+    ("I went to see the school last week", False, False),
+    ("please don't show me schools yet", False, False),
+    ("we visited some colleges, show me more later maybe", False, False),
+    # second review's false positives
+    ("I want to get into a good college", False, False),
+    ("can I get into a good school with a 3.0", False, False),
+    ("could I get into colleges in california", False, False),
+    ("I would like to get out of my state for college", False, False),
+    ("I wanna get a job right after college", False, False),
+    ("I'd like to get a scholarship at a big university", False, False),
+    ("i want to see the world before college", False, False),
+    ("I want to see what my options are for majors first", False, False),
+    ("show me how to pick schools later", False, False),
+    ("which colleges would my brother like", False, False),
+    ("can you recommend some schools for my cousin", False, False),
+    ("ok", False, False),
+]
+
+
+@pytest.mark.parametrize(("text", "cold", "after_offer"), WANTS_MATCHES_TABLE)
+def test_wants_matches(text: str, cold: bool, after_offer: bool) -> None:
+    assert wants_matches(text) is cold
+    assert wants_matches(text, previous_offer=True) is after_offer
+
+
+def test_offer_made_on_a_waiver_is_repeated_once_the_checklist_is_done() -> None:
+    p = _p(**READY)
+    waived = ["dream_without_money", "ready_to_recommend"]  # student asked early
+    done = [*waived, LOCATION_PREF, "size_setting", "priorities"]
+    assert plan_next_topic(p, done) == "ready_to_recommend"  # the normal offer still comes
+    assert plan_next_topic(p, [*done, "ready_to_recommend"]) == "academics"  # only once

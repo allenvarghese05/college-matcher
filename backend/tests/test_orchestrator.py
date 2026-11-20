@@ -343,6 +343,23 @@ async def test_student_asking_for_schools_short_circuits_the_checklist(tmp_path:
     assert "Offer matches now: no" in notes[2]
 
 
+async def test_affirmation_counts_only_right_after_an_offer(tmp_path: Path) -> None:
+    ready = {
+        "home_state": _upd("OH", "I live in Ohio"),
+        "income_bracket": _upd("48-75k", "my family makes 60k"),
+        "interests": _upd(["coding"], "I love coding"),
+    }
+    script = [
+        ("I live in Ohio, my family makes 60k and I love coding", ready),
+        ("ok show me", {}),  # no offer yet: not a request
+        ("just show me schools", {}),  # explicit request -> offer
+        ("ok show me", {}),  # right after the offer: a request
+    ]
+    fake, _sid = await _play(script, tmp_path)
+    offer = ["Offer matches now: yes" in n for n in _notes(fake)]
+    assert offer == [False, False, True, True]
+
+
 async def test_asking_for_schools_before_ready_asks_for_what_is_missing(tmp_path: Path) -> None:
     script = [
         ("I love art", {"interests": _upd(["art"], "I love art")}),

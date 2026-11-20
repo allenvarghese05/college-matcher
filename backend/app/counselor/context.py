@@ -158,20 +158,34 @@ ENRICH_ORDER: tuple[NextTopic, ...] = (
     "work_values",
 )
 
-_MATCH_NOUN = r"(schools?|colleges?|universit(?:y|ies)|matches|recommendations|options|list)"
-# Request shapes only: first-person / imperative asks, not mentions.
-_MATCH_REQUEST = re.compile(
-    rf"\b(show|give|send|find|get|pull up)\s+(me|us)\b[^.?!,;]{{0,30}}?\b{_MATCH_NOUN}\b"
-    rf"|\b(can|could|may|should)\s+i\s+(see|get|have|look at|check out)\b[^.?!,;]{{0,30}}?"
-    rf"\b{_MATCH_NOUN}\b"
-    rf"|\blet\s+me\s+see\b[^.?!,;]{{0,30}}?\b{_MATCH_NOUN}\b"
-    rf"|\b(i\s+want|i'?d\s+like|i\s+would\s+like|i\s+wanna)\s+(to\s+)?(see|get)\b"
-    rf"[^.?!,;]{{0,30}}?\b{_MATCH_NOUN}\b"
-    r"|\b(my|our)\s+(college\s+|school\s+)?(matches|recommendations)\b"
-    r"|\b(can|could|would|will)\s+you\s+(please\s+)?recommend\b"
-    r"|^\s*(please\s+)?(just\s+)?recommend\b"
-    r"|\b(what|which)\s+(schools|colleges|universities)\b[^.?!,;]{0,30}\b(should|would|could|"
-    r"fit|match|for\s+me)\b",
+# Explicit match requests: a NARROW allow-list (SPEC §8). False negatives are cheap (the
+# "Show my matches" button is always there); false positives skip the checklist.
+# Each pattern must reach the end of its clause, so the noun is the immediate object
+# ("show me how to pick schools later" and "which colleges would my brother like" fail).
+_TAIL = r"(?:\s+(?:please|now|already|then))*\s*$"
+_SHOW_DET = r"(?:(?:my|the|some|a few|any|the list of)\s+)?"
+_SHOW_NOUN = r"(?:schools?|colleges?|match(?:es)?|recommendations?|lists?|options?)"
+_MATCH_ALLOW = [
+    re.compile(p, re.I)
+    for p in (
+        rf"\bshow me\s+{_SHOW_DET}{_SHOW_NOUN}{_TAIL}",
+        rf"\bshow me my options for (?:schools|colleges){_TAIL}",
+        rf"\b(?:can|could|may) i (?:see|get|have) (?:my|the) "
+        rf"(?:matches|list|recommendations|results){_TAIL}",
+        rf"\b(?:what|which) are my (?:matches|recommendations){_TAIL}",
+        rf"\b(?:what|which) (?:schools|colleges) (?:would|should|could) "
+        rf"(?:fit|suit|work for) me{_TAIL}",
+        rf"\b(?:i'?m|i am) ready (?:to see|for) (?:my |the )?"
+        rf"(?:matches|schools|colleges|list){_TAIL}",
+        rf"\bgive me (?:my|some|a few|the) "
+        rf"(?:schools|colleges|matches|recommendations|list){_TAIL}",
+        rf"\b(?:can|could) you recommend (?:(?:some|a few) )?(?:schools|colleges){_TAIL}",
+    )
+]
+# Only right after the counselor offered matches: "ok show me", "sure, let's see them".
+_AFFIRM = re.compile(
+    r"^(?:(?:ok|okay|sure|yes|yeah|yep|yup)\s*)?(?:please\s+)?"
+    r"(?:show me|let'?s see(?: them)?|go ahead)(?:\s+(?:please|now))?$",
     re.I,
 )
 # A clause with a negation or a past-tense/visit verb is never a request.
@@ -183,17 +197,27 @@ _MATCH_BLOCK = re.compile(
 _CLAUSES = re.compile(r"[.?!;,]+|\bbut\b", re.I)
 
 
-def wants_matches(text: str) -> bool:
-    """True when the CURRENT student message explicitly asks to see schools ("just show
-    me schools", "can I see my matches?", "what colleges would fit me?").
+def _norm_clause(text: str) -> str:
+    return " ".join(text.replace("\u2019", "'").split()).strip()
 
-    Checked per clause: the clause must have a request shape (first-person or
-    imperative) and no negation or past-tense/visit verb, so "I don't want to see
-    schools yet", "I'm not ready to see colleges" and "I went to see the school last
-    week" are not requests.
+
+def wants_matches(text: str, *, previous_offer: bool = False) -> bool:
+    """True when the CURRENT student message explicitly asks to see their matches.
+
+    Narrow allow-list per clause (``_MATCH_ALLOW``), with no negation or past-tense /
+    visit word in the clause. ``previous_offer`` (the counselor's last reply offered
+    matches) additionally accepts a bare affirmation: "ok show me", "sure, let's see
+    them", "go ahead".
     """
-    for clause in _CLAUSES.split(text or ""):
-        if _MATCH_REQUEST.search(clause) and not _MATCH_BLOCK.search(clause):
+    if previous_offer:
+        whole = _norm_clause(re.sub(r"[.?!,;]+", " ", text or ""))
+        if _AFFIRM.search(whole):
+            return True
+    for raw in _CLAUSES.split(text or ""):
+        clause = _norm_clause(raw)
+        if not clause or _MATCH_BLOCK.search(clause):
+            continue
+        if any(p.search(clause) for p in _MATCH_ALLOW):
             return True
     return False
 
@@ -236,6 +260,20 @@ def _as_topic(key: str) -> NextTopic:
     return "location" if key == LOCATION_PREF else key  # type: ignore[return-value]
 
 
+def _offered_after_checklist(
+    profile: StudentProfile, asked: Sequence[str], missing: list[str]
+) -> bool:
+    """True if some earlier ``ready_to_recommend`` was planned once every checklist item
+    had been asked before it (or is covered now) — i.e. a real offer, not a waiver."""
+    for i, key in enumerate(asked):
+        if key != "ready_to_recommend":
+            continue
+        prior = set(asked[:i])
+        if all(q in prior or _covered(profile, q, missing) for q in QUALITY_CHECKLIST):
+            return True
+    return False
+
+
 def plan_next_topic(
     profile: StudentProfile,
     asked: Sequence[str] = (),
@@ -258,7 +296,9 @@ def plan_next_topic(
        ``MAX_READINESS_ASKS`` asks per topic in all; past the cap, fall through to
        enrichment. Only when everything is exhausted does the first missing readiness
        topic stay the suggestion.
-    4. Ready and matches never offered: ``ready_to_recommend`` (the counselor offers them).
+    4. Ready and matches not yet offered after the checklist: ``ready_to_recommend``.
+       An offer made on a one-turn waiver (before the checklist was done) does not
+       count, so the normal offer still comes once the checklist completes.
     5. Then enrichment topics once each, and ``ready_to_recommend`` when all are asked.
     """
     missing = profile.missing_for_recommendation()
@@ -269,7 +309,7 @@ def plan_next_topic(
     if student_wants_matches:
         return "ready_to_recommend" if not missing else first_missing[0]  # type: ignore[return-value]
 
-    offered = "ready_to_recommend" in asked_set
+    offered = _offered_after_checklist(profile, asked, missing)
     for key in CORE_ORDER:
         if _covered(profile, key, missing) or key in asked_set:
             continue
