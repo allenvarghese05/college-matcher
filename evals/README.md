@@ -29,3 +29,30 @@ Modules: `simulator.py` (student: ollama / claude / scripted + leak guard), `run
   Reciprocity prices are applied by hand.
 - **Questions-asked coverage** is keyword matching on the counselor's question
   sentences (`topics.py`), not NLU.
+- **Planned coverage** reads `profile_snapshot.next_topic`, which (since
+  `counselor_reply.v2`) is the topic the deterministic planner steered each reply to
+  (`app.counselor.context.plan_next_topic`), not the extractor's suggestion.
+
+## Extraction metrics
+
+Strict per-field scoring is the headline (`metrics_extraction.py` docstring: scalar
+tolerances, one-to-one fuzzy matching for free-text lists, exact enum lists).
+
+**Interest signal** (secondary, clearly labelled). Strict `interests` undercounts: the
+extractor reasonably files "i'm good at drawing" under `strengths` and "fixing bikes"
+under `activities`. The report therefore adds a row `interests (any field)`:
+
+- a hidden `interests` item is **recovered** (TP) if it fuzzy-matches (same rule as other
+  free-text lists, one-to-one) any extracted item in `interests` ∪ `strengths` ∪
+  `activities[].name` ∪ `dream_without_money` ∪ `favorite_subjects`; otherwise FN;
+- an extracted `interests` item left unmatched is an FP only if it also matches nothing
+  in the hidden profile's same five fields;
+- hidden `interests` absent or `[]`: strict rule.
+
+It also reports micro totals with that row substituted for strict `interests`
+("interests scored as interest signal"). The strict `interests` row and the strict
+micro totals are unchanged. Example (live-pilot-1, maya-oh): hidden
+[drawing, fixing bikes, how things are built]; extracted interests [designing things,
+art], strengths [drawing, figuring out how stuff works], activities [robotics club,
+part-time job at a bike shop fixing bikes] -> strict TP 0 / FP 2 / FN 3, interest
+signal TP 2 / FP 0 / FN 1 ("how things are built" is not recovered).

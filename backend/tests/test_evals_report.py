@@ -134,6 +134,12 @@ def test_build_report_aggregates(tmp_path: Path) -> None:
     assert hr[("hybrid_rerank", "e2e")]["recall"] == 0.0
     assert hr[("sql_only", "gold")]["recall"] == 0.5
     assert m["extraction"]["overall"]["tp"] == 4  # home_state + gpa, twice
+    # interest signal reported alongside (no interests extracted here: same as strict)
+    assert m["extraction"]["interest_signal"] == m["extraction"]["per_field"]["interests"]
+    assert m["extraction"]["overall_interest_signal"]["tp"] == 4
+    assert "| interests (any field) | " in md
+    assert "`interests` scored as interest signal" in md
+    assert "Interest signal is a lenient, secondary score" in md
     assert "**0.900** (18/20)" in md
     assert "offline fake counselor" in md  # replayed fake cassettes are flagged
     assert "hybrid_riasec_rerank | – " in md
