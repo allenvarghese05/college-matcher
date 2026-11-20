@@ -5,7 +5,10 @@ time — name, city/state, control/size/locale, matched programs + earnings, net
 the bracket (+ out-of-state estimate), admission rate, SAT/ACT range, distance — with no
 source, rank or score. One keypress per school:
 
-    0 poor fit    1 acceptable    2 strong fit    s skip    b back    q quit + save
+    0 poor fit   1 acceptable   2 strong fit   s unsure (= 0, noted)   b back   q quit + save
+
+After the last row: Enter/f finishes, b goes back. There is no skip: criteria.md judges
+every shown school, so "unsure" is recorded as S1 = 0 and listed in ``notes``.
 
 Progress is saved after every key (``evals/labels/progress/<persona>.json``), so it is
 resumable. When a persona's last row is scored, the entry is written to
@@ -14,8 +17,8 @@ resumable. When a persona's last row is scored, the entry is written to
 * ``acceptable_unitids`` = S1 ≥ 1, after the H4 band-mix check (more than 1/3 reaches
   where the student is below the school's median -> drop the lowest S1 first) and the
   10–25 target (> 25 -> keep S1 = 2 only);
-* ``judged_unitids`` = every scored row + every auto-judged (hard-criterion fail)
-  system pick from the pool meta; skipped rows are left unjudged (and noted);
+* ``judged_unitids`` = every shown row + every auto-judged (hard-criterion fail)
+  system pick from the pool meta;
 * ``notes`` (auto notes + your optional one-liner), ``labeled_at``, plus
   ``major_cip4s``, ``pool_size``, ``relaxed``; ``_meta`` carries ``criteria_commit``.
 
@@ -53,12 +56,13 @@ from evals.common import (  # noqa: E402
     load_persona,
     load_personas,
 )
-from evals.labels.pool import ACT_TO_SAT, POOLS_DIR, sat_to_act  # noqa: E402
+from evals.labels.pool import POOLS_DIR, student_score  # noqa: E402
 
 PROGRESS_DIR = LABELS_DIR / "progress"
 TARGET_MIN, TARGET_MAX = 10, 25
 REACH_RATE = 0.25
-KEYS = {"0", "1", "2", "s", "b", "q"}
+FINISH_KEYS = {"f", "\r", "\n", ""}
+UNSURE = "unsure"
 
 # criteria.md "Time budget": voice subset first, then one persona per edge case, then rest.
 VOICE_SUBSET = (
@@ -125,7 +129,7 @@ class LabelSession:
     persona: Persona
     rows: list[dict[str, str]]
     meta: dict[str, Any]
-    scores: dict[int, int | str] = field(default_factory=dict)  # unitid -> 0/1/2 or "skip"
+    scores: dict[int, int | str] = field(default_factory=dict)  # unitid -> 0/1/2 or "unsure"
     idx: int = 0
 
     def __post_init__(self) -> None:
@@ -141,7 +145,7 @@ class LabelSession:
         return self.idx >= len(self.rows)
 
     def apply(self, key: str) -> str:
-        """Returns 'scored' | 'skipped' | 'back' | 'quit' | 'ignored'."""
+        """Returns 'scored' | 'unsure' | 'back' | 'quit' | 'ignored'."""
         if key == "q":
             return "quit"
         if key == "b":
@@ -154,9 +158,9 @@ class LabelSession:
             self.idx += 1
             return "scored"
         if key == "s":
-            self.scores[self.uid(self.idx)] = "skip"
+            self.scores[self.uid(self.idx)] = UNSURE
             self.idx += 1
-            return "skipped"
+            return "unsure"
         return "ignored"
 
     def progress(self) -> dict[str, Any]:
@@ -171,19 +175,14 @@ def _f(v: str | None) -> float | None:
 
 
 def _median_gap(row: dict[str, str], hidden: dict[str, Any]) -> float | None:
-    """Student score minus the school's median (mid of 25th–75th), school's test units."""
-    sat, act = hidden.get("sat"), hidden.get("act")
-    if sat is None and act is None:
+    """Student score minus the school's median (mid of 25th–75th), using the same unit
+    rule as H4 (:func:`evals.labels.pool.student_score`)."""
+    got = student_score(hidden, bool(row.get("sat_range")), bool(row.get("act_range")))
+    if got is None:
         return None
-    if row.get("sat_range"):
-        lo, hi = (float(x) for x in row["sat_range"].split("-"))
-        mine = sat if sat is not None else ACT_TO_SAT.get(int(act), 590)
-        return float(mine) - (lo + hi) / 2
-    if row.get("act_range"):
-        lo, hi = (float(x) for x in row["act_range"].split("-"))
-        mine = act if act is not None else sat_to_act(int(sat))
-        return float(mine) - (lo + hi) / 2
-    return None
+    unit, mine = got
+    lo, hi = (float(x) for x in row[f"{unit}_range"].split("-"))
+    return mine - (lo + hi) / 2
 
 
 def finalize(
@@ -198,7 +197,7 @@ def finalize(
     by_uid = {int(r["unitid"]): r for r in rows}
     hidden = persona.hidden
     notes: list[str] = []
-    graded = {u: s for u, s in scores.items() if isinstance(s, int)}
+    graded = {u: (s if isinstance(s, int) else 0) for u, s in scores.items() if u in by_uid}
     acceptable = {u: s for u, s in graded.items() if s >= 1}
 
     has_stats = any(hidden.get(k) is not None for k in ("gpa", "sat", "act"))
@@ -231,9 +230,9 @@ def finalize(
     elif len(acceptable) < TARGET_MIN:
         notes.append(f"Only {len(acceptable)} acceptable (< {TARGET_MIN}).")
 
-    skipped = sorted(u for u, s in scores.items() if s == "skip")
-    if skipped:
-        notes.append(f"Skipped (unjudged): {skipped}.")
+    unsure = sorted(u for u, s in scores.items() if s == UNSURE and u in by_uid)
+    if unsure:
+        notes.append(f"Unsure (scored S1=0): {unsure}.")
     if meta.get("relaxed"):
         notes.append(f"H2 relaxed: {meta['relaxed']}.")
     auto = [int(a["unitid"]) for a in meta.get("auto_judged") or []]
@@ -319,7 +318,7 @@ def render_row(row: dict[str, str], i: int, n: int, prev: int | str | None) -> s
         f"{row.get('admission_rate') or '?'} · SAT {row.get('sat_range') or '-'} · "
         f"ACT {row.get('act_range') or '-'}",
         f"  programs: {row.get('programs') or '-'}",
-        "  [0] poor  [1] acceptable  [2] strong   [s]kip  [b]ack  [q]uit+save",
+        "  [0] poor  [1] acceptable  [2] strong   [s] unsure(=0)  [b]ack  [q]uit+save",
     ]
     return "\n".join(lines)
 
@@ -361,12 +360,13 @@ def label_persona(
     keys: Iterator[str] | None = None,
     out: Callable[[str], None] = print,
     ask_note: Callable[[], str] | None = None,
+    restart: bool = False,
 ) -> str:
     """Interactive loop. Returns 'done' (entry written) or 'quit' (progress saved)."""
     rows, meta = load_pool(persona.id, pools_dir)
     prog_path = progress_dir / f"{persona.id}.json"
     saved: dict[int, int | str] = {}
-    if prog_path.exists():
+    if prog_path.exists() and not restart:
         in_pool = {int(r["unitid"]) for r in rows}  # ignore scores from an older pool
         saved = {
             int(k): v
@@ -377,9 +377,17 @@ def label_persona(
     next_key: Callable[[], str] = (lambda: next(keys, "q")) if keys is not None else read_key
     out(render_header(persona))
     out(f"  {len(rows)} schools to judge; {len(sess.scores)} already scored.")
-    while not sess.done:
-        out(render_row(rows[sess.idx], sess.idx, len(rows), sess.scores.get(sess.uid(sess.idx))))
-        action = sess.apply(next_key())
+    while True:
+        if sess.done:
+            out("  all rows scored: [Enter/f] finish and write labels.yaml  [b]ack  [q]uit+save")
+            key = next_key()
+            if key in FINISH_KEYS:
+                break
+        else:
+            uid = sess.uid(sess.idx)
+            out(render_row(rows[sess.idx], sess.idx, len(rows), sess.scores.get(uid)))
+            key = next_key()
+        action = sess.apply(key)
         progress_dir.mkdir(parents=True, exist_ok=True)
         prog_path.write_text(json.dumps(sess.progress(), indent=1) + "\n")
         if action == "quit":
@@ -449,7 +457,8 @@ def main(argv: list[str] | None = None) -> int:
             return ""
 
     for p in queue:
-        if label_persona(p, a.pools_dir, a.labels, ask_note=ask_note) == "quit":
+        restart = bool(a.relabel and a.persona)  # --relabel discards that persona's progress
+        if label_persona(p, a.pools_dir, a.labels, ask_note=ask_note, restart=restart) == "quit":
             return 0
         if not a.persona:
             print("\nnext persona... (q at any row quits)")

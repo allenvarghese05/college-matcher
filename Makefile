@@ -95,6 +95,8 @@ eval-replay: eval-db
 		--out $(EVAL_SMOKE_REPORT) --min-groundedness 0.95 --require-complete
 
 eval-record-smoke: eval-db
+	cd $(BACKEND) && rm -f $(EVAL_SMOKE_CASSETTES)/parse-*.json $(EVAL_SMOKE_CASSETTES)/stream-*.json \
+		$(EVAL_SMOKE_CASSETTES)/ollama-*.json
 	cd $(BACKEND) && DATABASE_URL=$(EVAL_DATABASE_URL) EMBEDDER=fake \
 		uv run python ../evals/run.py --mode record --transport fake --sim scripted \
 		--personas $(EVAL_SMOKE_PERSONAS) --cassette-dir $(EVAL_SMOKE_CASSETTES) \
@@ -107,7 +109,7 @@ eval-live:
 		echo "eval-live calls the Anthropic API. Re-run with: CONFIRM=1 make eval-live"; exit 1; fi
 	cd $(BACKEND) && uv run python ../evals/run.py --mode record --sim $(EVAL_SIM) \
 		--personas '$(EVAL_PERSONAS)' --max-cost-usd $(EVAL_MAX_COST) \
-		--concurrency $(EVAL_CONCURRENCY) --run-id $(EVAL_LIVE_RUN) --confirm
+		--concurrency $(EVAL_CONCURRENCY) --run-id $(EVAL_LIVE_RUN) --confirm --allow-dev-db
 	cd $(BACKEND) && uv run python ../evals/report.py --run $(EVAL_LIVE_RUN) --out ../docs/results.md
 
 pool:

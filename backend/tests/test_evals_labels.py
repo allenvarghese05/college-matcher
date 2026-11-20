@@ -53,10 +53,11 @@ def test_session_keys_back_skip_quit() -> None:
     assert s.apply("2") == "scored" and s.idx == 1
     assert s.apply("b") == "back" and s.idx == 0
     assert s.apply("1") == "scored"
-    assert s.apply("s") == "skipped"
+    assert s.apply("s") == "unsure"
     assert s.apply("x") == "ignored"
     assert s.apply("0") == "scored" and s.done
-    assert s.scores == {1: 1, 2: "skip", 3: 0}
+    assert s.scores == {1: 1, 2: "unsure", 3: 0}
+    assert s.apply("b") == "back" and s.idx == 2  # back from the end
     assert s.apply("q") == "quit"
     resumed = LabelSession(_persona(), rows, {}, {1: 2})  # type: ignore[arg-type]
     assert resumed.idx == 1
@@ -101,7 +102,7 @@ def test_label_persona_round_trip(tmp_path: Path) -> None:
         pools,
         labels,
         progress,
-        iter(["0", "s"]),
+        iter(["0", "s", "b", "s", "f"]),
         out.append,
         lambda: "my note",  # type: ignore[arg-type]
     )
@@ -111,17 +112,17 @@ def test_label_persona_round_trip(tmp_path: Path) -> None:
     assert doc["_meta"]["candidate_tool_version"] == "def456"
     e = doc["t-oh"]
     assert e["acceptable_unitids"] == [10]
-    assert e["judged_unitids"] == [10, 11, 900]  # skipped 12 is unjudged
+    assert e["judged_unitids"] == [10, 11, 12, 900]  # every shown row is judged
     assert e["major_cip4s"] == ["50.04", "14.19"] and e["pool_size"] == 47
-    assert e["notes"].startswith("my note") and "Skipped" in e["notes"]
+    assert e["notes"].startswith("my note") and "Unsure (scored S1=0): [12]" in e["notes"]
     assert validate_labels(doc) == []
     parsed = load_labels(labels)  # the scorer reads it back
-    assert parsed["t-oh"].acceptable == {10} and parsed["t-oh"].judged == {10, 11, 900}
+    assert parsed["t-oh"].acceptable == {10} and parsed["t-oh"].judged == {10, 11, 12, 900}
     assert "acceptable_unitids: [10]" in labels.read_text()  # flow-style lists
 
     # a second persona keeps the first entry and _meta
     _write_pool(pools, "u-oh", [_row(20)], meta)
-    label_persona(_persona("u-oh"), pools, labels, progress, iter(["1"]), out.append)  # type: ignore[arg-type]
+    label_persona(_persona("u-oh"), pools, labels, progress, iter(["1", "f"]), out.append)  # type: ignore[arg-type]
     doc = yaml.safe_load(labels.read_text())
     assert set(doc) == {"_meta", "t-oh", "u-oh"} and list(doc)[0] == "_meta"
 
@@ -143,3 +144,29 @@ def test_priority_order_voice_first() -> None:
     c = persona_from_doc({"id": "aa-co", "meta": {"edge_cases": []}})
     d = persona_from_doc({"id": "bb-ny", "meta": {"edge_cases": ["cs"]}})
     assert [p.id for p in priority_order([a, b, c, d])] == ["maya-oh", "zz-ia", "aa-co", "bb-ny"]
+
+
+def test_relabel_restart_discards_progress(tmp_path: Path) -> None:
+    pools, labels, progress = tmp_path / "pools", tmp_path / "labels.yaml", tmp_path / "prog"
+    _write_pool(pools, "t-oh", [_row(10), _row(11)], {"criteria_commit": "c"})
+    p = _persona()
+    label_persona(p, pools, labels, progress, iter(["2", "q"]), print)  # type: ignore[arg-type]
+    out: list[str] = []
+    keys = iter(["0", "0", "f"])
+    label_persona(p, pools, labels, progress, keys, out.append, restart=True)  # type: ignore[arg-type]
+    assert "0 already scored" in "\n".join(out)
+    assert yaml.safe_load(labels.read_text())["t-oh"]["acceptable_unitids"] == []
+
+
+def test_band_mix_uses_students_own_test_when_school_reports_it() -> None:
+    # ACT-25 student at a <25% school reporting SAT 1300-1450 AND ACT 22-26: in ACT units
+    # (criteria H4) the student is above the median (24), so it is not a reach. Concording
+    # to SAT (25 -> 1210 vs median 1375) would wrongly call it one and trim it.
+    p = _persona(act=25)
+    rows = [_row(1, "0.20", "1300-1450"), _row(2)]  # 1 reach of 2 would exceed 1/3
+    rows[0]["act_range"] = "22-26"
+    e = finalize(p, rows, {1: 1, 2: 1}, {})  # type: ignore[arg-type]
+    assert e["acceptable_unitids"] == [1, 2] and "band-mix" not in e["notes"]
+    sat_only = [_row(1, "0.20", "1300-1450"), _row(2)]  # concorded: 1210 < 1375 -> reach
+    e2 = finalize(p, sat_only, {1: 1, 2: 1}, {})  # type: ignore[arg-type]
+    assert e2["acceptable_unitids"] == [2] and "band-mix" in e2["notes"]

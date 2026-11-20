@@ -112,6 +112,12 @@ def test_h4_admission_plausibility() -> None:
     assert h4(far_below, {"sat": 1250}).ok
     act_only = school(3, admission_rate=0.40, act_25=30, act_75=34)
     assert not h4(act_only, {"sat": 1200}).ok  # 1200 SAT ~ 24 ACT, > 3 below
+    # criteria H4: concord only when the school reports just the other test
+    both = school(9, admission_rate=0.40, sat_25=1300, sat_75=1450, act_25=27, act_75=32)
+    assert h4(both, {"act": 25}).ok  # 2 ACT points below the 25th: passes
+    assert not h4(school(10, admission_rate=0.40, sat_25=1300, sat_75=1450), {"act": 25}).ok
+    assert not h4(both, {"sat": 1200, "act": 30}).ok  # both tests -> SAT when reported
+    assert h4(school(11, admission_rate=0.4, act_25=27, act_75=32), {"sat": 1200, "act": 30}).ok
     assert not h4(school(4, admission_rate=0.25), {"gpa": 2.8}).ok
     assert not h4(school(5, admission_rate=0.18), {"gpa": 3.3}).ok
     assert h4(school(6, admission_rate=0.18), {"gpa": 3.6}).ok
@@ -212,5 +218,6 @@ async def test_generate_against_fixture_db(tmp_path: Path, db_session: object) -
     assert (tmp_path / "pools" / "t-oh.csv").exists()
     judged = {int(r["unitid"]) for r in pool.rows} | {a["unitid"] for a in pool.auto_judged}
     assert {100663, 1} <= judged  # every system pick is shown or auto-judged
-    # no tuition data -> every out-of-state public fails H2
-    assert all(r["state"] == "AL" or r["control"] != "public" for r in pool.rows)
+    # no raw CSV -> DB tuition columns: every shown out-of-state public has an estimate
+    oos = [r for r in pool.rows if r["state"] != "AL" and r["control"] == "public"]
+    assert all(r["out_of_state_estimate"] != "" for r in oos)

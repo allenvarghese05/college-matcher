@@ -160,6 +160,12 @@ def test_leak_guard() -> None:
     assert leak.multi_leak and {"home_state", "gpa", "budget_cap"} <= set(leak.unasked)
     brk = g.check("As an AI, my budget_cap is 22000", "What can your family pay?")
     assert brk.character_break
+    # a fact asked about in ANY earlier counselor message may be revealed later
+    later = g.check("oh and my gpa is 3.6", ["What's your GPA?", "Cool, what do you like?"])
+    assert later.unasked == []
+    # YAML-ish keys are a character break; ordinary "word:" phrasing is not
+    assert g.check("gpa: 3.6", "What's your GPA?").character_break
+    assert not g.check("honestly: idk", "What's your GPA?").character_break
     # shared words between an asked field and another field are not a leak
     shared = g.check("i'm good at drawing", "What are you good at?")
     assert shared.unasked == []

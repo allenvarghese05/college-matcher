@@ -388,10 +388,7 @@ def render(m: dict[str, Any], summary: dict[str, Any]) -> str:
         "- **Single labeler** — the project owner, who also built the system; no inter-rater "
         "agreement unless reported separately."
     )
-    a(
-        "- **Simulated students.** Personas are invented; a different model family plays "
-        "the student than runs the counselor. The leak guard counts simulator slips (above)."
-    )
+    a(f"- **Simulated students.** Personas are invented. {sim_caveat(summary)}")
     a(
         "- **Heuristic coverage.** Questions-asked coverage uses keyword matching on the "
         "counselor's question sentences (`evals/topics.py`)."
@@ -403,6 +400,27 @@ def render(m: dict[str, Any], summary: dict[str, Any]) -> str:
     a("- **Small n.** Edge cases with n = 1 (hannah, megan, bella) are anecdotes, not rates.")
     a("")
     return "\n".join(lines) + "\n"
+
+
+def sim_caveat(summary: dict[str, Any]) -> str:
+    sim = summary.get("sim")
+    model = summary.get("sim_model")
+    guard = " The leak guard counts simulator slips (Headline)."
+    if sim == "ollama":
+        return (
+            f"The student is played by a local model (`{model}` via Ollama), a different "
+            "model family from the Claude counselor, which makes self-flattering scores less "
+            "likely." + guard
+        )
+    if sim == "claude":
+        return (
+            "The student is played by Claude (Sonnet), the **same model family** as the "
+            "counselor, so scores may be flattering; prefer an Ollama-simulated run." + guard
+        )
+    return (
+        "The student is a deterministic scripted template (no model): it answers exactly "
+        "what is asked, so extraction and coverage numbers are upper bounds." + guard
+    )
 
 
 def check_gates(

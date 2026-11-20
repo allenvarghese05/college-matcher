@@ -10,9 +10,11 @@ written by the labeler before any pool exists):
 * **H2** net price at the income bracket (``avg_net_price`` fallback; both missing ->
   fail) ≤ ``budget_cap × 1.15``, else the bracket default (110k+ with ``prestige``: no
   ceiling). **Out-of-state publics** use bracket net price + (``TUITIONFEE_OUT`` −
-  ``TUITIONFEE_IN``) read read-only from the raw Scorecard institution CSV (the DB has
-  no tuition columns); missing tuition -> fail. Reciprocity prices (WUE, MSEP, ACM, RSP)
-  are not automated: the labeler applies them by hand and says so in ``notes``.
+  ``TUITIONFEE_IN``) from the raw Scorecard institution CSV (read-only) or, when the
+  CSV is absent, the DB's ``tuition_in_state`` / ``tuition_out_of_state``; missing
+  tuition -> fail. Unlike the app's ``pricing.py`` the surcharge is NOT floored at 0.
+  Reciprocity prices (WUE, MSEP, ACM, RSP) are not automated: the labeler applies them
+  by hand and says so in ``notes``.
   Relaxation: if fewer than 5 schools pass H1–H4, the cap is relaxed once to the bracket
   default and recorded as ``relaxed: [budget]``.
 * **H3** ``max_distance_miles × 1.10`` from the home ZIP (centroid of Scorecard
@@ -232,19 +234,36 @@ def h3(school: School, hidden: dict[str, Any], home_ll: tuple[float, float] | No
     return v
 
 
-def _student_vs(school: School, hidden: dict[str, Any], pct: str) -> float | None:
-    """Student score minus the school's ``pct`` (25/75) percentile, in the school's test's
-    units (SAT preferred). None if either side has no score."""
+def student_score(
+    hidden: dict[str, Any], school_has_sat: bool, school_has_act: bool
+) -> tuple[str, float] | None:
+    """The student's score in the units to compare with a school (criteria.md H4).
+
+    Use the student's own test when the school reports it (SAT if the student has both
+    and the school reports both); concord (2018 ACT/SAT table) ONLY when the school
+    reports just the other test. None if either side has no usable score.
+    """
     sat, act = hidden.get("sat"), hidden.get("act")
+    if sat is not None and school_has_sat:
+        return "sat", float(sat)
+    if act is not None and school_has_act:
+        return "act", float(act)
+    if act is not None and school_has_sat:  # school reports only SAT
+        return "sat", float(ACT_TO_SAT.get(int(act), 590))
+    if sat is not None and school_has_act:  # school reports only ACT
+        return "act", float(sat_to_act(int(sat)))
+    return None
+
+
+def _student_vs(school: School, hidden: dict[str, Any], pct: str) -> tuple[float, str] | None:
+    """(student score − school's ``pct`` percentile, units) per :func:`student_score`."""
     s_sat = getattr(school, f"sat_{pct}")
     s_act = getattr(school, f"act_{pct}")
-    if s_sat is not None and (sat is not None or act is not None):
-        mine = sat if sat is not None else ACT_TO_SAT.get(int(act), 590)
-        return float(mine) - float(s_sat)
-    if s_act is not None and (sat is not None or act is not None):
-        mine = act if act is not None else sat_to_act(int(sat))
-        return float(mine) - float(s_act)
-    return None
+    got = student_score(hidden, s_sat is not None, s_act is not None)
+    if got is None:
+        return None
+    unit, mine = got
+    return mine - float(s_sat if unit == "sat" else s_act), unit
 
 
 def h4(school: School, hidden: dict[str, Any]) -> Verdict:
@@ -255,12 +274,12 @@ def h4(school: School, hidden: dict[str, Any]) -> Verdict:
     gpa = hidden.get("gpa")
     below25 = _student_vs(school, hidden, "25")
     if below25 is not None and rate is not None and rate < 0.5:
-        sat_units = school.sat_25 is not None
-        if -below25 > (80 if sat_units else 3):
+        diff, unit = below25
+        if -diff > (80 if unit == "sat" else 3):
             return Verdict(False, ["H4: far below 25th percentile at a <50% school"])
     if rate is not None and rate < 0.15:
         vs75 = _student_vs(school, hidden, "75")
-        if not ((vs75 is not None and vs75 >= 0) or (not has_test and gpa and gpa >= 3.85)):
+        if not ((vs75 is not None and vs75[0] >= 0) or (not has_test and gpa and gpa >= 3.85)):
             return Verdict(False, ["H4: admission rate < 15%"])
     if not has_test and gpa is not None and rate is not None:
         if gpa < 3.0 and rate < 0.30:
@@ -493,7 +512,11 @@ async def load_schools(
     )
     out: dict[int, School] = {}
     for i in insts:
+        # raw CSV first (read-only source of truth for the labels), else the DB columns
         tin, tout = raw.tuition.get(i.unitid, (None, None))
+        if tin is None and tout is None:
+            tin = float(i.tuition_in_state) if i.tuition_in_state is not None else None
+            tout = float(i.tuition_out_of_state) if i.tuition_out_of_state is not None else None
         out[i.unitid] = School(
             unitid=i.unitid,
             name=i.name,
@@ -602,7 +625,7 @@ async def _main(a: argparse.Namespace) -> int:
     raw = RawInstitutions.load(a.raw_institutions)
     if not raw.tuition:
         print(
-            f"warning: no tuition data ({a.raw_institutions}); every out-of-state public fails H2",
+            f"note: raw CSV not found ({a.raw_institutions}); using the DB tuition columns",
             file=sys.stderr,
         )
     engine = create_async_engine(a.database_url or get_settings().DATABASE_URL)

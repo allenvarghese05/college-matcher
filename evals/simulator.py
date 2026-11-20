@@ -34,7 +34,8 @@ from typing import Any, Protocol
 
 from app.core.llm import LLMClient, ReplayMissError  # noqa: E402
 from app.core.logging import Stage, get_logger  # noqa: E402
-from app.counselor.context import STATE_NAMES  # noqa: E402
+from app.counselor.context import STATE_NAMES
+from app.schemas import PROFILE_FIELDS  # noqa: E402
 from evals.common import Persona
 from evals.topics import FIELD_TOPIC, asked_topics
 
@@ -146,7 +147,9 @@ _CHARACTER_BREAK = [
         r"dream_without_money|intended_majors|favorite_subjects|work_values|size_pref|"
         r"setting_pref)\b",
         r"\briasec\b",
-        r"^\s*-?\s*[a-z_]{3,}:\s+\S",
+        # a persona-YAML key with a colon ("gpa: 3.6", "interests:", "- name: robotics")
+        rf"(?<![\w$])({'|'.join(sorted(PROFILE_FIELDS))}|summary|style|reveal|quirks|role|"
+        r"years|hours_per_week)\s*:",
         r"\bi('m| am) (an? )?(ai|assistant|chatbot)\b",
         r"\bhow can i (help|assist) you\b",
         r"\b(private facts|these instructions|my instructions)\b",
@@ -241,13 +244,17 @@ class LeakGuard:
                 out.append("dream_without_money")
         return out
 
-    def check(self, msg: str, counselor_msg: str | None) -> GuardResult:
+    def check(self, msg: str, counselor_msgs: str | list[str] | None) -> GuardResult:
+        """``counselor_msgs``: every counselor message so far (a fact asked about in any
+        earlier message may be revealed now), or just the last one."""
         revealed = self.revealed(msg)
-        allowed = (
-            asked_topics(counselor_msg, questions_only=False)
-            if counselor_msg is not None
-            else set()
-        )
+        if counselor_msgs is None:
+            counselor_msgs = []
+        elif isinstance(counselor_msgs, str):
+            counselor_msgs = [counselor_msgs]
+        allowed: set[str] = set()
+        for m in counselor_msgs:
+            allowed |= asked_topics(m, questions_only=False)
         # Words that belong to an asked-about field's value don't count as leaking another
         # field that shares them (e.g. "drawing" is both an interest and a strength).
         shared: set[str] = set()
@@ -466,7 +473,9 @@ class BaseSimulator:
             cost_usd=gen.cost_usd,
             input_tokens=gen.input_tokens,
             output_tokens=gen.output_tokens,
-            guard=self.guard.check(text, counselor_text),
+            guard=self.guard.check(
+                text, [m["content"] for m in self.messages if m["role"] == "user"]
+            ),
         )
 
     async def opening(self) -> SimTurn:
@@ -657,7 +666,7 @@ class OllamaSimulator(BaseSimulator):
             input_tokens=int(data.get("prompt_eval_count") or 0),
             output_tokens=int(data.get("eval_count") or 0),
         )
-        if self.mode == "record" and path is not None:
+        if path is not None:  # cached in record AND live mode, so any run can be replayed
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(
                 json.dumps(

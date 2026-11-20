@@ -17,10 +17,13 @@ Modes (``--mode``): ``replay`` (cassettes only — free, CI), ``record`` (call t
 save cassettes), ``live`` (call the API). ``--transport fake`` answers every Claude call
 with :mod:`evals.fake_counselor` instead of the API (for building offline cassettes).
 
-Budget guard: ``--max-cost-usd`` aborts the run as soon as the cumulative cost (the
-TurnLogger stage costs persisted in ``turn_metric`` plus simulator cost) exceeds it, and
-refuses to start a recommendation (Opus) call that would cross it. Real-API runs require
-``--confirm`` and default to a $5 cap.
+Budget guard (``--max-cost-usd``): before every paid step — a counselor turn, a
+simulator reply, the Opus recommendation — its estimated cost is *reserved*; the step
+doesn't start if spent + every task's reservations + the estimate would cross the cap
+(so concurrent personas see each other). Afterwards the reservation is replaced by the
+actual cost (TurnLogger stage costs persisted in ``turn_metric`` + simulator cost); the
+run aborts if that crosses the cap. Real-API runs require ``--confirm`` and default to a
+$5 cap. Eval sessions are only written to a ``*_test`` database unless ``--allow-dev-db``.
 
 Examples (from ``backend/``)::
 
@@ -47,7 +50,7 @@ from dataclasses import asdict, dataclass, field  # noqa: E402
 from datetime import UTC, datetime  # noqa: E402
 from typing import Any  # noqa: E402
 
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import make_url, select  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker  # noqa: E402
 
 from app.core.config import get_settings  # noqa: E402
@@ -93,12 +96,48 @@ class BudgetExceeded(RuntimeError):
 
 @dataclass
 class CostMeter:
-    """Cumulative run cost; raises :class:`BudgetExceeded` past ``limit_usd``."""
+    """Cumulative run cost with reservations; raises :class:`BudgetExceeded` past
+    ``limit_usd``.
+
+    Before each paid step (a counselor turn, a simulator reply, the Opus call) a task
+    ``reserve``s the step's estimated cost; the reservation is visible to every other
+    concurrent task, so two personas near the cap can't both start an Opus call. When
+    the step finishes, ``settle`` swaps the reservation for the actual cost. asyncio is
+    single-threaded and there is no ``await`` between check and reserve, so no lock.
+    """
 
     limit_usd: float | None = None
     total_usd: float = 0.0
     counselor_usd: float = 0.0
     sim_usd: float = 0.0
+    reserved_usd: float = 0.0
+
+    def check(self, upcoming_usd: float = 0.0) -> None:
+        if self.limit_usd is None:
+            return
+        committed = self.total_usd + self.reserved_usd
+        if committed + upcoming_usd > self.limit_usd + 1e-12:
+            raise BudgetExceeded(
+                f"budget guard: spent ${self.total_usd:.4f}"
+                + (f" + reserved ${self.reserved_usd:.4f}" if self.reserved_usd else "")
+                + (f" + next step ~${upcoming_usd:.4f}" if upcoming_usd else "")
+                + f" exceeds --max-cost-usd ${self.limit_usd:.2f}"
+            )
+
+    def reserve(self, usd: float) -> float:
+        """Reserve an estimate (raises if it would cross the cap); returns the token."""
+        usd = max(0.0, float(usd or 0.0))
+        self.check(usd)
+        self.reserved_usd += usd
+        return usd
+
+    def release(self, token: float) -> None:
+        self.reserved_usd = max(0.0, self.reserved_usd - token)
+
+    def settle(self, token: float, usd: float, *, kind: str = "counselor") -> None:
+        """Replace a reservation with the actual cost; raises if the cap is now crossed."""
+        self.release(token)
+        self.add(usd, kind=kind)
 
     def add(self, usd: float, *, kind: str = "counselor") -> None:
         usd = float(usd or 0.0)
@@ -108,16 +147,6 @@ class CostMeter:
         else:
             self.counselor_usd += usd
         self.check()
-
-    def check(self, upcoming_usd: float = 0.0) -> None:
-        if self.limit_usd is None:
-            return
-        if self.total_usd + upcoming_usd > self.limit_usd:
-            raise BudgetExceeded(
-                f"budget guard: cumulative ${self.total_usd:.4f}"
-                + (f" + upcoming ${upcoming_usd:.2f}" if upcoming_usd else "")
-                + f" exceeds --max-cost-usd ${self.limit_usd:.2f}"
-            )
 
 
 @dataclass
@@ -138,6 +167,10 @@ class RunConfig:
     out_dir: Path = RESULTS_DIR
     ollama_model: str = DEFAULT_OLLAMA_MODEL
     skip_retrieval: bool = False
+    allow_dev_db: bool = False
+    # per-step reservations for the budget guard (non-replay modes)
+    est_turn_usd: float = EST_COST_PER_TURN
+    est_recommend_usd: float = EST_COST_PER_RECOMMEND
 
     def resolved_run_id(self) -> str:
         if not self.run_id:
@@ -282,17 +315,32 @@ async def run_persona(
     seen: set[uuid.UUID] = set()
     t_start = time.perf_counter()
 
-    def add_sim(st: SimTurn) -> None:
-        meter.add(st.cost_usd, kind="sim")
+    paid = cfg.mode != "replay"
+    est_turn = cfg.est_turn_usd if paid else 0.0
+    est_sim = EST_SIM_COST_PER_TURN.get(cfg.sim, 0.0) if paid else 0.0
+    est_rec = cfg.est_recommend_usd if paid else 0.0
 
-    student = await sim.opening()
-    add_sim(student)
+    async def sim_step(counselor_text: str | None) -> SimTurn:
+        token = meter.reserve(est_sim)
+        try:
+            st = await (sim.opening() if counselor_text is None else sim.reply(counselor_text))
+        except BaseException:
+            meter.release(token)
+            raise
+        meter.settle(token, st.cost_usd, kind="sim")
+        return st
+
+    student = await sim_step(None)
     ready_turn: int | None = None
     for t in range(cfg.max_turns):
-        meter.check()
-        events = [ev async for ev in orch.handle_turn(sid, student.text)]
-        stages = await _new_metrics(sm, sid, seen)
-        meter.add(sum(s["cost_usd"] or 0.0 for s in stages.values()))
+        token = meter.reserve(est_turn)
+        try:
+            events = [ev async for ev in orch.handle_turn(sid, student.text)]
+            stages = await _new_metrics(sm, sid, seen)
+        except BaseException:
+            meter.release(token)
+            raise
+        meter.settle(token, sum(s["cost_usd"] or 0.0 for s in stages.values()))
         by = {e.event: e.data for e in events}
         reply = (by.get("done") or {}).get("assistant_text", "")
         ready = bool((by.get("ready") or {}).get("ready"))
@@ -321,8 +369,7 @@ async def run_persona(
         if ready_turn is not None and t - ready_turn >= cfg.turns_after_ready:
             break
         if t + 1 < cfg.max_turns:
-            student = await sim.reply(reply)
-            add_sim(student)
+            student = await sim_step(reply)
     result["n_turns"] = len(result["turns"])
     result["ready_turn"] = ready_turn
 
@@ -348,15 +395,19 @@ async def run_persona(
     result["recommendations"] = None
     if result["status"] != "error":
         try:
-            meter.check(EST_COST_PER_RECOMMEND if cfg.mode != "replay" else 0.0)
-            rs, report = await orch.recommend(
-                sid,
-                deps.retriever,
-                mode=cfg.retrieval_mode,  # type: ignore[arg-type]
-                k=cfg.k,
-            )
-            rec_stages = await _new_metrics(sm, sid, seen)
-            meter.add(sum(s["cost_usd"] or 0.0 for s in rec_stages.values()))
+            token = meter.reserve(est_rec)
+            try:
+                rs, report = await orch.recommend(
+                    sid,
+                    deps.retriever,
+                    mode=cfg.retrieval_mode,  # type: ignore[arg-type]
+                    k=cfg.k,
+                )
+                rec_stages = await _new_metrics(sm, sid, seen)
+            except BaseException:
+                meter.release(token)
+                raise
+            meter.settle(token, sum(s["cost_usd"] or 0.0 for s in rec_stages.values()))
             async with sm() as db:
                 set_row = await db.get(RecommendationSetRow, rs.id)
                 trace = set_row.retrieval_trace if set_row else {}
@@ -437,6 +488,12 @@ async def run(
     from app.retrieval.embedder import get_embedder
     from app.retrieval.retriever import Retriever
 
+    db_name = make_url(get_settings().DATABASE_URL).database or ""
+    if not db_name.endswith("_test") and not cfg.allow_dev_db:
+        raise SystemExit(
+            f"refusing to write eval sessions into database {db_name!r}: use a *_test "
+            "database, or pass --allow-dev-db (make eval-live does, for the full data)"
+        )
     run_id = cfg.resolved_run_id()
     run_dir = Path(cfg.out_dir) / run_id
     personas = load_personas(cfg.personas, cfg.limit)
@@ -592,6 +649,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--ollama-model", default=DEFAULT_OLLAMA_MODEL)
     ap.add_argument("--skip-retrieval", action="store_true")
     ap.add_argument("--confirm", action="store_true", help="required for real API spending")
+    ap.add_argument(
+        "--allow-dev-db",
+        action="store_true",
+        help="allow a DATABASE_URL whose name doesn't end in _test (live runs on full data)",
+    )
     ap.add_argument("--estimate-only", action="store_true", help="print the estimate and exit")
     return ap.parse_args(argv)
 
@@ -618,6 +680,7 @@ def config_from_args(a: argparse.Namespace) -> RunConfig:
         out_dir=a.out_dir,
         ollama_model=a.ollama_model,
         skip_retrieval=a.skip_retrieval,
+        allow_dev_db=a.allow_dev_db,
     )
 
 

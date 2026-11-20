@@ -169,3 +169,4 @@ The optional fields are recommended because they make the labels auditable. A pe
   - `judged_unitids` is now required.
   - The out-of-state public rule in H2 is mandatory.
   - The Census region table is frozen in H3, and the `regions` union / `out_of_state` rule is defined.
+- 2026-11-20 (note only, no rule change, still before any labeling): after the live-run fixes merge, the retriever's Stage B also prices out-of-state publics as bracket net price + (`TUITIONFEE_OUT` − `TUITIONFEE_IN`). H2's "deliberately stricter than the retriever's Stage B filter" now applies only to the remaining differences: the retriever floors the surcharge at 0 and has no reciprocity exception, whereas H2 applies no floor and uses a reciprocity price only when the labeler applies it by hand and says so in `notes`.

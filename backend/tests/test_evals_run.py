@@ -101,17 +101,64 @@ async def test_replay_miss_marks_persona_error(tmp_path: Path) -> None:
 @pytest.mark.usefixtures("loaded_db")
 async def test_budget_guard_aborts_live_run(tmp_path: Path) -> None:
     res = await run(
-        _cfg(tmp_path, "live", "budget", max_cost_usd=0.02, skip_retrieval=True),
+        _cfg(
+            tmp_path, "live", "budget", max_cost_usd=0.02, skip_retrieval=True, est_turn_usd=0.012
+        ),
         sessionmaker=get_sessionmaker(),
         anthropic_client=FakeCounselorAnthropic(),
         embedder=FakeEmbedder(),
     )
     s = res.summary
     assert s["aborted"] and "budget guard" in s["aborted"]
-    assert s["cost_usd"] > 0.02
-    # stopped long before the full run (~$0.11 per persona with the fake's token counts)
-    assert s["cost_usd"] < 0.05
+    # the next turn's estimate is reserved before it runs, so the cap is never crossed
+    assert 0 < s["cost_usd"] <= 0.02
     assert json.loads((res.run_dir / "summary.json").read_text())["aborted"] == s["aborted"]
+
+
+@pytest.mark.usefixtures("loaded_db")
+async def test_budget_guard_reservations_with_concurrency(tmp_path: Path) -> None:
+    """Two personas in parallel under a $0.15 cap (the full run costs ~$0.22 with the
+    fake). Each task reserves its next step (turn ~$0.015, Opus $0.13) where the other
+    can see it, so the run aborts without the total ever crossing the cap."""
+    res = await run(
+        _cfg(
+            tmp_path,
+            "live",
+            "conc",
+            transport="fake",
+            concurrency=2,
+            max_cost_usd=0.15,
+            est_turn_usd=0.015,
+            skip_retrieval=True,
+        ),
+        sessionmaker=get_sessionmaker(),
+        embedder=FakeEmbedder(),
+    )
+    s = res.summary
+    assert s["aborted"] and "budget guard" in s["aborted"]
+    assert 0 < s["cost_usd"] <= 0.15
+
+
+def test_cost_meter_reservations_are_shared() -> None:
+    m = CostMeter(limit_usd=0.20)
+    a = m.reserve(0.13)  # persona A about to call Opus
+    with pytest.raises(BudgetExceeded):
+        m.reserve(0.13)  # persona B sees A's reservation
+    m.settle(a, 0.05)  # A's actual cost was lower
+    assert m.reserved_usd == 0 and m.total_usd == 0.05
+    b = m.reserve(0.13)
+    m.release(b)
+    assert m.reserved_usd == 0
+
+
+async def test_refuses_non_test_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(
+        get_settings(), "DATABASE_URL", "postgresql+asyncpg://u:p@localhost:5433/matcher"
+    )
+    with pytest.raises(SystemExit, match="allow-dev-db"):
+        await run(_cfg(tmp_path, "replay", "dev"))
 
 
 async def test_ollama_simulator_record_and_replay(tmp_path: Path) -> None:
@@ -140,6 +187,13 @@ async def test_ollama_simulator_record_and_replay(tmp_path: Path) -> None:
     system = body["messages"][0]["content"]  # type: ignore[index]
     assert "edge_cases" not in system and "articulateness" not in system
     assert len(list(tmp_path.glob("ollama-*.json"))) == 1
+
+    live_dir = tmp_path / "live"
+    live = OllamaSimulator(
+        persona, mode="live", cassette_dir=live_dir, transport=httpx.MockTransport(handler)
+    )
+    await live.opening()
+    assert len(list(live_dir.glob("ollama-*.json"))) == 1  # live runs are cached too
 
     replay = OllamaSimulator(persona, mode="replay", cassette_dir=tmp_path)
     assert (await replay.opening()).text == "idk, art stuff?"
