@@ -338,8 +338,8 @@ async def test_student_asking_for_schools_short_circuits_the_checklist(tmp_path:
     notes = _notes(fake)
     assert "Suggested next topic: ready_to_recommend" in notes[1]
     assert "Offer matches now: yes" in notes[1]
-    # the checklist stays waived afterwards; the counselor keeps learning instead
-    assert "Suggested next topic: location" not in notes[2]
+    # the waiver applied to that turn only: afterwards the checklist resumes
+    assert "Suggested next topic: location (how far from home" in notes[2]
     assert "Offer matches now: no" in notes[2]
 
 

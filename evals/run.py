@@ -390,7 +390,7 @@ async def run_persona(
     profile = StudentProfile.model_validate(snaps[-1].profile) if snaps else StudentProfile()
     result["final_profile"] = profile.model_dump(mode="json")
     result["next_topics"] = [s.next_topic for s in snaps]
-    # turn idx (0-based, user turns) -> next_topic chosen after that turn
+    # turn idx (0-based, user turns) -> topic the planner steered that turn's reply to
     for turn, snap_topic in zip(result["turns"], [s.next_topic for s in snaps], strict=False):
         turn["next_topic"] = snap_topic
 

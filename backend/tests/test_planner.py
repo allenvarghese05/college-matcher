@@ -70,6 +70,31 @@ def test_lag_does_not_repeat_the_question_just_asked() -> None:
     assert plan_next_topic(p, ["dream_without_money", "location"]) == "size_setting"
 
 
+def test_evasive_student_readiness_re_asks_are_capped() -> None:
+    """Empty profile that never fills: each readiness topic is asked at most 3 times
+    (1 + 2 re-asks), no alternating interests/location loop, every enrichment topic
+    still gets its turn."""
+    p = StudentProfile()
+    asked: list[str] = []
+    for _ in range(17):
+        asked.append(plan_next_topic(p, asked))
+    for t in ("interests", "location", "money"):
+        assert asked.count(t) == 3, (t, asked)
+    assert set(asked) >= {
+        "academics",
+        "strengths",
+        "favorite_subjects",
+        "activities",
+        "work_values",
+        "size_setting",
+        "priorities",
+    }
+    assert all(a != b for a, b in zip(asked, asked[1:], strict=False))  # never twice in a row
+    # everything exhausted: one steady suggestion, not an alternation
+    tail = [plan_next_topic(p, asked + ["interests"] * i) for i in range(1, 4)]
+    assert len(set(tail)) == 1
+
+
 def test_missing_readiness_is_re_asked_once_everything_else_was_asked() -> None:
     p = _p(dream_without_money="games", interests=["art"], home_state="OH")
     core = ["dream_without_money", "location", LOCATION_PREF, "size_setting", "priorities"]
@@ -91,8 +116,9 @@ def test_after_offering_matches_enrichment_topics_follow() -> None:
 def test_student_asking_for_matches_short_circuits_the_checklist() -> None:
     p = _p(**READY)
     assert plan_next_topic(p, student_wants_matches=True) == "ready_to_recommend"
-    # once matches were offered/requested, the checklist is waived for good
-    assert plan_next_topic(p, ["dream_without_money", "ready_to_recommend"]) == "academics"
+    # only the CURRENT message waives the checklist: a persisted ready_to_recommend
+    # (an earlier request, or a pre-planner snapshot) does not skip it later
+    assert plan_next_topic(p, ["dream_without_money", "ready_to_recommend"]) == "location"
     # not ready: ask the one readiness item still missing, nothing else
     not_ready = _p(interests=["art"], home_state="OH")
     assert plan_next_topic(not_ready, student_wants_matches=True) == "money"
@@ -124,6 +150,12 @@ def test_asked_from_history_tells_home_state_from_location_preference() -> None:
         ("i want a school with good art", False),
         ("my sister goes to a big college", False),
         ("i'd like to see more of the country", False),
+        ("I don't want to see schools yet", False),
+        ("I'm not ready to see colleges", False),
+        ("I went to see the school last week", False),
+        ("please don't show me schools yet", False),
+        ("we visited some colleges, show me more later maybe", False),
+        ("no idea what to major in, just show me schools", True),
     ],
 )
 def test_wants_matches(text: str, want: bool) -> None:

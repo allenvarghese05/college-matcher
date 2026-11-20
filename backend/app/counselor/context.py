@@ -116,8 +116,8 @@ def profile_json(profile: StudentProfile) -> str:
 #   regions), campus size/setting, and what matters most (priorities). "Asked" means
 #   the planner steered the counselor to that topic on an earlier turn (the persisted
 #   ``profile_snapshot.next_topic`` history), so a student who says "no preference" or
-#   declines is never asked again. A student who explicitly asks for matches skips the
-#   checklist.
+#   declines is never asked again. A student who explicitly asks for matches in the
+#   CURRENT message skips the checklist for that turn only (no persisted waiver).
 #
 # Planner keys are NextTopic values plus ``location_pref`` (internal): the "location"
 # topic asks for the home state until it is known and for distance/regions after that.
@@ -147,6 +147,8 @@ CORE_ORDER: tuple[str, ...] = (
     *QUALITY_CHECKLIST,
     "money",
 )
+# A missing readiness topic is asked at most this many times in all (1 + 2 re-asks).
+MAX_READINESS_ASKS = 3
 # Enrichment topics: asked once each after matches have been offered.
 ENRICH_ORDER: tuple[NextTopic, ...] = (
     "academics",
@@ -156,21 +158,44 @@ ENRICH_ORDER: tuple[NextTopic, ...] = (
     "work_values",
 )
 
+_MATCH_NOUN = r"(schools?|colleges?|universit(?:y|ies)|matches|recommendations|options|list)"
+# Request shapes only: first-person / imperative asks, not mentions.
 _MATCH_REQUEST = re.compile(
-    r"\b(show|see|give|get|find|send|list|pull up)\b[^.?!]{0,30}?"
-    r"\b(schools?|colleges?|universit(y|ies)|matches|recommendations)\b"
-    r"|\b(my|the|college|school) (matches|recommendations)\b"
-    r"|\brecommend\b[^.?!]{0,20}\b(schools?|colleges?|universit(y|ies))\b"
-    r"|\b(what|which) (schools|colleges|universities)\b[^.?!]{0,30}\b(should|would|could|"
-    r"fit|match|for me)\b",
+    rf"\b(show|give|send|find|get|pull up)\s+(me|us)\b[^.?!,;]{{0,30}}?\b{_MATCH_NOUN}\b"
+    rf"|\b(can|could|may|should)\s+i\s+(see|get|have|look at|check out)\b[^.?!,;]{{0,30}}?"
+    rf"\b{_MATCH_NOUN}\b"
+    rf"|\blet\s+me\s+see\b[^.?!,;]{{0,30}}?\b{_MATCH_NOUN}\b"
+    rf"|\b(i\s+want|i'?d\s+like|i\s+would\s+like|i\s+wanna)\s+(to\s+)?(see|get)\b"
+    rf"[^.?!,;]{{0,30}}?\b{_MATCH_NOUN}\b"
+    r"|\b(my|our)\s+(college\s+|school\s+)?(matches|recommendations)\b"
+    r"|\b(can|could|would|will)\s+you\s+(please\s+)?recommend\b"
+    r"|^\s*(please\s+)?(just\s+)?recommend\b"
+    r"|\b(what|which)\s+(schools|colleges|universities)\b[^.?!,;]{0,30}\b(should|would|could|"
+    r"fit|match|for\s+me)\b",
     re.I,
 )
+# A clause with a negation or a past-tense/visit verb is never a request.
+_MATCH_BLOCK = re.compile(
+    r"\b(don'?t|do\s+not|doesn'?t|not|no|never|isn'?t|aren'?t|won'?t|wouldn'?t|"
+    r"can'?t|cannot|went|visited|saw|showed|toured|last\s+(week|year|month|time))\b",
+    re.I,
+)
+_CLAUSES = re.compile(r"[.?!;,]+|\bbut\b", re.I)
 
 
 def wants_matches(text: str) -> bool:
-    """True when the student explicitly asks to see schools ("just show me schools",
-    "can I see my matches?", "what colleges would fit me?")."""
-    return bool(_MATCH_REQUEST.search(text or ""))
+    """True when the CURRENT student message explicitly asks to see schools ("just show
+    me schools", "can I see my matches?", "what colleges would fit me?").
+
+    Checked per clause: the clause must have a request shape (first-person or
+    imperative) and no negation or past-tense/visit verb, so "I don't want to see
+    schools yet", "I'm not ready to see colleges" and "I went to see the school last
+    week" are not requests.
+    """
+    for clause in _CLAUSES.split(text or ""):
+        if _MATCH_REQUEST.search(clause) and not _MATCH_BLOCK.search(clause):
+            return True
+    return False
 
 
 def home_state_known(profile: StudentProfile) -> bool:
@@ -223,14 +248,16 @@ def plan_next_topic(
     (:func:`asked_from_history`); ``student_wants_matches`` = the latest message asks
     for schools (:func:`wants_matches`).
 
-    1. The student asked for matches: ``ready_to_recommend`` if ready, else the first
-       missing readiness topic.
+    1. The current message asks for matches: ``ready_to_recommend`` if ready, else the
+       first missing readiness topic. This applies to this turn only; nothing persisted
+       waives the checklist later.
     2. Core intake in ``CORE_ORDER``; a topic is skipped once covered by the profile or
-       once asked (a declined or "no preference" answer is never re-asked). The quality
-       checklist is waived once matches were offered or requested.
+       once asked (a declined or "no preference" answer is never re-asked).
     3. Readiness still missing after everything was asked once: re-ask the first missing
-       readiness topic (not the one asked on the immediately preceding turn, while
-       anything else is left).
+       readiness topic (not the one asked on the immediately preceding turn), at most
+       ``MAX_READINESS_ASKS`` asks per topic in all; past the cap, fall through to
+       enrichment. Only when everything is exhausted does the first missing readiness
+       topic stay the suggestion.
     4. Ready and matches never offered: ``ready_to_recommend`` (the counselor offers them).
     5. Then enrichment topics once each, and ``ready_to_recommend`` when all are asked.
     """
@@ -246,15 +273,13 @@ def plan_next_topic(
     for key in CORE_ORDER:
         if _covered(profile, key, missing) or key in asked_set:
             continue
-        if offered and key in QUALITY_CHECKLIST:
-            continue
         if key == LOCATION_PREF and "home_state" in missing:
             continue  # asked once the home state is known (else it reads as "location")
         return _as_topic(key)
 
     enrich = [t for t in ENRICH_ORDER if t not in asked_set and not _covered(profile, t, missing)]
     if missing:
-        retry = [t for t in first_missing if t != last]
+        retry = [t for t in first_missing if t != last and asked.count(t) < MAX_READINESS_ASKS]
         if retry:
             return retry[0]  # type: ignore[return-value]
         return enrich[0] if enrich else first_missing[0]  # type: ignore[return-value]

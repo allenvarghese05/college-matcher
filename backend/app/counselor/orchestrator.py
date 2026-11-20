@@ -5,7 +5,8 @@
 1. persist the user turn;
 2. plan the next topic deterministically (``context.plan_next_topic``: readiness, then
    the recommendation-quality checklist — location preference, size/setting,
-   priorities — before matches are offered; skipped if the student asks for matches)
+   priorities — before matches are offered; skipped on a turn whose message asks for
+   matches)
    from the previous profile + the persisted topic history, then run the reply stream
    (Sonnet) and the extraction (Sonnet, structured) **concurrently**; the reply prompt
    sees the profile as of the previous turn + missing fields + the planned topic;

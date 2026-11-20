@@ -168,6 +168,19 @@ def test_interest_signal_edge_cases() -> None:
     hidden = {"interests": ["drawing"], "strengths": ["patience"]}
     got = {"interests": ["chess"], "strengths": ["drawing"]}
     assert _c(interest_signal_counts(got, hidden)) == (1, 1, 0)
+    # whole-word substrings only: "art" is not recovered by "start a business"
+    assert _c(
+        interest_signal_counts({"strengths": ["start a business"]}, {"interests": ["art"]})
+    ) == (
+        0,
+        0,
+        1,
+    )
+    assert _c(interest_signal_counts({"strengths": ["digital art"]}, {"interests": ["art"]})) == (
+        1,
+        0,
+        0,
+    )
     # one-to-one: one extracted item cannot recover two hidden interests
     hidden2 = {"interests": ["fixing bikes", "fixing bikes at the shop"]}
     assert _c(interest_signal_counts({"activities": [{"name": "fixing bikes"}]}, hidden2)) == (

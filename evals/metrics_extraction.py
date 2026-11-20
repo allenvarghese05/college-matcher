@@ -23,12 +23,13 @@ Per field, each persona contributes true positives / false positives / false neg
 undercounts — the extractor reasonably files "i'm good at drawing" under ``strengths``
 and "fixing bikes" under ``activities``. So a second, clearly labelled score counts a
 hidden ``interests`` item as recovered if it fuzzy-matches (same rule as free-text
-lists, one-to-one) any extracted item in ``interests`` ∪ ``strengths`` ∪
-``activities[].name`` ∪ ``dream_without_money`` ∪ ``favorite_subjects``. An extracted
-``interests`` item left unmatched is an FP only if it also matches nothing in the
-hidden profile's same five fields. Reported as the ``interests (any field)`` row and as
-micro totals with that row substituted for strict ``interests``; the strict per-field
-row and strict micro totals are unchanged and remain the headline numbers.
+lists but with whole-word substrings, one-to-one) any extracted item in
+``interests`` ∪ ``strengths`` ∪ ``activities[].name`` ∪ ``dream_without_money`` ∪
+``favorite_subjects``. An extracted ``interests`` item left unmatched is an FP only if
+it also matches nothing in the hidden profile's same five fields. Reported as the
+``interests (any field)`` row and as micro totals with that row substituted for strict
+``interests``; the strict per-field row and strict micro totals are unchanged and remain
+the headline numbers.
 
 **Questions-asked coverage** (:func:`questions_asked`): a hidden field counts as asked if
 any counselor reply contains a *question sentence* about the field's intake topic
@@ -84,11 +85,19 @@ def norm_text(text: Any) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9+\- ]", " ", str(text).lower())).strip()
 
 
-def fuzzy_match(a: str, b: str) -> bool:
+def _contains(outer: str, inner: str, word_bounded: bool) -> bool:
+    if not word_bounded:
+        return inner in outer
+    return re.search(rf"(?<![a-z0-9]){re.escape(inner)}(?![a-z0-9])", outer) is not None
+
+
+def fuzzy_match(a: str, b: str, *, word_bounded: bool = False) -> bool:
+    """Substring or >= 50% content-word overlap. ``word_bounded`` makes the substring
+    test whole-word ("art" does not match "start"); the interest signal uses it."""
     na, nb = norm_text(a), norm_text(b)
     if not na or not nb:
         return False
-    if na in nb or nb in na:
+    if _contains(nb, na, word_bounded) or _contains(na, nb, word_bounded):
         return True
     wa, wb = content_words(na), content_words(nb)
     if not wa or not wb:
@@ -250,14 +259,18 @@ def interest_signal_counts(values: dict[str, Any], hidden: dict[str, Any]) -> Co
     tp = 0
     for item in dict.fromkeys(str(w) for w in want):
         for j, cand in enumerate(pool):
-            if j not in used and fuzzy_match(item, cand):
+            if j not in used and fuzzy_match(item, cand, word_bounded=True):
                 used.add(j)
                 tp += 1
                 break
     matched = {pool[j] for j in used}
     hidden_pool = interest_pool(hidden)
     got = list(dict.fromkeys(str(g) for g in values.get("interests") or []))
-    fp = sum(1 for g in got if g not in matched and not any(fuzzy_match(g, h) for h in hidden_pool))
+    fp = sum(
+        1
+        for g in got
+        if g not in matched and not any(fuzzy_match(g, h, word_bounded=True) for h in hidden_pool)
+    )
     return Counts(tp=tp, fp=fp, fn=len(dict.fromkeys(str(w) for w in want)) - tp)
 
 
