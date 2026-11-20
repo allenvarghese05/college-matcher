@@ -231,6 +231,59 @@ async def test_sdk_errors_are_translated(
         await _drain(client)
 
 
+USAGE_LIMIT_MSG = (
+    "You have reached your specified API usage limits. "
+    "You will regain access on 2026-12-01 at 00:00 UTC."
+)
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        anthropic.BadRequestError(
+            USAGE_LIMIT_MSG, response=httpx2.Response(400, request=_req()), body=None
+        ),
+        anthropic.BadRequestError(
+            "Your credit balance is too low to access the Anthropic API.",
+            response=httpx2.Response(400, request=_req()),
+            body=None,
+        ),
+        anthropic.AuthenticationError(
+            "invalid x-api-key", response=httpx2.Response(401, request=_req()), body=None
+        ),
+        anthropic.PermissionDeniedError(
+            "no access", response=httpx2.Response(403, request=_req()), body=None
+        ),
+    ],
+    ids=["usage_limit", "credit_balance", "401", "403"],
+)
+async def test_account_errors_are_distinct_and_not_retryable(
+    tmp_path: Path, exc: Exception, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from app.core.llm import LLMAccountError
+
+    fake = ScriptedAnthropic()
+    fake.add_parse("Pet", exc)
+    fake.add_stream(exc)
+    client = LLMClient(mode="live", cassette_dir=tmp_path, anthropic_client=fake)
+    with pytest.raises(LLMAccountError) as ei:
+        await client.parse(SONNET, SYSTEM, MSGS, Pet, effort="low")
+    assert ei.value.retryable is False and isinstance(ei.value, LLMRequestError)
+    with pytest.raises(LLMAccountError):
+        await _drain(client)
+    logged = capsys.readouterr()
+    assert "llm_account_error" in logged.out + logged.err
+    assert exc.message in logged.out + logged.err  # type: ignore[attr-defined]
+
+
+def test_plain_bad_request_is_not_an_account_error() -> None:
+    from app.core.llm import is_account_error
+
+    assert not is_account_error(400, "messages: field required")
+    assert not is_account_error(404, "model not found")
+    assert is_account_error(400, USAGE_LIMIT_MSG)
+
+
 async def test_usage_cost_includes_cache_write_and_binds_via_contextvar(tmp_path: Path) -> None:
     fake = ScriptedAnthropic()
     fake.add_parse(

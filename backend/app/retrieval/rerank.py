@@ -6,7 +6,9 @@ Components (each 0..1)
     Stage A similarity of the row's CIP divided by the best similarity among the
     selected CIPs (so the best-matching major scores 1.0). 0 when the row has no CIP.
 ``affordability``
-    ``price`` = net price at the student's bracket (fallback: average net price).
+    ``price`` = the student's net price from ``pricing.student_net_price`` (bracket price,
+    + out-of-state surcharge at public schools outside the home state; fallback:
+    average net price).
     With a budget cap: ``price ≤ cap`` → ``0.8 + 0.2·(1 − price/cap)``; above the cap it
     falls linearly from 0.8 to 0 at ``1.25·cap``. Without a cap: ``1 − price/(2·M)``
     clipped, where ``M`` is the national median net price at that bracket (computed
@@ -242,13 +244,16 @@ def score_rows(
     outs = outcome_scores(rows)
     bracket = profile.income_bracket.value
     cap = profile.budget_cap.value
+    home = profile.home_state.value
     scored: list[Scored] = []
     for row, out in zip(rows, outs, strict=True):
         sim = cip_sims.get(row.cip4, 0.0) if row.cip4 else 0.0
         est = estimate_for(profile, row)
         comps = {
             "major_fit": _clip(sim / best_sim) if best_sim > 0 else 0.0,
-            "affordability": affordability(row.price_for_scoring(bracket), cap, bracket_median),
+            "affordability": affordability(
+                row.price_for_scoring(bracket, home), cap, bracket_median
+            ),
             "outcomes": out,
             "admission_fit": admission_fit(est.band, row.admission_rate, prestige),
             "preferences": preferences(row, profile),

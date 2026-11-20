@@ -52,6 +52,8 @@ WorkValue = Literal[
 ]
 AdmissionBand = Literal["safety", "target", "reach", "unknown"]
 BandConfidence = Literal["normal", "low"]
+# How RecommendationOut's net price was derived (app.retrieval.pricing.student_net_price).
+NetPriceBasis = Literal["in_state", "est_out_of_state", "private", "unknown"]
 SessionMode = Literal["text", "voice"]
 RetrievalMode = Literal["sql_only", "hybrid", "hybrid_rerank", "hybrid_riasec_rerank"]
 
@@ -292,7 +294,7 @@ class Candidate(_Strict):
 
 
 ClaimField = Literal[
-    "net_price",  # at the student's income bracket
+    "net_price",  # student's net price at their bracket (app.retrieval.pricing)
     "admission_rate",
     "sat_range",  # "1200-1400"
     "act_range",
@@ -342,6 +344,12 @@ class RecommendationOut(_Strict):
     scores: ScoreBreakdown
     reasons: list[str]
     claims: list[VerifiedClaim]
+    net_price_basis: NetPriceBasis = Field(
+        default="unknown",
+        description="How the net_price claim was derived: in_state / private = Scorecard "
+        "bracket net price; est_out_of_state = bracket net price + (out-of-state - in-state "
+        "tuition) at a public school outside the home state; unknown = not reported.",
+    )
 
 
 class RecommendationSet(_Strict):

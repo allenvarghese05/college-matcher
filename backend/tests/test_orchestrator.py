@@ -200,6 +200,30 @@ async def test_reply_failure_emits_error_and_no_assistant_turn(tmp_path: Path) -
     assert roles == ["user"]
 
 
+async def test_account_limit_error_has_its_own_message(tmp_path: Path) -> None:
+    import anthropic
+    import httpx
+
+    from app.core.llm import ACCOUNT_ERROR_MESSAGE
+
+    req = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    exc = anthropic.BadRequestError(
+        "You have reached your specified API usage limits.",
+        response=httpx.Response(400, request=req),
+        body=None,
+    )
+    fake = ScriptedAnthropic()
+    fake.add_stream(exc)
+    fake.add_parse("ExtractionWire", exc)
+    sid = await _new_session()
+    events = await _collect(_orch(fake, tmp_path), sid, "hello")
+    assert [e.event for e in events] == ["error"]
+    assert events[0].data["message"] == ACCOUNT_ERROR_MESSAGE
+    assert ACCOUNT_ERROR_MESSAGE == (
+        "The counselor is unavailable right now (API account limit). Please try again later."
+    )
+
+
 async def test_unknown_session_raises(tmp_path: Path) -> None:
     orch = _orch(ScriptedAnthropic(), tmp_path)
     with pytest.raises(SessionNotFound):
