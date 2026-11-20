@@ -12,6 +12,8 @@ from evals.metrics_extraction import (  # noqa: E402
     Counts,
     aggregate_extraction,
     field_counts,
+    interest_signal_counts,
+    profile_values,
     questions_asked,
     score_profile,
 )
@@ -118,6 +120,74 @@ def test_score_profile_and_aggregate_on_real_persona() -> None:
     qa = summ.per_persona["maya-oh"]["questions_asked"]
     assert qa["asked"] == ["gpa", "sat"]  # academics topic, fields present in hidden
     assert 0 < summ.coverage < 1
+
+
+MAYA_PILOT_PROFILE = {  # live-pilot-1 final profile for maya-oh (the relevant fields)
+    "interests": {"value": ["designing things", "art"], "confidence": 0.9},
+    "dream_without_money": {"value": "design things people use every day", "confidence": 0.9},
+    "strengths": {"value": ["drawing", "figuring out how stuff works"], "confidence": 0.9},
+    "favorite_subjects": {"value": ["art", "physics"], "confidence": 0.9},
+    "activities": {
+        "value": [
+            {"name": "robotics club", "years": 2.0},
+            {"name": "part-time job at a bike shop fixing bikes"},
+        ],
+        "confidence": 0.9,
+    },
+}
+
+
+def test_interest_signal_on_mayas_pilot_case() -> None:
+    """Hidden [drawing, fixing bikes, how things are built]: strict interests finds none;
+    the interest signal finds drawing (strengths) and fixing bikes (activity name)."""
+    persona = load_persona(REPO / "evals/personas/maya-oh.yaml")
+    assert persona.hidden["interests"] == ["drawing", "fixing bikes", "how things are built"]
+    values = profile_values(MAYA_PILOT_PROFILE)
+    assert _c(field_counts("interests", values["interests"], persona.hidden)) == (0, 2, 3)
+    # "designing things" ~ hidden dream, "art" ~ hidden favorite subject: not FPs
+    assert _c(interest_signal_counts(values, persona.hidden)) == (2, 0, 1)
+
+    summ = aggregate_extraction(
+        [{"persona": "maya-oh", "final_profile": MAYA_PILOT_PROFILE, "turns": []}],
+        {"maya-oh": persona.hidden},
+    )
+    assert _c(summ.per_field["interests"]) == (0, 2, 3)  # strict row unchanged
+    assert _c(summ.interest_signal) == (2, 0, 1)
+    strict, lenient = summ.overall, summ.overall_interest_signal
+    assert (lenient.tp - strict.tp, strict.fp - lenient.fp, strict.fn - lenient.fn) == (2, 2, 2)
+    pp = summ.per_persona["maya-oh"]
+    assert pp["interests_any_field"]["recall"] == 2 / 3
+    assert summ.to_dict()["interest_signal"]["tp"] == 2
+
+
+def test_interest_signal_edge_cases() -> None:
+    # hidden interests absent or [] -> strict rule
+    assert _c(interest_signal_counts({"strengths": ["drawing"]}, {})) == (0, 0, 0)
+    assert _c(interest_signal_counts({"interests": ["art"]}, {"interests": []})) == (0, 1, 0)
+    # an extracted interest matching nothing hidden anywhere is still an FP
+    hidden = {"interests": ["drawing"], "strengths": ["patience"]}
+    got = {"interests": ["chess"], "strengths": ["drawing"]}
+    assert _c(interest_signal_counts(got, hidden)) == (1, 1, 0)
+    # whole-word substrings only: "art" is not recovered by "start a business"
+    assert _c(
+        interest_signal_counts({"strengths": ["start a business"]}, {"interests": ["art"]})
+    ) == (
+        0,
+        0,
+        1,
+    )
+    assert _c(interest_signal_counts({"strengths": ["digital art"]}, {"interests": ["art"]})) == (
+        1,
+        0,
+        0,
+    )
+    # one-to-one: one extracted item cannot recover two hidden interests
+    hidden2 = {"interests": ["fixing bikes", "fixing bikes at the shop"]}
+    assert _c(interest_signal_counts({"activities": [{"name": "fixing bikes"}]}, hidden2)) == (
+        1,
+        0,
+        1,
+    )
 
 
 def test_topic_detection() -> None:

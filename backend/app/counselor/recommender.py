@@ -3,7 +3,12 @@
 The output schema is built for each request so that ``unitid`` (on recommendations
 and claims) is an ``enum`` of the retrieved candidate IDs and ``cip4`` an enum of the
 candidates' CIP codes: the model cannot name a school that was not retrieved.
-``field`` is the ``ClaimField`` enum. Post-processing then pins each recommendation
+``field`` is :data:`GENERATED_CLAIM_FIELDS` — the ``ClaimField`` values the LLM may
+emit. ``city_state`` is excluded: location is rendered from the DB
+(``RecommendationOut.city/state``), and letting the model restate it invited errors
+(the live pilot saw "Providence, GA" for a Georgia student). ``ClaimField`` itself
+keeps ``city_state`` so stored rows stay valid, and groundedness still checks any
+``city_state`` claim it is given. Post-processing then pins each recommendation
 to a real candidate (unitid, cip4) pair, copies the deterministic admission band,
 de-duplicates schools, and assigns ranks.
 """
@@ -25,7 +30,11 @@ from app.schemas import Candidate, Claim, ClaimField, Recommendation, StudentPro
 
 log = get_logger(__name__)
 
-CLAIM_FIELDS: list[str] = list(get_args(ClaimField))
+# ClaimField values the recommender must never generate (see module docstring).
+NON_GENERATED_CLAIM_FIELDS: frozenset[str] = frozenset({"city_state"})
+GENERATED_CLAIM_FIELDS: list[str] = [
+    f for f in get_args(ClaimField) if f not in NON_GENERATED_CLAIM_FIELDS
+]
 
 
 def build_output_schema(candidates: list[Candidate]) -> dict[str, Any]:
@@ -40,7 +49,7 @@ def build_output_schema(candidates: list[Candidate]) -> dict[str, Any]:
     claim = {
         "type": "object",
         "properties": {
-            "field": {"type": "string", "enum": CLAIM_FIELDS},
+            "field": {"type": "string", "enum": GENERATED_CLAIM_FIELDS},
             "value": {
                 "type": "string",
                 "description": "Copied from this candidate's facts, e.g. '$14,200' or '62%'.",

@@ -151,7 +151,9 @@ class ProfileSnapshot(Base):
     )
     after_turn: Mapped[int] = mapped_column(Integer)
     profile: Mapped[dict] = mapped_column(JSONB)  # StudentProfile.model_dump()
-    next_topic: Mapped[str | None] = mapped_column(String(32))  # extractor's NextTopic
+    next_topic: Mapped[str | None] = mapped_column(
+        String(32)
+    )  # topic planned for that turn's reply
     created_at: Mapped[datetime] = _now()
 
 

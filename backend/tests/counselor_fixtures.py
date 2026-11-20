@@ -452,7 +452,7 @@ def recommendation_output(candidates: list[Candidate], k: int) -> dict[str, Any]
     picks = sorted(candidates, key=lambda c: c.facts["net_price"] or 0)[:k]  # type: ignore[arg-type,return-value]
     recs = []
     for i, c in enumerate(picks):
-        fields = ["net_price", "admission_rate", "program_median_earnings", "city_state"]
+        fields = ["net_price", "admission_rate", "program_median_earnings"]
         claims = [cl for f in fields if (cl := _claim(c, f)) is not None]
         recs.append(
             {

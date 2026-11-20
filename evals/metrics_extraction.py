@@ -19,11 +19,23 @@ Per field, each persona contributes true positives / false positives / false neg
   each extracted item is an FP. Absent key: each extracted item is an FP.
 * ``riasec`` is never said aloud (README) and is not scored.
 
+**Interest signal** (:func:`interest_signal_counts`): ``interests`` scored strictly
+undercounts — the extractor reasonably files "i'm good at drawing" under ``strengths``
+and "fixing bikes" under ``activities``. So a second, clearly labelled score counts a
+hidden ``interests`` item as recovered if it fuzzy-matches (same rule as free-text
+lists but with whole-word substrings, one-to-one) any extracted item in
+``interests`` ∪ ``strengths`` ∪ ``activities[].name`` ∪ ``dream_without_money`` ∪
+``favorite_subjects``. An extracted ``interests`` item left unmatched is an FP only if
+it also matches nothing in the hidden profile's same five fields. Reported as the
+``interests (any field)`` row and as micro totals with that row substituted for strict
+``interests``; the strict per-field row and strict micro totals are unchanged and remain
+the headline numbers.
+
 **Questions-asked coverage** (:func:`questions_asked`): a hidden field counts as asked if
 any counselor reply contains a *question sentence* about the field's intake topic
 (:mod:`evals.topics` keyword heuristics, e.g. "how far from home…?" -> location ->
 ``home_state``, ``home_zip``, ``max_distance_miles``, ``regions``). The web app's fixed
-greeting is not counted. As a second, independent signal the extractor's persisted
+greeting is not counted. As a second, independent signal the planner's persisted
 ``next_topic`` sequence gives **planned coverage** (topics the counselor was steered
 to). Both are heuristics; spot-check transcripts before trusting small differences.
 """
@@ -73,11 +85,19 @@ def norm_text(text: Any) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9+\- ]", " ", str(text).lower())).strip()
 
 
-def fuzzy_match(a: str, b: str) -> bool:
+def _contains(outer: str, inner: str, word_bounded: bool) -> bool:
+    if not word_bounded:
+        return inner in outer
+    return re.search(rf"(?<![a-z0-9]){re.escape(inner)}(?![a-z0-9])", outer) is not None
+
+
+def fuzzy_match(a: str, b: str, *, word_bounded: bool = False) -> bool:
+    """Substring or >= 50% content-word overlap. ``word_bounded`` makes the substring
+    test whole-word ("art" does not match "start"); the interest signal uses it."""
     na, nb = norm_text(a), norm_text(b)
     if not na or not nb:
         return False
-    if na in nb or nb in na:
+    if _contains(nb, na, word_bounded) or _contains(na, nb, word_bounded):
         return True
     wa, wb = content_words(na), content_words(nb)
     if not wa or not wb:
@@ -203,6 +223,65 @@ def score_profile(profile: dict[str, Any], hidden: dict[str, Any]) -> dict[str, 
     return {f: field_counts(f, values.get(f), hidden) for f in SCORED_FIELDS}
 
 
+# ------------------------------------------------------------ interest signal
+
+INTEREST_SIGNAL_FIELDS: tuple[str, ...] = (
+    "interests",
+    "strengths",
+    "activities",
+    "dream_without_money",
+    "favorite_subjects",
+)
+
+
+def interest_pool(values: dict[str, Any]) -> list[str]:
+    """Free-text items from the interest-signal fields (activity names, the dream)."""
+    pool: list[str] = []
+    for name in INTEREST_SIGNAL_FIELDS:
+        v = values.get(name)
+        if _empty(v):
+            continue
+        items = v if isinstance(v, list) else [v]
+        pool.extend(i for i in _items(name, items) if i)
+    return pool
+
+
+def interest_signal_counts(values: dict[str, Any], hidden: dict[str, Any]) -> Counts:
+    """``interests`` scored as an interest *signal* across fields (module docstring).
+
+    Falls back to the strict rule when the hidden ``interests`` key is absent or ``[]``.
+    """
+    want = hidden.get("interests")
+    if not want:
+        return field_counts("interests", values.get("interests"), hidden)
+    pool = list(dict.fromkeys(interest_pool(values)))
+    used: set[int] = set()
+    tp = 0
+    for item in dict.fromkeys(str(w) for w in want):
+        for j, cand in enumerate(pool):
+            if j not in used and fuzzy_match(item, cand, word_bounded=True):
+                used.add(j)
+                tp += 1
+                break
+    matched = {pool[j] for j in used}
+    hidden_pool = interest_pool(hidden)
+    got = list(dict.fromkeys(str(g) for g in values.get("interests") or []))
+    fp = sum(
+        1
+        for g in got
+        if g not in matched and not any(fuzzy_match(g, h, word_bounded=True) for h in hidden_pool)
+    )
+    return Counts(tp=tp, fp=fp, fn=len(dict.fromkeys(str(w) for w in want)) - tp)
+
+
+def with_interest_signal(counts: dict[str, Counts], signal: Counts) -> Counts:
+    """Micro totals with the interest-signal row substituted for strict ``interests``."""
+    total = Counts()
+    for f, c in counts.items():
+        total += signal if f == "interests" else c
+    return total
+
+
 # ----------------------------------------------------------- questions-asked
 
 
@@ -233,6 +312,8 @@ def questions_asked(
 class ExtractionSummary:
     per_field: dict[str, Counts] = field(default_factory=dict)
     overall: Counts = field(default_factory=Counts)
+    interest_signal: Counts = field(default_factory=Counts)
+    overall_interest_signal: Counts = field(default_factory=Counts)
     per_persona: dict[str, dict[str, Any]] = field(default_factory=dict)
     coverage: float | None = None
     planned_coverage: float | None = None
@@ -243,6 +324,8 @@ class ExtractionSummary:
             "n": self.n,
             "overall": self.overall.to_dict(),
             "per_field": {f: c.to_dict() for f, c in self.per_field.items()},
+            "interest_signal": self.interest_signal.to_dict(),
+            "overall_interest_signal": self.overall_interest_signal.to_dict(),
             "coverage": self.coverage,
             "planned_coverage": self.planned_coverage,
             "per_persona": self.per_persona,
@@ -266,6 +349,10 @@ def aggregate_extraction(
             summ.per_field[f] += c
             overall += c
         summ.overall += overall
+        signal = interest_signal_counts(profile_values(res["final_profile"]), hidden)
+        overall_signal = with_interest_signal(counts, signal)
+        summ.interest_signal += signal
+        summ.overall_interest_signal += overall_signal
         qa = questions_asked(
             [t.get("counselor", "") for t in res.get("turns", [])],
             hidden,
@@ -278,6 +365,8 @@ def aggregate_extraction(
         summ.per_persona[pid] = {
             "overall": overall.to_dict(),
             "fields": {f: c.to_dict() for f, c in counts.items() if c.tp or c.fp or c.fn},
+            "interests_any_field": signal.to_dict(),
+            "overall_interest_signal": overall_signal.to_dict(),
             "questions_asked": qa,
         }
         summ.n += 1

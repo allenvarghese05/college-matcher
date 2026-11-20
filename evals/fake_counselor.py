@@ -150,11 +150,29 @@ def fake_extraction(latest: str, recent: str = "") -> dict[str, Any]:
     return {"updates": updates, "next_topic": nxt}
 
 
+LOCATION_PREF_QUESTION = (
+    "How far from home would you go, or is there a part of the country you'd like?"
+)
+STATE_QUESTION = "What state do you live in?"
+_NOTE_TOPIC = re.compile(r"^Suggested next topic: (?P<t>[a-z_]+)(?: \((?P<d>[^)]*)\))?", re.M)
+
+
 def fake_reply(messages: list[dict[str, Any]]) -> str:
-    """One question per reply, in INTAKE_ORDER; the closing line once ready and done."""
+    """Follows the planner's note: asks the suggested topic (one question), and the
+    closing line when the note says "Offer matches now: yes". Without a planner note it
+    falls back to a fixed INTAKE_ORDER."""
     note = messages[-1]["content"] if messages and messages[-1]["role"] == "system" else ""
     ready = "Ready for recommendations: yes" in note
     n = sum(1 for m in messages if m["role"] == "assistant")
+    m = _NOTE_TOPIC.search(note)
+    if m:
+        prefix = "Got it, thanks. " if n else ""
+        topic, desc = m.group("t"), m.group("d") or ""
+        if "Offer matches now: yes" in note or topic == "ready_to_recommend":
+            return CLOSING if ready else prefix + QUESTIONS["interests"]
+        if topic == "location":
+            return prefix + (LOCATION_PREF_QUESTION if "how far" in desc else STATE_QUESTION)
+        return prefix + QUESTIONS.get(topic, QUESTIONS["interests"])
     if n < len(INTAKE_ORDER):
         return ("Got it, thanks. " if n else "") + QUESTIONS[INTAKE_ORDER[n]]
     return CLOSING if ready else QUESTIONS["interests"]

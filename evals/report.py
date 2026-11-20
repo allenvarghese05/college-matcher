@@ -270,6 +270,12 @@ def render(m: dict[str, Any], summary: dict[str, Any]) -> str:
         f"| Extraction precision / recall (micro, all fields) | {_f(o['precision'])} / "
         f"{_f(o['recall'])} |"
     )
+    osig = ex.get("overall_interest_signal")
+    if osig:
+        a(
+            "| Extraction precision / recall (micro, `interests` scored as interest signal "
+            f"across fields — see Caveats) | {_f(osig['precision'])} / {_f(osig['recall'])} |"
+        )
     a(
         f"| Questions-asked coverage (planned via next_topic) | {_f(ex['coverage'])} "
         f"({_f(ex['planned_coverage'])}) |"
@@ -331,12 +337,24 @@ def render(m: dict[str, Any], summary: dict[str, Any]) -> str:
     a("")
     a("| field | precision | recall | TP | FP | FN |")
     a("|---|---|---|---|---|---|")
-    for name, cnt in ex["per_field"].items():
+    rows = list(ex["per_field"].items())
+    if ex.get("interest_signal"):
+        i = next((n for n, (name, _) in enumerate(rows) if name == "interests"), len(rows) - 1)
+        rows.insert(i + 1, ("interests (any field)", ex["interest_signal"]))
+    for name, cnt in rows:
         if cnt["tp"] or cnt["fp"] or cnt["fn"]:
             a(
                 f"| {name} | {_f(cnt['precision'])} | {_f(cnt['recall'])} | {cnt['tp']} | "
                 f"{cnt['fp']} | {cnt['fn']} |"
             )
+    if ex.get("interest_signal"):
+        a("")
+        a(
+            "`interests (any field)`: a hidden interest counts as recovered if it fuzzy-matches "
+            "an extracted item in interests, strengths, activity names, the dream answer or "
+            'favorite subjects (the extractor often files "good at drawing" under strengths). '
+            "The strict `interests` row above is unchanged."
+        )
     a("")
 
     a("## Cost and latency")
@@ -392,6 +410,12 @@ def render(m: dict[str, Any], summary: dict[str, Any]) -> str:
     a(
         "- **Heuristic coverage.** Questions-asked coverage uses keyword matching on the "
         "counselor's question sentences (`evals/topics.py`)."
+    )
+    a(
+        "- **Interest signal is a lenient, secondary score.** `interests (any field)` and the "
+        "matching micro totals credit a hidden interest found in strengths, activities, the "
+        "dream answer or favorite subjects; strict per-field scoring stays the headline. "
+        "Rule: `evals/README.md` (Extraction metrics)."
     )
     a(
         "- **Data limits.** Scorecard public net price is in-state; program earnings are "

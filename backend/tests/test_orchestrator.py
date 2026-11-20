@@ -124,7 +124,7 @@ async def test_event_order_persistence_and_metrics(tmp_path: Path) -> None:
     assert metrics["reply_total"].output_tokens == 60
     assert metrics["reply_total"].cache_read_tokens == 1500
     assert metrics["reply_total"].cost_usd > 0
-    assert snaps[0].next_topic == "money"
+    assert snaps[0].next_topic == "dream_without_money"  # planned for this turn's reply
     assert 0 <= metrics["reply_ttft"].ms <= metrics["reply_total"].ms
 
 
@@ -174,9 +174,13 @@ async def test_extraction_failure_keeps_reply_and_profile(tmp_path: Path) -> Non
     assert events[1].data["profile"] == StudentProfile().model_dump(mode="json")
     async with get_sessionmaker()() as db:
         snaps = (
-            await db.execute(select(ProfileSnapshot).where(ProfileSnapshot.session_id == sid))
-        ).all()
-        assert snaps == []
+            (await db.execute(select(ProfileSnapshot).where(ProfileSnapshot.session_id == sid)))
+            .scalars()
+            .all()
+        )
+    # profile unchanged, but the planned topic is recorded so it is not asked twice
+    assert len(snaps) == 1 and snaps[0].profile == StudentProfile().model_dump(mode="json")
+    assert snaps[0].next_topic == "dream_without_money"
 
 
 async def test_reply_refusal_uses_safe_fallback(tmp_path: Path) -> None:
@@ -244,18 +248,127 @@ def test_reply_messages_window_starts_with_user_and_ends_with_note() -> None:
     )
 
 
-async def test_next_topic_is_persisted_and_used_as_next_hint(tmp_path: Path) -> None:
+def _upd(value: object, quote: str) -> Update:  # type: ignore[type-arg]
+    return Update(value=value, confidence=0.9, quote=quote)
+
+
+def _notes(fake: ScriptedAnthropic) -> list[str]:
+    return [kw["messages"][-1]["content"] for kw in _reply_calls(fake)]
+
+
+async def _play(
+    script: list[tuple[str, dict[str, Update]]],  # type: ignore[type-arg]
+    tmp_path: Path,
+) -> tuple[ScriptedAnthropic, uuid.UUID]:
     fake = ScriptedAnthropic()
-    fake.add_stream(ScriptedStream(chunks=["Cool."]))
-    fake.add_stream(ScriptedStream(chunks=["Nice."]))
-    fake.add_parse("ExtractionWire", _extraction(next_topic="activities"))
-    fake.add_parse("ExtractionWire", _extraction())
+    for _text, updates in script:
+        fake.add_stream(ScriptedStream(chunks=["Okay."]))
+        # the extractor's own next_topic is logged only; the planner drives the reply
+        fake.add_parse("ExtractionWire", _extraction(next_topic="ready_to_recommend", **updates))
     orch = _orch(fake, tmp_path)
     sid = await _new_session()
-    await _collect(orch, sid, "hello")
-    await _collect(orch, sid, "again")
-    note = _reply_calls(fake)[1]["messages"][-1]["content"]
-    assert "Suggested next topic: activities" in note
+    for text, _ in script:
+        await _collect(orch, sid, text)
+    return fake, sid
+
+
+async def test_counselor_asks_location_size_and_priorities_before_offering_matches(
+    tmp_path: Path,
+) -> None:
+    """Readiness (state + income + interests) is not enough to offer matches: location
+    preference, size/setting and priorities are asked first, once each, and "no
+    preference" answers are accepted (never re-asked)."""
+    script = [
+        ("hi! I love coding", {"interests": _upd(["coding"], "I love coding")}),
+        ("I'd make video games all day", {"dream_without_money": _upd("make video games",
+                                                                     "make video games")}),
+        ("I live in Ohio", {"home_state": _upd("OH", "I live in Ohio")}),
+        ("no preference really", {}),
+        ("anywhere is fine", {}),
+        ("cost matters most", {"priorities": _upd(["cost"], "cost matters most")}),
+        ("my parents make about 60k", {"income_bracket": _upd("48-75k", "60k")}),
+        ("cool", {}),
+    ]  # fmt: skip
+    fake, sid = await _play(script, tmp_path)
+    notes = _notes(fake)
+    topics = [n.split("Suggested next topic: ")[1].split("\n")[0] for n in notes]
+    assert [t.split(" (")[0] for t in topics] == [
+        "dream_without_money",
+        "location",  # home state
+        "size_setting",  # state just asked (lag): move on instead of re-asking
+        "location",  # now how far from home / regions
+        "priorities",
+        "money",
+        "academics",  # money just asked; readiness completes this turn
+        "ready_to_recommend",
+    ]
+    assert "which state they live in" in topics[1] and "how far from home" in topics[3]
+    offer = ["Offer matches now: yes" in n for n in notes]
+    assert offer == [False] * 7 + [True]
+    assert "Ready for recommendations: no" in notes[6]
+    async with get_sessionmaker()() as db:
+        persisted = (
+            (
+                await db.execute(
+                    select(ProfileSnapshot.next_topic)
+                    .where(ProfileSnapshot.session_id == sid)
+                    .order_by(ProfileSnapshot.after_turn)
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert persisted == [t.split(" (")[0] for t in topics]
+
+
+async def test_student_asking_for_schools_short_circuits_the_checklist(tmp_path: Path) -> None:
+    script = [
+        (
+            "I live in Ohio, my family makes 60k and I love coding",
+            {
+                "home_state": _upd("OH", "I live in Ohio"),
+                "income_bracket": _upd("48-75k", "my family makes 60k"),
+                "interests": _upd(["coding"], "I love coding"),
+            },
+        ),
+        ("just show me schools", {}),
+        ("ok thanks", {}),
+    ]
+    fake, _sid = await _play(script, tmp_path)
+    notes = _notes(fake)
+    assert "Suggested next topic: ready_to_recommend" in notes[1]
+    assert "Offer matches now: yes" in notes[1]
+    # the waiver applied to that turn only: afterwards the checklist resumes
+    assert "Suggested next topic: location (how far from home" in notes[2]
+    assert "Offer matches now: no" in notes[2]
+
+
+async def test_affirmation_counts_only_right_after_an_offer(tmp_path: Path) -> None:
+    ready = {
+        "home_state": _upd("OH", "I live in Ohio"),
+        "income_bracket": _upd("48-75k", "my family makes 60k"),
+        "interests": _upd(["coding"], "I love coding"),
+    }
+    script = [
+        ("I live in Ohio, my family makes 60k and I love coding", ready),
+        ("ok show me", {}),  # no offer yet: not a request
+        ("just show me schools", {}),  # explicit request -> offer
+        ("ok show me", {}),  # right after the offer: a request
+    ]
+    fake, _sid = await _play(script, tmp_path)
+    offer = ["Offer matches now: yes" in n for n in _notes(fake)]
+    assert offer == [False, False, True, True]
+
+
+async def test_asking_for_schools_before_ready_asks_for_what_is_missing(tmp_path: Path) -> None:
+    script = [
+        ("I love art", {"interests": _upd(["art"], "I love art")}),
+        ("can I see my matches?", {}),
+    ]
+    fake, _sid = await _play(script, tmp_path)
+    note = _notes(fake)[1]
+    assert "Suggested next topic: location (which state they live in)" in note
+    assert "Offer matches now: no" in note
 
 
 @pytest.mark.parametrize(
