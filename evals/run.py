@@ -82,10 +82,12 @@ from evals.topics import asked_topics  # noqa: E402
 
 log = get_logger(__name__)
 
-# Measured live numbers (owner's spot checks): Sonnet reply + extraction per turn, one
-# Opus recommendation per session. Used for the pre-run estimate and the Opus pre-check.
-EST_COST_PER_TURN = 0.01
-EST_COST_PER_RECOMMEND = 0.13
+# Live spot checks measured ~$0.007-0.015 per turn (Sonnet reply + extraction) and
+# $0.13 per Opus recommendation. The budget guard is only strict if each reservation is
+# >= the actual cost, so these are deliberately conservative: later turns carry more
+# history, and a recommendation over 40 candidates can run long.
+EST_COST_PER_TURN = 0.02
+EST_COST_PER_RECOMMEND = 0.18
 EST_SIM_COST_PER_TURN = {"claude": 0.004, "ollama": 0.0, "scripted": 0.0}
 EST_TURNS = 8  # ready after ~5-6 turns (interests, location, money) + 2
 

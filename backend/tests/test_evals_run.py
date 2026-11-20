@@ -14,7 +14,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from evals.common import load_persona  # noqa: E402
 from evals.fake_counselor import FakeCounselorAnthropic  # noqa: E402
-from evals.run import BudgetExceeded, CostMeter, RunConfig, estimate_cost, run  # noqa: E402
+from evals.run import (  # noqa: E402
+    EST_COST_PER_RECOMMEND,
+    EST_COST_PER_TURN,
+    BudgetExceeded,
+    CostMeter,
+    RunConfig,
+    estimate_cost,
+    run,
+)
 from evals.simulator import ClaudeSimulator, OllamaSimulator  # noqa: E402
 
 from app.core.llm import LLMClient, ReplayMissError  # noqa: E402
@@ -49,8 +57,9 @@ def test_cost_meter_and_estimate() -> None:
         m.add(0.02)
     assert CostMeter().check(1e9) is None  # no limit
     est = estimate_cost(36, "ollama", turns=9)
-    assert est["per_session_usd"] == pytest.approx(9 * 0.01 + 0.13)
-    assert est["total_usd"] == pytest.approx(36 * 0.22)
+    per_session = 9 * EST_COST_PER_TURN + EST_COST_PER_RECOMMEND
+    assert est["per_session_usd"] == pytest.approx(per_session)
+    assert est["total_usd"] == pytest.approx(36 * per_session)
 
 
 @pytest.mark.usefixtures("loaded_db")
