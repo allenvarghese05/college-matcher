@@ -161,7 +161,7 @@
     }
   },
   "response": {
-    "text": "{\"updates\": [{\"field\": \"dream_without_money\", \"text\": \"write books. or edit them. something with words\", \"number\": 0, \"items\": [], \"activities\": [], \"confidence\": 0.9, \"quote\": \"my dream: write books. or edit them. something with words\"}], \"next_topic\": \"academics\"}",
+    "text": "{\"updates\": [{\"field\": \"dream_without_money\", \"text\": \"write books. or edit them. something with words\", \"number\": 0, \"items\": [], \"activities\": [], \"confidence\": 0.9, \"quote\": \"my dream: write books. or edit them. something with words\"}], \"next_topic\": \"strengths\"}",
     "stop_reason": "end_turn",
     "refusal_category": null,
     "usage": {
