@@ -13,7 +13,7 @@ from pathlib import Path
 PROMPT_DIR = Path(__file__).resolve().parent
 
 ACTIVE: dict[str, int] = {
-    "counselor_reply": 1,
+    "counselor_reply": 2,
     "extractor": 4,
     "recommender": 3,
 }

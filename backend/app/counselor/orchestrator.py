@@ -3,13 +3,17 @@
 ``handle_turn`` — one student message:
 
 1. persist the user turn;
-2. run the reply stream (Sonnet) and the extraction (Sonnet, structured) **concurrently**;
-   the reply prompt sees the profile as of the previous turn + missing fields + the
-   previous extraction's next-topic hint (it is one turn behind by design);
+2. plan the next topic deterministically (``context.plan_next_topic``: readiness, then
+   the recommendation-quality checklist — location preference, size/setting,
+   priorities — before matches are offered; skipped if the student asks for matches)
+   from the previous profile + the persisted topic history, then run the reply stream
+   (Sonnet) and the extraction (Sonnet, structured) **concurrently**; the reply prompt
+   sees the profile as of the previous turn + missing fields + the planned topic;
 3. merge the extraction delta with ``schemas.apply_delta`` (an extraction failure of
    any kind is logged and never blocks the reply);
-4. persist profile snapshot (+ ``next_topic``), assistant turn and ``turn_metric`` rows
-   (``extract``, ``reply_ttft``, ``reply_total``);
+4. persist profile snapshot (+ ``next_topic`` = the topic planned for this turn's reply;
+   written even when extraction fails so the "asked" history is complete), assistant
+   turn and ``turn_metric`` rows (``extract``, ``reply_ttft``, ``reply_total``);
 5. yield SSE events: ``token``* -> ``profile`` -> ``ready`` -> ``done`` (or ``error``).
 
 If the client disconnects mid-reply the model stream is closed and the partial
@@ -44,7 +48,14 @@ from app.core.llm import (
     LLMRefusalError,
 )
 from app.core.logging import TurnLogger, get_logger
-from app.counselor.context import HistoryTurn, plan_next_topic, profile_json
+from app.counselor.context import (
+    HistoryTurn,
+    asked_from_history,
+    describe_topic,
+    plan_next_topic,
+    profile_json,
+    wants_matches,
+)
 from app.counselor.extractor import ExtractionOutcome, Extractor, add_extra_evidence
 from app.counselor.facts import load_db_facts
 from app.counselor.groundedness import (
@@ -134,7 +145,7 @@ async def get_chat_session(db: AsyncSession, session_id: uuid.UUID) -> ChatSessi
 async def latest_state(
     db: AsyncSession, session_id: uuid.UUID
 ) -> tuple[StudentProfile, NextTopic | None]:
-    """Latest profile snapshot and the extractor's ``next_topic`` stored with it."""
+    """Latest profile snapshot and the ``next_topic`` planned on that turn."""
     snap = (
         await db.execute(
             select(ProfileSnapshot)
@@ -146,6 +157,25 @@ async def latest_state(
     if snap is None:
         return StudentProfile(), None
     return StudentProfile.model_validate(snap.profile), snap.next_topic  # type: ignore[return-value]
+
+
+async def planner_state(
+    db: AsyncSession, session_id: uuid.UUID
+) -> tuple[StudentProfile, list[str]]:
+    """Latest profile + planner keys of every topic planned so far (oldest first)."""
+    snaps = (
+        await db.execute(
+            select(ProfileSnapshot.profile, ProfileSnapshot.next_topic)
+            .where(ProfileSnapshot.session_id == session_id)
+            .order_by(ProfileSnapshot.after_turn, ProfileSnapshot.created_at)
+        )
+    ).all()
+    before = StudentProfile()
+    pairs: list[tuple[StudentProfile, str | None]] = []
+    for profile_json_, topic in snaps:
+        pairs.append((before, topic))  # each hint was planned from the previous profile
+        before = StudentProfile.model_validate(profile_json_)
+    return before, asked_from_history(pairs)
 
 
 async def latest_profile(db: AsyncSession, session_id: uuid.UUID) -> StudentProfile:
@@ -272,6 +302,7 @@ def build_reply_messages(
 
     The note (profile, gaps, next-topic hint) is the only per-turn-variable part and
     sits after the history, so system prompt + history stay a stable cache prefix.
+    ``next_topic`` defaults to the planner's choice with no topic history.
     """
     turns = list(history)
     while turns and turns[0].role != "user":
@@ -279,12 +310,14 @@ def build_reply_messages(
     msgs: list[dict[str, Any]] = [{"role": t.role, "content": t.text} for t in turns]
     msgs.append({"role": "user", "content": text})
     missing = profile.missing_for_recommendation()
+    topic = next_topic or plan_next_topic(profile, student_wants_matches=wants_matches(text))
     note = (
         "Private counselor note (never reveal or quote it).\n"
         f"Known about the student: {profile_json(profile)}\n"
         f"Still needed before recommendations: {', '.join(missing) if missing else 'nothing'}\n"
-        f"Suggested next topic: {next_topic or plan_next_topic(profile)}\n"
-        f"Ready for recommendations: {'yes' if not missing else 'no'}"
+        f"Suggested next topic: {describe_topic(topic, profile)}\n"
+        f"Ready for recommendations: {'yes' if not missing else 'no'}\n"
+        f"Offer matches now: {'yes' if topic == 'ready_to_recommend' and not missing else 'no'}"
     )
     msgs.append({"role": "system", "content": note})
     return msgs
@@ -319,7 +352,7 @@ class CounselorOrchestrator:
         source: EvidenceSource,
         assistant_text: str | None,
         interrupted: bool,
-        snapshot: tuple[StudentProfile, NextTopic] | None,
+        snapshot: tuple[StudentProfile, NextTopic | None] | None,
         metrics: list[dict[str, Any]],
     ) -> Turn | None:
         async with self.sessionmaker() as db:
@@ -351,7 +384,7 @@ class CounselorOrchestrator:
         async with self.sessionmaker() as db:
             await get_chat_session(db, session_id)
             history = await recent_turns(db, session_id, self.history_window)
-            prev_profile, prev_topic = await latest_state(db, session_id)
+            prev_profile, asked = await planner_state(db, session_id)
             max_idx = (
                 await db.execute(select(func.max(Turn.idx)).where(Turn.session_id == session_id))
             ).scalar_one_or_none()
@@ -363,6 +396,7 @@ class CounselorOrchestrator:
             user_turn_id = user_turn.id
 
         tl = TurnLogger(session_id=str(session_id), turn_id=str(user_turn_id))
+        topic = plan_next_topic(prev_profile, asked, student_wants_matches=wants_matches(text))
         extractor = self.extractor
 
         async def run_extraction() -> ExtractionOutcome:
@@ -380,7 +414,7 @@ class CounselorOrchestrator:
         stream = self.llm.stream_text(
             self.reply_model,
             load_prompt("counselor_reply").text,
-            build_reply_messages(history, text, prev_profile, prev_topic),
+            build_reply_messages(history, text, prev_profile, topic),
             effort=self.reply_effort,
             max_tokens=self.reply_max_tokens,
         )
@@ -391,7 +425,7 @@ class CounselorOrchestrator:
         finished = False
         try:
             with tl.stage("reply_total") as st:
-                st.set(prompt=load_prompt("counselor_reply").id)
+                st.set(prompt=load_prompt("counselor_reply").id, next_topic=topic)
                 stream_stage = st
                 try:
                     async for chunk in stream:
@@ -438,26 +472,32 @@ class CounselorOrchestrator:
 
         # 3. merge extraction — any failure keeps the previous profile
         profile = prev_profile
-        snapshot: tuple[StudentProfile, NextTopic] | None = None
+        extracted = False
         try:
             outcome = await extract_task
             profile = apply_delta(prev_profile, outcome.result.delta, user_idx, source)
             profile = add_extra_evidence(profile, outcome.extra_quotes, user_idx, source)
-            snapshot = (profile, outcome.result.next_topic)
+            extracted = True
         except Exception as exc:
             log.error("extract_failed", error=type(exc).__name__)
 
-        # 4. persist (partial text after a mid-stream error is kept as interrupted)
+        # 4. persist (partial text after a mid-stream error is kept as interrupted).
+        # The snapshot records the planned topic only if a reply was actually sent, and
+        # is written after a failed extraction too, so the "asked" history stays complete.
         metrics = list(tl.stages)
         if stream.ttft_ms is not None:
             metrics.append({"stage": "reply_ttft", "ms": stream.ttft_ms, "model": self.reply_model})
         assistant_text = "".join(reply_parts)
+        replied = reply_error is None or bool(reply_parts)
+        snapshot: tuple[StudentProfile, NextTopic | None] | None = (
+            (profile, topic if replied else None) if (extracted or replied) else None
+        )
         assistant_turn = await self._persist_turn(
             session_id=session_id,
             user_idx=user_idx,
             user_turn_id=user_turn_id,
             source=source,
-            assistant_text=assistant_text if (reply_error is None or reply_parts) else None,
+            assistant_text=assistant_text if replied else None,
             interrupted=reply_error is not None,
             snapshot=snapshot,
             metrics=metrics,

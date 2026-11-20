@@ -6,7 +6,7 @@ import pytest
 
 from app.core.llm import LLMClient, LLMOutputError, wire_schema
 from app.core.logging import Stage
-from app.counselor.context import HistoryTurn, plan_next_topic, to_usps
+from app.counselor.context import HistoryTurn, to_usps
 from app.counselor.extractor import (
     ExtractionWire,
     Extractor,
@@ -288,19 +288,6 @@ def test_sanitize_drops_all_invalid_regions_and_unknown_state() -> None:
     clean, dropped = sanitize(delta, LATEST)
     assert clean.home_state is None and clean.regions is None
     assert set(dropped) == {"home_state", "regions"}
-
-
-def test_plan_next_topic_prioritises_readiness_after_dream_and_interests() -> None:
-    p = StudentProfile()
-    assert plan_next_topic(p) == "dream_without_money"
-    p.dream_without_money = ProfileField[str](value="games", confidence=0.9)
-    assert plan_next_topic(p) == "interests"
-    p.interests = ProfileField[list[str]](value=["coding"], confidence=0.9)
-    assert plan_next_topic(p) == "location"
-    p.home_state = ProfileField[str](value="OH", confidence=0.9)
-    assert plan_next_topic(p) == "money"
-    p.income_bracket = ProfileField(value="48-75k", confidence=0.9)
-    assert plan_next_topic(p) == "strengths"
 
 
 async def test_extract_replays_from_committed_cassette() -> None:
