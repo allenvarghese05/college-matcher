@@ -291,3 +291,26 @@ def test_finalize_malformed_output_is_llm_output_error(raw: dict) -> None:  # ty
 
     with pytest.raises(LLMOutputError):
         finalize(raw, [_cand(unitid=1)], k=3)
+
+
+def test_recommender_schema_excludes_city_state_but_contract_keeps_it() -> None:
+    """Location comes from DB fields (RecommendationOut.city/state), never an LLM claim;
+    ClaimField stays backward compatible and groundedness still checks city_state."""
+    from typing import get_args
+
+    from app.counselor.prompts import load_prompt
+    from app.counselor.recommender import GENERATED_CLAIM_FIELDS, build_output_schema
+    from app.schemas import ClaimField
+
+    schema = build_output_schema([_cand(unitid=1, cip4="1107")])
+    rec = schema["properties"]["recommendations"]["items"]
+    enum = rec["properties"]["claims"]["items"]["properties"]["field"]["enum"]
+    assert "city_state" not in enum and enum == GENERATED_CLAIM_FIELDS
+    assert set(enum) == set(get_args(ClaimField)) - {"city_state"}
+    assert "city_state" in get_args(ClaimField)
+    prompt = load_prompt("recommender")
+    assert prompt.id == "recommender.v3" and "city_state" not in prompt.text
+    assert "city_state" in load_prompt("recommender", 2).text  # old version kept
+    # a stray city_state claim (old rows / cassettes) is still checked against the DB
+    wrong = _rec([_claim("city_state", "Chapel Hill, GA")], ["A good fit."])
+    assert check([wrong], FactIndex.from_candidates([_cand()])).groundedness == 0.0

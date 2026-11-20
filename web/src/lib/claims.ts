@@ -28,9 +28,10 @@ export const visibleClaims = (r: RecommendationOut): VerifiedClaim[] => r.claims
 export const claimValue = (r: RecommendationOut, field: ClaimField): string | null =>
   visibleClaims(r).find((c) => c.field === field)?.value ?? null;
 
-/** Display location. city/state are DB display data, so they need no claim. */
-export const place = (r: RecommendationOut): string =>
-  claimValue(r, "city_state") ?? [r.city, r.state].filter(Boolean).join(", ");
+/** Display location, always from DB display data (city/state). The recommender no
+ * longer emits city_state claims (recommender.v3); old rows may still carry one, but
+ * it is never used for display. */
+export const place = (r: RecommendationOut): string => [r.city, r.state].filter(Boolean).join(", ");
 
 /** Short qualifier shown next to a net price (none for private schools). */
 export const PRICE_BASIS_LABEL: Record<NetPriceBasis, string | null> = {
