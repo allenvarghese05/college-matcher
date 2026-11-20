@@ -59,10 +59,20 @@ ADAPTERS = {f: _value_adapter(f) for f in PROFILE_FIELDS}
 # Fields every persona must carry. Others are omitted when the student
 # genuinely has / won't share them (key absent = unknown, SPEC §6).
 REQUIRED_PROFILE = {
-    "home_state", "home_zip", "income_bracket",
-    "interests", "dream_without_money", "intended_majors", "riasec",
-    "strengths", "favorite_subjects", "activities", "work_values",
-    "size_pref", "setting_pref", "priorities",
+    "home_state",
+    "home_zip",
+    "income_bracket",
+    "interests",
+    "dream_without_money",
+    "intended_majors",
+    "riasec",
+    "strengths",
+    "favorite_subjects",
+    "activities",
+    "work_values",
+    "size_pref",
+    "setting_pref",
+    "priorities",
 }
 assert REQUIRED_PROFILE <= PROFILE_FIELDS, REQUIRED_PROFILE - PROFILE_FIELDS
 
@@ -70,10 +80,20 @@ RIASEC = ["R", "I", "A", "S", "E", "C"]
 REVEAL = {"only_when_asked"}
 ARTICULATENESS = {"terse", "casual", "rambling", "anxious", "confident"}
 EDGE_CASES = {
-    "undecided", "leave_home_far", "low_income_high_stats", "first_gen",
-    "specific_major_outcomes", "prestige", "arts", "trades_adjacent",
-    "contradicts_self", "unrealistic_budget", "nursing_health", "cs",
-    "military_rotc", "small_rural_college",
+    "undecided",
+    "leave_home_far",
+    "low_income_high_stats",
+    "first_gen",
+    "specific_major_outcomes",
+    "prestige",
+    "arts",
+    "trades_adjacent",
+    "contradicts_self",
+    "unrealistic_budget",
+    "nursing_health",
+    "cs",
+    "military_rotc",
+    "small_rural_college",
 }
 TOP_REQUIRED = {"id", "summary", "hidden_profile", "style", "reveal", "meta"}
 TOP_OPTIONAL = {"quirks"}
@@ -95,8 +115,9 @@ DIVISIONS = {
 CENSUS_REGIONS = {
     "northeast": DIVISIONS["new_england"] | DIVISIONS["mid_atlantic"],
     "midwest": DIVISIONS["east_north_central"] | DIVISIONS["west_north_central"],
-    "south": DIVISIONS["south_atlantic"] | DIVISIONS["east_south_central"]
-             | DIVISIONS["west_south_central"],
+    "south": DIVISIONS["south_atlantic"]
+    | DIVISIONS["east_south_central"]
+    | DIVISIONS["west_south_central"],
     "west": DIVISIONS["mountain"] | DIVISIONS["pacific"],
 }
 STATES = set().union(*DIVISIONS.values())
@@ -104,28 +125,79 @@ assert len(STATES) == 51
 REGION_VOCAB = set(DIVISIONS) | set(CENSUS_REGIONS) | STATES | {"out_of_state"}
 
 # Mostly-rural states (lowest urban share per Census); used for the stats only.
-RURAL_STATES = {"VT", "ME", "WV", "MS", "MT", "AR", "SD", "KY", "AL", "ND",
-                "NH", "WY", "IA", "NE", "KS", "ID", "NM", "OK"}
+RURAL_STATES = {
+    "VT",
+    "ME",
+    "WV",
+    "MS",
+    "MT",
+    "AR",
+    "SD",
+    "KY",
+    "AL",
+    "ND",
+    "NH",
+    "WY",
+    "IA",
+    "NE",
+    "KS",
+    "ID",
+    "NM",
+    "OK",
+}
 
 # USPS ZIP3 prefix ranges per state (inclusive), enough to catch typos.
 ZIP3 = {
-    "AL": [(350, 369)], "AK": [(995, 999)], "AZ": [(850, 865)],
-    "AR": [(716, 729)], "CA": [(900, 961)], "CO": [(800, 816)],
-    "CT": [(60, 69)], "DE": [(197, 199)], "DC": [(200, 205), (569, 569)],
-    "FL": [(320, 349)], "GA": [(300, 319), (398, 399)], "HI": [(967, 968)],
-    "ID": [(832, 838)], "IL": [(600, 629)], "IN": [(460, 479)],
-    "IA": [(500, 528)], "KS": [(660, 679)], "KY": [(400, 427)],
-    "LA": [(700, 714)], "ME": [(39, 49)], "MD": [(206, 219)],
-    "MA": [(10, 27), (55, 55)], "MI": [(480, 499)], "MN": [(550, 567)],
-    "MS": [(386, 397)], "MO": [(630, 658)], "MT": [(590, 599)],
-    "NE": [(680, 693)], "NV": [(889, 898)], "NH": [(30, 38)],
-    "NJ": [(70, 89)], "NM": [(870, 884)], "NY": [(100, 149), (5, 5), (63, 63)],
-    "NC": [(270, 289)], "ND": [(580, 588)], "OH": [(430, 459)],
-    "OK": [(730, 749)], "OR": [(970, 979)], "PA": [(150, 196)],
-    "RI": [(28, 29)], "SC": [(290, 299)], "SD": [(570, 577)],
-    "TN": [(370, 385)], "TX": [(750, 799), (733, 733), (885, 885)],
-    "UT": [(840, 847)], "VT": [(50, 59)], "VA": [(220, 246), (201, 201)],
-    "WA": [(980, 994)], "WV": [(247, 268)], "WI": [(530, 549)],
+    "AL": [(350, 369)],
+    "AK": [(995, 999)],
+    "AZ": [(850, 865)],
+    "AR": [(716, 729)],
+    "CA": [(900, 961)],
+    "CO": [(800, 816)],
+    "CT": [(60, 69)],
+    "DE": [(197, 199)],
+    "DC": [(200, 205), (569, 569)],
+    "FL": [(320, 349)],
+    "GA": [(300, 319), (398, 399)],
+    "HI": [(967, 968)],
+    "ID": [(832, 838)],
+    "IL": [(600, 629)],
+    "IN": [(460, 479)],
+    "IA": [(500, 528)],
+    "KS": [(660, 679)],
+    "KY": [(400, 427)],
+    "LA": [(700, 714)],
+    "ME": [(39, 49)],
+    "MD": [(206, 219)],
+    "MA": [(10, 27), (55, 55)],
+    "MI": [(480, 499)],
+    "MN": [(550, 567)],
+    "MS": [(386, 397)],
+    "MO": [(630, 658)],
+    "MT": [(590, 599)],
+    "NE": [(680, 693)],
+    "NV": [(889, 898)],
+    "NH": [(30, 38)],
+    "NJ": [(70, 89)],
+    "NM": [(870, 884)],
+    "NY": [(100, 149), (5, 5), (63, 63)],
+    "NC": [(270, 289)],
+    "ND": [(580, 588)],
+    "OH": [(430, 459)],
+    "OK": [(730, 749)],
+    "OR": [(970, 979)],
+    "PA": [(150, 196)],
+    "RI": [(28, 29)],
+    "SC": [(290, 299)],
+    "SD": [(570, 577)],
+    "TN": [(370, 385)],
+    "TX": [(750, 799), (733, 733), (885, 885)],
+    "UT": [(840, 847)],
+    "VT": [(50, 59)],
+    "VA": [(220, 246), (201, 201)],
+    "WA": [(980, 994)],
+    "WV": [(247, 268)],
+    "WI": [(530, 549)],
     "WY": [(820, 831)],
 }
 assert set(ZIP3) == STATES
@@ -274,8 +346,12 @@ def validate(path: Path, data) -> list[str]:
 def academics(hp: dict) -> str:
     g = "gpa" in hp
     t = "sat" in hp or "act" in hp
-    return {(True, True): "both", (True, False): "gpa_only",
-            (False, True): "test_only", (False, False): "neither"}[(g, t)]
+    return {
+        (True, True): "both",
+        (True, False): "gpa_only",
+        (False, True): "test_only",
+        (False, False): "neither",
+    }[(g, t)]
 
 
 def dominant(hp: dict) -> str:
@@ -327,8 +403,10 @@ def main(argv: list[str]) -> int:
     print("== Diversity stats ==")
     print("income brackets: " + ", ".join(f"{b}={income.get(b, 0)}" for b in INCOME))
     print(f"states: {len(states)} distinct; rural states ({len(rural)}): {' '.join(rural)}")
-    print("academics: " + ", ".join(f"{k}={acad.get(k, 0)}"
-                                    for k in ("both", "gpa_only", "test_only", "neither")))
+    print(
+        "academics: "
+        + ", ".join(f"{k}={acad.get(k, 0)}" for k in ("both", "gpa_only", "test_only", "neither"))
+    )
     print("dominant RIASEC: " + ", ".join(f"{k}={dom.get(k, 0)}" for k in RIASEC))
     print("articulateness: " + ", ".join(f"{k}={art.get(k, 0)}" for k in sorted(ARTICULATENESS)))
     print("edge cases:")
@@ -345,8 +423,9 @@ def main(argv: list[str]) -> int:
         "test_only >= 4": acad.get("test_only", 0) >= 4,
         "neither >= 4": acad.get("neither", 0) >= 4,
         "each RIASEC dominant >= 4": all(dom.get(k, 0) >= 4 for k in RIASEC),
-        "terse/rambling/anxious/confident all present":
-            all(art.get(k, 0) >= 2 for k in ("terse", "rambling", "anxious", "confident")),
+        "terse/rambling/anxious/confident all present": all(
+            art.get(k, 0) >= 2 for k in ("terse", "rambling", "anxious", "confident")
+        ),
         "every edge case covered": all(edge[x] for x in EDGE_CASES),
         "voice subset 8-10": 8 <= len(voice) <= 10,
     }
@@ -355,16 +434,21 @@ def main(argv: list[str]) -> int:
         print(f"  [{'PASS' if ok else 'FAIL'}] {name}")
 
     if "--table" in argv:
-        print("\n| id | state | income | gpa? | test? | dominant RIASEC | priorities | edge case | voice |")
+        print(
+            "\n| id | state | income | gpa? | test? | dominant RIASEC | priorities | edge case "
+            "| voice |"
+        )
         print("|---|---|---|---|---|---|---|---|---|")
         for p in sorted(personas, key=lambda p: p["id"]):
             hp = p["hidden_profile"]
-            test = ("SAT" if "sat" in hp else "ACT" if "act" in hp else "-")
-            print(f"| {p['id']} | {hp['home_state']} | {hp['income_bracket']} | "
-                  f"{'yes' if 'gpa' in hp else '-'} | {test} | {dominant(hp)} | "
-                  f"{', '.join(hp['priorities'])} | "
-                  f"{', '.join(p['meta']['edge_cases']) or '-'} | "
-                  f"{'yes' if p['meta']['voice_subset'] else ''} |")
+            test = "SAT" if "sat" in hp else "ACT" if "act" in hp else "-"
+            print(
+                f"| {p['id']} | {hp['home_state']} | {hp['income_bracket']} | "
+                f"{'yes' if 'gpa' in hp else '-'} | {test} | {dominant(hp)} | "
+                f"{', '.join(hp['priorities'])} | "
+                f"{', '.join(p['meta']['edge_cases']) or '-'} | "
+                f"{'yes' if p['meta']['voice_subset'] else ''} |"
+            )
 
     return 0 if n_err == 0 and all(checks.values()) else 1
 
