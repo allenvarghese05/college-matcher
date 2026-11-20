@@ -293,6 +293,8 @@ def questions_asked(
     for text in counselor_turns:
         topics |= asked_topics(text)
     planned = {t for t in next_topics or [] if t}
+    if "strengths" in planned:  # the planner's combined classes + strengths question
+        planned.add("favorite_subjects")
     asked = sorted(f for f in fields if FIELD_TOPIC[f] in topics)
     planned_fields = sorted(f for f in fields if FIELD_TOPIC[f] in planned)
     n = len(fields)

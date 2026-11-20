@@ -6,7 +6,7 @@ import json
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 from app.schemas import NextTopic, ProfileField, StudentProfile
 
@@ -119,10 +119,18 @@ def profile_json(profile: StudentProfile) -> str:
 #   declines is never asked again. A student who explicitly asks for matches in the
 #   CURRENT message skips the checklist for that turn only (no persisted waiver).
 #
-# Planner keys are NextTopic values plus ``location_pref`` (internal): the "location"
-# topic asks for the home state until it is known and for distance/regions after that.
+# Planner keys are NextTopic values plus two internal keys:
+#
+# * ``location_pref``: the "location" topic asks for the home state until it is known
+#   and for distance/regions after that.
+# * ``strengths_subjects``: ONE combined question about favorite classes and what the
+#   student is good at (covers ``favorite_subjects`` and ``strengths``). Persisted as
+#   the NextTopic ``"strengths"`` (no schema change); a stored ``"strengths"`` or legacy
+#   ``"favorite_subjects"`` hint both read back as this key, so asking it marks both.
 
 LOCATION_PREF = "location_pref"
+STRENGTHS_SUBJECTS = "strengths_subjects"
+STRENGTHS_SUBJECTS_FIELDS: tuple[str, ...] = ("favorite_subjects", "strengths")
 
 # Readiness topic -> the missing_for_recommendation() entry it resolves.
 READINESS_TOPICS: dict[str, str] = {
@@ -138,23 +146,25 @@ QUALITY_FIELDS: dict[str, tuple[str, ...]] = {
     "priorities": ("priorities",),
 }
 # Core intake, asked before matches are offered: the dream question and interests,
-# home state, the quality checklist, then money (which follows naturally from
-# "what matters most" and completes readiness last).
+# then favorite classes/strengths and activities (they feed interests -> majors
+# matching, so they must come before the offer), home state, the quality checklist,
+# then money (which follows naturally from "what matters most" and completes
+# readiness last).
 CORE_ORDER: tuple[str, ...] = (
     "dream_without_money",
     "interests",
+    STRENGTHS_SUBJECTS,
+    "activities",
     "location",
     *QUALITY_CHECKLIST,
     "money",
 )
 # A missing readiness topic is asked at most this many times in all (1 + 2 re-asks).
 MAX_READINESS_ASKS = 3
-# Enrichment topics: asked once each after matches have been offered.
+# Enrichment topics: asked once each after matches have been offered. (Academics stays
+# optional; a student who volunteers GPA/scores earlier is picked up by extraction.)
 ENRICH_ORDER: tuple[NextTopic, ...] = (
     "academics",
-    "strengths",
-    "favorite_subjects",
-    "activities",
     "work_values",
 )
 
@@ -232,39 +242,73 @@ def topic_key(topic: str | None, home_state_known: bool) -> str | None:
     is the location-preference question."""
     if topic == "location" and home_state_known:
         return LOCATION_PREF
+    if topic in ("strengths", "favorite_subjects"):
+        return STRENGTHS_SUBJECTS
     return topic
 
 
-def asked_from_history(history: Sequence[tuple[StudentProfile, str | None]]) -> list[str]:
-    """Planner keys of earlier hints, oldest first.
+class PlannerHistory(NamedTuple):
+    """What the planner needs from the persisted hint history."""
+
+    asked: list[str]  # planner keys of earlier hints, oldest first
+    offered_after_checklist: bool  # a real (non-waiver) offer was already made
+
+
+def planner_history(history: Sequence[tuple[StudentProfile, str | None]]) -> PlannerHistory:
+    """Planner keys of earlier hints plus whether matches were really offered.
 
     ``history`` = (profile the hint was planned from, hint) per turn — i.e. each
     snapshot's ``next_topic`` paired with the *previous* snapshot's profile.
+
+    An earlier ``ready_to_recommend`` counts as a real offer only if, AT THE TIME it was
+    planned, every quality-checklist item had already been asked or was covered by the
+    profile it was planned from. An offer made on a one-turn waiver stays a waiver even
+    if the student answers the checklist later, so the normal offer still comes once.
     """
-    out: list[str] = []
+    asked: list[str] = []
+    offered = False
     for profile, hint in history:
         key = topic_key(hint, home_state_known(profile))
-        if key:
-            out.append(key)
-    return out
+        if not key:
+            continue
+        if key == "ready_to_recommend" and not offered:
+            missing = profile.missing_for_recommendation()
+            prior = set(asked)
+            offered = all(q in prior or _covered(profile, q, missing) for q in QUALITY_CHECKLIST)
+        asked.append(key)
+    return PlannerHistory(asked, offered)
+
+
+def asked_from_history(history: Sequence[tuple[StudentProfile, str | None]]) -> list[str]:
+    """Planner keys of earlier hints, oldest first (see :func:`planner_history`)."""
+    return planner_history(history).asked
 
 
 def _covered(profile: StudentProfile, key: str, missing: list[str]) -> bool:
     if key in READINESS_TOPICS:
         return READINESS_TOPICS[key] not in missing
+    if key == STRENGTHS_SUBJECTS:  # combined question: skipped only when both are known
+        return all(_known(getattr(profile, f)) for f in STRENGTHS_SUBJECTS_FIELDS)
     fields = QUALITY_FIELDS.get(key) or TOPIC_FIELDS[key]  # type: ignore[index]
     return any(_known(getattr(profile, f)) for f in fields)
 
 
 def _as_topic(key: str) -> NextTopic:
-    return "location" if key == LOCATION_PREF else key  # type: ignore[return-value]
+    """Planner key -> the NextTopic value persisted in ``profile_snapshot.next_topic``."""
+    if key == LOCATION_PREF:
+        return "location"
+    if key == STRENGTHS_SUBJECTS:
+        return "strengths"
+    return key  # type: ignore[return-value]
 
 
 def _offered_after_checklist(
     profile: StudentProfile, asked: Sequence[str], missing: list[str]
 ) -> bool:
-    """True if some earlier ``ready_to_recommend`` was planned once every checklist item
-    had been asked before it (or is covered now) — i.e. a real offer, not a waiver."""
+    """Fallback when no per-turn profiles are available (``asked`` only): True if some
+    earlier ``ready_to_recommend`` had every checklist item asked before it or covered
+    by the CURRENT profile. Prefer :func:`planner_history`, which judges each offer
+    against the profile it was planned from."""
     for i, key in enumerate(asked):
         if key != "ready_to_recommend":
             continue
@@ -279,17 +323,22 @@ def plan_next_topic(
     asked: Sequence[str] = (),
     *,
     student_wants_matches: bool = False,
+    offered_after_checklist: bool | None = None,
 ) -> NextTopic:
     """The one topic the counselor should raise next (deterministic).
 
     ``asked`` = planner keys already steered to on earlier turns
     (:func:`asked_from_history`); ``student_wants_matches`` = the latest message asks
-    for schools (:func:`wants_matches`).
+    for schools (:func:`wants_matches`); ``offered_after_checklist`` = a real offer was
+    already made (:func:`planner_history`; ``None`` falls back to judging from
+    ``asked`` and the current profile).
 
     1. The current message asks for matches: ``ready_to_recommend`` if ready, else the
        first missing readiness topic. This applies to this turn only; nothing persisted
        waives the checklist later.
-    2. Core intake in ``CORE_ORDER``; a topic is skipped once covered by the profile or
+    2. Core intake in ``CORE_ORDER`` (dream, interests, favorite classes + strengths,
+       activities, home state, location preference, size/setting, priorities, money); a
+       topic is skipped once covered by the profile or
        once asked (a declined or "no preference" answer is never re-asked).
     3. Readiness still missing after everything was asked once: re-ask the first missing
        readiness topic (not the one asked on the immediately preceding turn), at most
@@ -309,7 +358,11 @@ def plan_next_topic(
     if student_wants_matches:
         return "ready_to_recommend" if not missing else first_missing[0]  # type: ignore[return-value]
 
-    offered = _offered_after_checklist(profile, asked, missing)
+    offered = (
+        _offered_after_checklist(profile, asked, missing)
+        if offered_after_checklist is None
+        else offered_after_checklist
+    )
     for key in CORE_ORDER:
         if _covered(profile, key, missing) or key in asked_set:
             continue
@@ -340,6 +393,8 @@ TOPIC_GUIDANCE: dict[str, str] = {
     "academics": "GPA and SAT or ACT (optional)",
     "strengths": "what they're good at",
     "favorite_subjects": "their favorite school subjects",
+    STRENGTHS_SUBJECTS: "one combined question: which classes they enjoy most and what "
+    "they feel they're good at",
     "activities": "clubs, sports, jobs, volunteering or projects",
     "work_values": "what they want from work",
     "ready_to_recommend": "offer their college matches",
@@ -347,9 +402,11 @@ TOPIC_GUIDANCE: dict[str, str] = {
 
 
 def describe_topic(topic: NextTopic, profile: StudentProfile) -> str:
-    """'location (how far from home ...)' — the hint line for the reply prompt."""
+    """'location (how far from home ...)' — the hint line for the reply prompt. The
+    combined classes/strengths topic is named by its planner key."""
     key = topic_key(topic, home_state_known(profile)) or topic
-    return f"{topic} ({TOPIC_GUIDANCE[key]})"
+    name = STRENGTHS_SUBJECTS if key == STRENGTHS_SUBJECTS else topic
+    return f"{name} ({TOPIC_GUIDANCE[key]})"
 
 
 def render_transcript(turns: list[HistoryTurn]) -> str:
