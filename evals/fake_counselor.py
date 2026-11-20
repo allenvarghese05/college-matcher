@@ -30,20 +30,22 @@ from typing import Any
 from app.counselor.groundedness import format_fact
 from evals.topics import asked_topics
 
+# Fallback order without a planner note (and the extractor's logged next_topic). The
+# planner's combined classes/strengths question is persisted as "strengths".
 INTAKE_ORDER: tuple[str, ...] = (
     "interests",
     "dream_without_money",
-    "academics",
-    "money",
+    "strengths",
+    "activities",
     "location",
     "size_setting",
-    "strengths",
-    "favorite_subjects",
-    "activities",
-    "work_values",
     "priorities",
+    "money",
+    "academics",
+    "work_values",
 )
 
+COMBINED_QUESTION = "Which classes do you like most, and what do you feel you're good at?"
 QUESTIONS: dict[str, str] = {
     "interests": "Nice to meet you! What do you like doing in your free time?",
     "dream_without_money": (
@@ -56,7 +58,9 @@ QUESTIONS: dict[str, str] = {
     "size_setting": (
         "Do you picture a small, medium or large school, in a city, suburb, town or rural area?"
     ),
-    "strengths": "What would you say you're good at?",
+    # one combined question (planner key "strengths_subjects", persisted as "strengths")
+    "strengths": COMBINED_QUESTION,
+    "strengths_subjects": COMBINED_QUESTION,
     "favorite_subjects": "Which classes or subjects do you like most?",
     "activities": "What clubs, sports or teams are you part of outside of school?",
     "work_values": "In a future job, what would you want, like stability, freedom or recognition?",

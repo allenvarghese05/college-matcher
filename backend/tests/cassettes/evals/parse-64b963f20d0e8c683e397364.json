@@ -161,7 +161,7 @@
     }
   },
   "response": {
-    "text": "{\"updates\": [{\"field\": \"dream_without_money\", \"text\": \"design things people use every day\", \"number\": 0, \"items\": [], \"activities\": [], \"confidence\": 0.9, \"quote\": \"my dream: design things people use every day\"}], \"next_topic\": \"academics\"}",
+    "text": "{\"updates\": [{\"field\": \"dream_without_money\", \"text\": \"design things people use every day\", \"number\": 0, \"items\": [], \"activities\": [], \"confidence\": 0.9, \"quote\": \"my dream: design things people use every day\"}], \"next_topic\": \"strengths\"}",
     "stop_reason": "end_turn",
     "refusal_category": null,
     "usage": {

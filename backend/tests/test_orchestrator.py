@@ -18,7 +18,7 @@ from app.counselor.orchestrator import (
 )
 from app.db.models import ChatSession, ProfileSnapshot, Turn, TurnMetricRow
 from app.db.session import get_sessionmaker
-from app.schemas import ExtractionResult, ProfileDelta, StudentProfile, Update
+from app.schemas import Activity, ExtractionResult, ProfileDelta, StudentProfile, Update
 from tests.counselor_fixtures import ScriptedAnthropic, ScriptedParse, ScriptedStream, to_wire
 
 pytestmark = pytest.mark.usefixtures("requires_db")
@@ -275,13 +275,19 @@ async def _play(
 async def test_counselor_asks_location_size_and_priorities_before_offering_matches(
     tmp_path: Path,
 ) -> None:
-    """Readiness (state + income + interests) is not enough to offer matches: location
-    preference, size/setting and priorities are asked first, once each, and "no
-    preference" answers are accepted (never re-asked)."""
+    """Readiness (state + income + interests) is not enough to offer matches: classes +
+    strengths and activities (they feed majors matching), then location preference,
+    size/setting and priorities are asked first, once each, and "no preference" answers
+    are accepted (never re-asked)."""
     script = [
         ("hi! I love coding", {"interests": _upd(["coding"], "I love coding")}),
         ("I'd make video games all day", {"dream_without_money": _upd("make video games",
                                                                      "make video games")}),
+        ("math class, and I'm good at puzzles", {
+            "favorite_subjects": _upd(["math"], "math class"),
+            "strengths": _upd(["puzzles"], "good at puzzles")}),
+        ("I'm in robotics club", {"activities": _upd([Activity(name="robotics club")],
+                                                     "robotics club")}),
         ("I live in Ohio", {"home_state": _upd("OH", "I live in Ohio")}),
         ("no preference really", {}),
         ("anywhere is fine", {}),
@@ -294,6 +300,8 @@ async def test_counselor_asks_location_size_and_priorities_before_offering_match
     topics = [n.split("Suggested next topic: ")[1].split("\n")[0] for n in notes]
     assert [t.split(" (")[0] for t in topics] == [
         "dream_without_money",
+        "strengths_subjects",  # one combined classes + strengths question
+        "activities",
         "location",  # home state
         "size_setting",  # state just asked (lag): move on instead of re-asking
         "location",  # now how far from home / regions
@@ -302,10 +310,11 @@ async def test_counselor_asks_location_size_and_priorities_before_offering_match
         "academics",  # money just asked; readiness completes this turn
         "ready_to_recommend",
     ]
-    assert "which state they live in" in topics[1] and "how far from home" in topics[3]
+    assert "which state they live in" in topics[3] and "how far from home" in topics[5]
+    assert "classes" in topics[1]
     offer = ["Offer matches now: yes" in n for n in notes]
-    assert offer == [False] * 7 + [True]
-    assert "Ready for recommendations: no" in notes[6]
+    assert offer == [False] * 9 + [True]
+    assert "Ready for recommendations: no" in notes[8]
     async with get_sessionmaker()() as db:
         persisted = (
             (
@@ -318,7 +327,9 @@ async def test_counselor_asks_location_size_and_priorities_before_offering_match
             .scalars()
             .all()
         )
-    assert persisted == [t.split(" (")[0] for t in topics]
+    # the combined topic is persisted as the existing NextTopic "strengths"
+    assert persisted == [t.split(" (")[0].replace("strengths_subjects", "strengths")
+                         for t in topics]  # fmt: skip
 
 
 async def test_student_asking_for_schools_short_circuits_the_checklist(tmp_path: Path) -> None:
@@ -338,9 +349,61 @@ async def test_student_asking_for_schools_short_circuits_the_checklist(tmp_path:
     notes = _notes(fake)
     assert "Suggested next topic: ready_to_recommend" in notes[1]
     assert "Offer matches now: yes" in notes[1]
-    # the waiver applied to that turn only: afterwards the checklist resumes
-    assert "Suggested next topic: location (how far from home" in notes[2]
+    # the waiver applied to that turn only: afterwards the intake resumes
+    assert "Suggested next topic: strengths_subjects" in notes[2]
     assert "Offer matches now: no" in notes[2]
+
+
+async def test_waiver_offer_is_repeated_once_after_the_checklist_is_answered(
+    tmp_path: Path,
+) -> None:
+    """Reviewer finding: an early (waiver) offer must not retroactively count as the
+    real offer once the student answers the checklist; it is judged against the profile
+    it was planned from, so the normal offer comes exactly once."""
+    script = [
+        ("I live in Ohio, my family makes 60k and I love coding", {
+            "home_state": _upd("OH", "I live in Ohio"),
+            "income_bracket": _upd("48-75k", "my family makes 60k"),
+            "interests": _upd(["coding"], "I love coding")}),
+        ("just show me schools", {}),
+        ("I'd make video games all day", {"dream_without_money": _upd("make video games",
+                                                                     "make video games")}),
+        ("math class, and I'm good at puzzles", {
+            "favorite_subjects": _upd(["math"], "math class"),
+            "strengths": _upd(["puzzles"], "good at puzzles")}),
+        ("I'm in robotics club", {"activities": _upd([Activity(name="robotics club")],
+                                                     "robotics club")}),
+        ("within 300 miles, a medium school, and cost matters most", {
+            "max_distance_miles": _upd(300, "within 300 miles"),
+            "size_pref": _upd("medium", "a medium school"),
+            "priorities": _upd(["cost"], "cost matters most")}),
+        ("cool", {}),
+        ("ok thanks", {}),
+    ]  # fmt: skip
+    fake, sid = await _play(script, tmp_path)
+    async with get_sessionmaker()() as db:
+        persisted = (
+            (
+                await db.execute(
+                    select(ProfileSnapshot.next_topic)
+                    .where(ProfileSnapshot.session_id == sid)
+                    .order_by(ProfileSnapshot.after_turn)
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert persisted == [
+        "dream_without_money",
+        "ready_to_recommend",  # waiver (student asked)
+        "strengths",
+        "activities",
+        "location",  # distance / regions
+        "size_setting",
+        "ready_to_recommend",  # the real offer, exactly once
+        "academics",
+    ]
+    assert ["Offer matches now: yes" in n for n in _notes(fake)].count(True) == 2
 
 
 async def test_affirmation_counts_only_right_after_an_offer(tmp_path: Path) -> None:

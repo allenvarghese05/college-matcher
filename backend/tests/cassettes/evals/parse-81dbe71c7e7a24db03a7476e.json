@@ -161,7 +161,7 @@
     }
   },
   "response": {
-    "text": "{\"updates\": [{\"field\": \"dream_without_money\", \"text\": \"be a doctor in my neighborhood. like an actual doctor people here can see\", \"number\": 0, \"items\": [], \"activities\": [], \"confidence\": 0.9, \"quote\": \"my dream: be a doctor in my neighborhood. like an actual doctor people here can see\"}], \"next_topic\": \"academics\"}",
+    "text": "{\"updates\": [{\"field\": \"dream_without_money\", \"text\": \"be a doctor in my neighborhood. like an actual doctor people here can see\", \"number\": 0, \"items\": [], \"activities\": [], \"confidence\": 0.9, \"quote\": \"my dream: be a doctor in my neighborhood. like an actual doctor people here can see\"}], \"next_topic\": \"strengths\"}",
     "stop_reason": "end_turn",
     "refusal_category": null,
     "usage": {

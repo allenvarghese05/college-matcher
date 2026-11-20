@@ -3,7 +3,8 @@
 ``handle_turn`` — one student message:
 
 1. persist the user turn;
-2. plan the next topic deterministically (``context.plan_next_topic``: readiness, then
+2. plan the next topic deterministically (``context.plan_next_topic``: dream, interests,
+   classes/strengths and activities, readiness, then
    the recommendation-quality checklist — location preference, size/setting,
    priorities — before matches are offered; skipped on a turn whose message asks for
    matches)
@@ -51,9 +52,10 @@ from app.core.llm import (
 from app.core.logging import TurnLogger, get_logger
 from app.counselor.context import (
     HistoryTurn,
-    asked_from_history,
+    PlannerHistory,
     describe_topic,
     plan_next_topic,
+    planner_history,
     profile_json,
     wants_matches,
 )
@@ -162,8 +164,10 @@ async def latest_state(
 
 async def planner_state(
     db: AsyncSession, session_id: uuid.UUID
-) -> tuple[StudentProfile, list[str]]:
-    """Latest profile + planner keys of every topic planned so far (oldest first)."""
+) -> tuple[StudentProfile, PlannerHistory]:
+    """Latest profile + planner history: keys of every topic planned so far (oldest
+    first) and whether a real (non-waiver) offer was made, judged per offer against the
+    profile it was planned from."""
     snaps = (
         await db.execute(
             select(ProfileSnapshot.profile, ProfileSnapshot.next_topic)
@@ -176,7 +180,7 @@ async def planner_state(
     for profile_json_, topic in snaps:
         pairs.append((before, topic))  # each hint was planned from the previous profile
         before = StudentProfile.model_validate(profile_json_)
-    return before, asked_from_history(pairs)
+    return before, planner_history(pairs)
 
 
 async def latest_profile(db: AsyncSession, session_id: uuid.UUID) -> StudentProfile:
@@ -385,7 +389,7 @@ class CounselorOrchestrator:
         async with self.sessionmaker() as db:
             await get_chat_session(db, session_id)
             history = await recent_turns(db, session_id, self.history_window)
-            prev_profile, asked = await planner_state(db, session_id)
+            prev_profile, (asked, offered) = await planner_state(db, session_id)
             max_idx = (
                 await db.execute(select(func.max(Turn.idx)).where(Turn.session_id == session_id))
             ).scalar_one_or_none()
@@ -402,6 +406,7 @@ class CounselorOrchestrator:
             prev_profile,
             asked,
             student_wants_matches=wants_matches(text, previous_offer=previous_offer),
+            offered_after_checklist=offered,
         )
         extractor = self.extractor
 
