@@ -13,7 +13,7 @@ import { USE_MOCKS, mockNextUtterance, sendTurn } from "@/lib/api";
 import { filledCount } from "@/lib/profile";
 import { useEnsureSession, useSession } from "@/lib/session";
 import type { EvidenceSource, ProfileKey, StudentProfile, VoiceServerEvent } from "@/lib/types";
-import { MicPermissionError, VoiceSession, fetchVoiceStatus, type VoiceUiState } from "@/lib/voice";
+import { MicMissingError, MicPermissionError, VoiceSession, fetchVoiceStatus, type VoiceUiState } from "@/lib/voice";
 
 /** Mock mode fakes the mic in the browser; live mode streams to WS /api/sessions/{id}/voice. */
 const LIVE_VOICE = !USE_MOCKS;
@@ -34,6 +34,8 @@ const LIVE_STATUS: Record<VoiceUiState, string> = {
 
 const MIC_BLOCKED =
   "I can't hear you because microphone access is off. You can allow it in your browser's site settings, or keep typing below.";
+const MIC_MISSING =
+  "I couldn't find a microphone on this device. You can plug one in and tap the orb again, or keep typing below.";
 
 type VoiceAvailability = "unknown" | "available" | "unavailable";
 
@@ -61,6 +63,7 @@ export function Talk() {
   const abortRef = useRef<AbortController | null>(null);
   const voiceRef = useRef<VoiceSession | null>(null);
   const voiceReply = useRef("");
+  const voiceDoneTurn = useRef<number | null>(null); // server turn whose reply bubble was added
   const utterance = useRef("");
   const sessionRef = useRef<string | null>(null);
   const profileRef = useRef(profile);
@@ -157,7 +160,7 @@ export function Talk() {
               break;
             case "error":
               // The server's message is written for the student (e.g. a usage limit).
-              setError(ev.message.trim() || "The counselor lost its train of thought. Try saying that again.");
+              setError(ev.message?.trim() || "The counselor lost its train of thought. Try saying that again.");
               break;
           }
         }
@@ -201,14 +204,30 @@ export function Talk() {
           break;
         case "done": {
           const said = (ev.assistant_text || voiceReply.current).trim();
-          if (said) addTurn("assistant", said);
+          if (said) {
+            addTurn("assistant", said);
+            voiceDoneTurn.current = ev.turn;
+          }
           voiceReply.current = "";
           setStreaming(null);
           break;
         }
         case "interrupted":
-          // History keeps only what the student actually heard.
-          addTurn("assistant", ev.assistant_text, true);
+          // History keeps only what the student actually heard. If the full reply was
+          // already shown (audio was still playing), cut that bubble down in place.
+          if (voiceDoneTurn.current === ev.turn) {
+            setTurns((t) => {
+              const i = t.map((x) => x.role).lastIndexOf("assistant");
+              const prev = t[i];
+              if (!prev) return t;
+              const next = [...t];
+              next[i] = { ...prev, text: ev.assistant_text, interrupted: true };
+              return next;
+            });
+          } else {
+            addTurn("assistant", ev.assistant_text, true);
+          }
+          voiceDoneTurn.current = ev.turn;
           voiceReply.current = "";
           setStreaming(null);
           break;
@@ -220,7 +239,7 @@ export function Talk() {
           break;
       }
     },
-    [addTurn, applyProfile, setReady, setMissing],
+    [addTurn, applyProfile, setReady, setMissing, setTurns],
   );
 
   const startVoice = useCallback(async () => {
@@ -255,7 +274,13 @@ export function Talk() {
       if (voiceRef.current === session) voiceRef.current = null;
       setVoiceUi(null);
       setVoiceLevel(undefined);
-      setError(e instanceof MicPermissionError ? MIC_BLOCKED : "I couldn't start the microphone. You can keep typing below.");
+      setError(
+        e instanceof MicPermissionError
+          ? MIC_BLOCKED
+          : e instanceof MicMissingError
+            ? MIC_MISSING
+            : "I couldn't start the microphone. You can keep typing below.",
+      );
     }
   }, [addTurn, onVoiceEvent]);
 

@@ -95,7 +95,7 @@ class UtteranceAssembler:
             if self.speech_final_seen:  # already completed by endpointing
                 self.speech_final_seen = False
                 return []
-            if self.last_interim and not self.segments:
+            if self.last_interim:  # unfinalized tail after the finalized segments
                 self.segments.append(self.last_interim)
             return self._complete()
         if kind != "Results":

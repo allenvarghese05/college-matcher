@@ -24,6 +24,8 @@ class VoiceSettings(BaseSettings):
     VOICE_PROVIDER: VoiceProviderMode = "auto"
     # Tier 3: client VAD during playback -> interrupt -> cancel LLM + TTS, truncate turn.
     VOICE_BARGE_IN: bool = False
+    # Close the (billed) STT stream after this long listening with no speech.
+    VOICE_IDLE_TIMEOUT_S: float = 90.0
 
     # Deepgram live STT (wss://api.deepgram.com/v1/listen)
     DEEPGRAM_STT_MODEL: str = "nova-3"

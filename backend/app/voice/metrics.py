@@ -25,6 +25,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+# A client end-of-speech mark is only trusted this long before the STT final; older
+# marks (a cough with no transcript, a report that missed its turn) are discarded.
+MAX_T0_AGE_S = 3.0
+
 # Stage names persisted to ``turn_metric`` (the full breakdown goes to the log record).
 PERSISTED_STAGES = ("stt_final", "llm_ttft", "tts_first_chunk", "ttfa_total")
 
@@ -32,6 +36,11 @@ PERSISTED_STAGES = ("stt_final", "llm_ttft", "tts_first_chunk", "ttfa_total")
 def map_client_time(recv_s: float, t_ms: float, sent_ms: float) -> float:
     """Client event time -> server clock (seconds)."""
     return recv_s - max(0.0, sent_ms - t_ms) / 1000.0
+
+
+def accept_t0(t0: float, t1: float, max_age_s: float = MAX_T0_AGE_S) -> bool:
+    """Is the end-of-speech mark ``t0`` plausibly the end of the utterance finalized at ``t1``?"""
+    return t0 <= t1 and t1 - t0 <= max_age_s
 
 
 @dataclass

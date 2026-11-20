@@ -14,7 +14,40 @@ from app.voice.metrics import (
     voice_turn_record,
 )
 from app.voice.stt import STTEvent, UtteranceAssembler, deepgram_listen_url
-from app.voice.tts import FakeTTS, TTSError, _even_chunks
+from app.voice.tts import FakeTTS, TTSError, _even_chunks, _strip_wav_header
+
+
+def test_accept_t0_window() -> None:
+    from app.voice.metrics import accept_t0
+
+    assert accept_t0(9.5, 10.0)
+    assert accept_t0(7.0, 10.0)  # exactly 3 s old
+    assert not accept_t0(6.9, 10.0)  # stale: cough / missed turn
+    assert not accept_t0(10.1, 10.0)  # after the final: belongs to a later utterance
+
+
+def test_assembler_utterance_end_appends_interim_tail() -> None:
+    a = UtteranceAssembler()
+    a.feed(_results("I live in Ohio", is_final=True))
+    a.feed(_results("and like math", is_final=False))
+    assert a.feed({"type": "UtteranceEnd"}) == [STTEvent("final", "I live in Ohio and like math")]
+
+
+async def _collect(chunks: list[bytes]) -> bytes:
+    async def src() -> AsyncIterator[bytes]:
+        for c in chunks:
+            yield c
+
+    return b"".join([c async for c in _strip_wav_header(src())])
+
+
+async def test_strip_wav_header_only_when_riff() -> None:
+    header = b"RIFF" + b"\x00" * 40
+    assert (
+        await _collect([header[:10], header[10:] + b"\x01\x02", b"\x03\x04"]) == b"\x01\x02\x03\x04"
+    )
+    assert await _collect([b"\x05\x06", b"\x07\x08"]) == b"\x05\x06\x07\x08"
+    assert await _collect([b"\x01"]) == b"\x01"  # short body, no header
 
 
 def test_map_client_time_subtracts_report_delay() -> None:

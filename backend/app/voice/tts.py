@@ -19,7 +19,7 @@ from __future__ import annotations
 import asyncio
 import math
 import struct
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -33,10 +33,29 @@ class TTSError(Exception):
     """TTS request failed."""
 
 
+WAV_HEADER_BYTES = 44
+
+
 class TTSProvider(Protocol):
     sample_rate: int
 
-    def synthesize(self, text: str) -> AsyncIterator[bytes]: ...
+    def synthesize(self, text: str) -> AsyncGenerator[bytes, None]: ...
+
+
+async def _strip_wav_header(chunks: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
+    """Defensive: drop a 44-byte WAV header if the server sent one despite container=none."""
+    head = b""
+    it = chunks.__aiter__()
+    async for chunk in it:
+        head += chunk
+        if len(head) >= WAV_HEADER_BYTES:
+            break
+    if head.startswith(b"RIFF"):
+        head = head[WAV_HEADER_BYTES:]
+    if head:
+        yield head
+    async for chunk in it:
+        yield chunk
 
 
 async def _even_chunks(chunks: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
@@ -52,6 +71,9 @@ async def _even_chunks(chunks: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
 
 @dataclass
 class DeepgramTTS:
+    """One instance per voice connection; its HTTP client (and connection pool) is
+    shared by every sentence of that connection. Call ``aclose()`` when done."""
+
     api_key: str
     model: str = "aura-2-thalia-en"
     sample_rate: int = 24000
@@ -66,10 +88,14 @@ class DeepgramTTS:
             "container": "none",
         }
 
-    async def synthesize(self, text: str) -> AsyncIterator[bytes]:
-        client = self.client or httpx.AsyncClient(timeout=self.timeout_s)
+    def _http(self) -> httpx.AsyncClient:
+        if self.client is None:
+            self.client = httpx.AsyncClient(timeout=self.timeout_s)
+        return self.client
+
+    async def synthesize(self, text: str) -> AsyncGenerator[bytes, None]:
         try:
-            async with client.stream(
+            async with self._http().stream(
                 "POST",
                 DEEPGRAM_SPEAK_URL,
                 params=self._params(),
@@ -79,13 +105,15 @@ class DeepgramTTS:
                 if resp.status_code != 200:
                     await resp.aread()
                     raise TTSError(f"deepgram speak HTTP {resp.status_code}")
-                async for chunk in _even_chunks(resp.aiter_bytes()):
+                async for chunk in _even_chunks(_strip_wav_header(resp.aiter_bytes())):
                     yield chunk
         except httpx.HTTPError as exc:
             raise TTSError(f"deepgram speak failed: {type(exc).__name__}") from exc
-        finally:
-            if self.client is None:
-                await client.aclose()
+
+    async def aclose(self) -> None:
+        if self.client is not None:
+            await self.client.aclose()
+            self.client = None
 
 
 def tone_pcm(n_samples: int, sample_rate: int, freq: float = 220.0, amp: float = 0.08) -> bytes:
@@ -112,7 +140,7 @@ class FakeTTS:
     fail_on: set[int] = field(default_factory=set)
     requests: list[str] = field(default_factory=list)
 
-    async def synthesize(self, text: str) -> AsyncIterator[bytes]:
+    async def synthesize(self, text: str) -> AsyncGenerator[bytes, None]:
         n = len(self.requests)
         self.requests.append(text)
         if n in self.fail_on:

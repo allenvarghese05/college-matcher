@@ -6,6 +6,7 @@ Dependencies (override in tests via ``app.dependency_overrides``):
 and ``app.api.sessions.get_orchestrator``.
 
 Close codes: 4404 unknown session, 4503 voice not configured (no ``DEEPGRAM_API_KEY``).
+Inbound limits: binary frames > 64 KB and text frames > 4 KB are dropped.
 """
 
 from __future__ import annotations
@@ -43,6 +44,7 @@ class VoiceConfig:
     provider: str
     barge_in: bool = False
     input_sample_rate: int = 16000
+    idle_timeout_s: float = 90.0
 
 
 def get_voice_config() -> VoiceConfig | None:
@@ -56,6 +58,7 @@ def get_voice_config() -> VoiceConfig | None:
             provider="fake",
             barge_in=vs.VOICE_BARGE_IN,
             input_sample_rate=vs.INPUT_SAMPLE_RATE,
+            idle_timeout_s=vs.VOICE_IDLE_TIMEOUT_S,
         )
     key = get_settings().DEEPGRAM_API_KEY
     if key is None or not key.get_secret_value():
@@ -76,10 +79,17 @@ def get_voice_config() -> VoiceConfig | None:
         provider="deepgram",
         barge_in=vs.VOICE_BARGE_IN,
         input_sample_rate=vs.INPUT_SAMPLE_RATE,
+        idle_timeout_s=vs.VOICE_IDLE_TIMEOUT_S,
     )
 
 
+MAX_AUDIO_FRAME_BYTES = 64 * 1024  # 20 ms of 16 kHz PCM16 is 640 bytes
+MAX_TEXT_FRAME_CHARS = 4 * 1024
+
+
 class StarletteTransport:
+    """Oversized frames are dropped (returned as an empty control message)."""
+
     def __init__(self, ws: WebSocket) -> None:
         self.ws = ws
 
@@ -94,9 +104,16 @@ class StarletteTransport:
         if msg["type"] == "websocket.disconnect":
             return None
         if msg.get("bytes") is not None:
+            if len(msg["bytes"]) > MAX_AUDIO_FRAME_BYTES:
+                log.warning("voice_frame_dropped", kind="binary", size=len(msg["bytes"]))
+                return {}
             return bytes(msg["bytes"])
+        text = msg.get("text") or ""
+        if len(text) > MAX_TEXT_FRAME_CHARS:
+            log.warning("voice_frame_dropped", kind="text", size=len(text))
+            return {}
         try:
-            data = json.loads(msg.get("text") or "")
+            data = json.loads(text)
         except ValueError:
             return {}
         return data if isinstance(data, dict) else {}
@@ -141,6 +158,7 @@ async def voice_socket(
         barge_in=config.barge_in,
         provider_name=config.provider,
         input_sample_rate=config.input_sample_rate,
+        idle_timeout_s=config.idle_timeout_s,
     )
     try:
         await gateway.run()

@@ -30,6 +30,14 @@ export class MicPermissionError extends Error {
   }
 }
 
+/** No usable microphone on this device (none plugged in, or it can't do mono capture). */
+export class MicMissingError extends Error {
+  constructor() {
+    super("no microphone found");
+    this.name = "MicMissingError";
+  }
+}
+
 const INPUT_RATE = 16000;
 const FRAME_SAMPLES = 320; // 20 ms at 16 kHz
 
@@ -183,7 +191,7 @@ export class VoiceSession {
     return this.sources.size > 0;
   }
 
-  /** Ask for the mic, open the socket. Throws MicPermissionError if the mic is refused. */
+  /** Ask for the mic, open the socket. Throws MicPermissionError / MicMissingError. */
   async start(): Promise<void> {
     this.setUi("connecting");
     try {
@@ -193,9 +201,8 @@ export class VoiceSession {
     } catch (e) {
       this.closed = true;
       const name = (e as DOMException).name;
-      if (name === "NotAllowedError" || name === "SecurityError" || name === "NotFoundError") {
-        throw new MicPermissionError();
-      }
+      if (name === "NotAllowedError" || name === "SecurityError") throw new MicPermissionError();
+      if (name === "NotFoundError" || name === "OverconstrainedError") throw new MicMissingError();
       throw e;
     }
     try {
