@@ -71,7 +71,7 @@ async def test_extract_returns_delta_and_next_topic_with_sonnet_params(tmp_path:
     content = kw["messages"][0]["content"]
     assert LATEST in content and "counselor: Nice! Where do you live?" in content
     assert '"interests"' in content  # previous profile is in context
-    assert st.extra["next_topic"] == "money" and st.extra["prompt"] == "extractor.v3"
+    assert st.extra["next_topic"] == "money" and st.extra["prompt"] == "extractor.v4"
     assert st.input_tokens > 0
 
 
@@ -82,6 +82,67 @@ async def test_schema_invalid_output_is_llm_output_error(tmp_path: Path) -> None
     with pytest.raises(LLMOutputError):
         await Extractor(_client(fake, tmp_path)).extract([], "hi", StudentProfile(), stage=st)
     assert st.input_tokens > 0  # usage still recorded
+
+
+# The exact student message from the first live run, where "cost matters a lot" was
+# not extracted into priorities under extractor.v3.
+LIVE_COST_MESSAGE = (
+    "Probably design things people actually use every day, like bikes or furniture. "
+    "My family makes around 60k a year, so cost matters a lot. "
+    "I have a 3.6 GPA and got a 1310 on the SAT."
+)
+
+
+def test_extractor_v4_has_priorities_rule_and_v3_is_kept() -> None:
+    from app.counselor.prompts import ACTIVE, load_prompt
+
+    assert ACTIVE["extractor"] == 4
+    v4 = load_prompt("extractor").text
+    assert '"cost matters a lot" -> ["cost"]' in v4
+    for phrase in ("afford", "budget", "salary", "career", "ranking", "prestige",
+                   "close to home", "vibe", "community"):  # fmt: skip
+        assert phrase in v4, phrase
+    assert "Stating income or a budget alone" in v4
+    v3 = load_prompt("extractor", 3).text
+    assert '"cost matters a lot"' not in v3  # v3 stays as recorded
+
+
+async def test_live_cost_message_extracts_cost_priority(tmp_path: Path) -> None:
+    """What the v4 prompt asks for on the live message: every stated field, including
+    priorities=["cost"] quoted from the student's words, survives the quote check."""
+    fake = ScriptedAnthropic()
+    fake.add_parse(
+        "ExtractionWire",
+        ScriptedParse(
+            output=_wire(
+                wire_update(
+                    "interests",
+                    ["designing everyday products", "bikes", "furniture"],
+                    0.8,
+                    "design things people actually use every day, like bikes or furniture",
+                ),
+                wire_update("income_bracket", "48-75k", 0.85, "My family makes around 60k a year"),
+                wire_update("priorities", ["cost"], 0.9, "cost matters a lot"),
+                wire_update("gpa", 3.6, 0.95, "I have a 3.6 GPA"),
+                wire_update("sat", 1310, 0.95, "got a 1310 on the SAT"),
+                next_topic="location",
+            )
+        ),
+    )
+    st = Stage("extract")
+    res = await Extractor(_client(fake, tmp_path)).extract(
+        [], LIVE_COST_MESSAGE, StudentProfile(), stage=st
+    )
+    d = res.delta
+    assert d.priorities == Update(value=["cost"], confidence=0.9, quote="cost matters a lot")
+    assert d.income_bracket is not None and d.income_bracket.value == "48-75k"
+    assert d.gpa is not None and d.gpa.value == 3.6
+    assert d.sat is not None and d.sat.value == 1310
+    assert d.interests is not None and "furniture" in d.interests.value
+    assert st.extra["dropped_fields"] == [] and st.extra["prompt"] == "extractor.v4"
+    _, kw = fake.calls[0]
+    assert '"cost matters a lot" -> ["cost"]' in kw["system"][0]["text"]
+    assert LIVE_COST_MESSAGE in kw["messages"][0]["content"]
 
 
 def test_extractor_prompt_describes_wire_region_vocabulary_and_budget_rule() -> None:

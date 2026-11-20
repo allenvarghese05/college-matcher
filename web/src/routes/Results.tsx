@@ -15,6 +15,25 @@ import type { AdmissionBand, RecommendationSet, RecommendationOut } from "@/lib/
 
 type Load = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; set: RecommendationSet };
 
+/**
+ * One in-flight recommendations request per session. React StrictMode runs the
+ * effect twice in dev; both runs share this promise, so Opus is called once.
+ * (Same pattern as openSession in lib/session.tsx; the server also reuses a set
+ * made in the last minute for an unchanged profile.)
+ */
+const inflight = new Map<string, Promise<RecommendationSet>>();
+
+function loadRecommendations(sessionId: string): Promise<RecommendationSet> {
+  let p = inflight.get(sessionId);
+  if (!p) {
+    p = getRecommendations(sessionId).finally(() => {
+      inflight.delete(sessionId);
+    });
+    inflight.set(sessionId, p);
+  }
+  return p;
+}
+
 const WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];
 
 export function Results() {
@@ -29,7 +48,7 @@ export function Results() {
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
-    getRecommendations(id)
+    loadRecommendations(id)
       .then((set) => !cancelled && setLoad({ status: "ready", set }))
       .catch(() => !cancelled && setLoad({ status: "error", message: "I couldn't load your matches just now." }));
     return () => {

@@ -174,6 +174,14 @@ def test_net_price_private_uses_priv_columns(control):
     assert rec.avg_net_price == 41000
 
 
+def test_tuition_in_and_out_of_state():
+    rec = institution_from_row(inst_row(TUITIONFEE_IN="10024", TUITIONFEE_OUT="19674"))
+    assert (rec.tuition_in_state, rec.tuition_out_of_state) == (10024, 19674)
+    rec = institution_from_row(inst_row(TUITIONFEE_IN="NA", TUITIONFEE_OUT="PS"))
+    assert (rec.tuition_in_state, rec.tuition_out_of_state) == (None, None)
+    assert institution_from_row(inst_row()).tuition_in_state is None  # column absent
+
+
 def test_net_price_does_not_fall_back_across_sectors():
     rec = institution_from_row(inst_row(CONTROL="2", NPT41_PRIV="NA", NPT4_PRIV="NA"))
     assert rec.net_price_0_30k is None
@@ -352,8 +360,12 @@ def test_fixture_institution_ranges(sample_insts):
             "net_price_75_110k",
             "net_price_110k_plus",
             "avg_net_price",
+            "tuition_in_state",
+            "tuition_out_of_state",
         ):
             assert _in(r[k], 0, 150_000), (r["unitid"], k, r[k])
+        if r["tuition_in_state"] is not None and r["tuition_out_of_state"] is not None:
+            assert r["tuition_in_state"] <= r["tuition_out_of_state"], r["unitid"]
         assert _in(r["median_earnings_10yr"], 5_000, 500_000)
         assert _in(r["median_debt"], 0, 200_000)
         assert _in(r["undergrad_size"], 0, 500_000)

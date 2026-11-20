@@ -112,8 +112,30 @@ class LLMRequestError(LLMError):
     """Non-retryable API error (400/401/403/404/...)."""
 
 
+class LLMAccountError(LLMRequestError):
+    """Account-level failure: usage/credit limit reached (400) or auth/permission
+    (401/403). Not retryable until someone fixes the account; shown to the student as
+    ``ACCOUNT_ERROR_MESSAGE`` rather than as a generic glitch."""
+
+
 class LLMOutputError(LLMError):
     """Response could not be parsed into the requested schema (e.g. max_tokens)."""
+
+
+ACCOUNT_ERROR_MESSAGE = (
+    "The counselor is unavailable right now (API account limit). Please try again later."
+)
+# Lowercase fragments of Anthropic 400 messages that mean the account, not the request,
+# is the problem ("You have reached your specified API usage limits...", "Your credit
+# balance is too low to access the Anthropic API...").
+_ACCOUNT_LIMIT_MARKERS = ("usage limit", "credit balance", "spend limit", "billing")
+
+
+def is_account_error(status_code: int, message: str) -> bool:
+    if status_code in (401, 403):
+        return True
+    text = message.lower()
+    return status_code == 400 and any(m in text for m in _ACCOUNT_LIMIT_MARKERS)
 
 
 def _translate(exc: Exception) -> LLMError:
@@ -121,6 +143,10 @@ def _translate(exc: Exception) -> LLMError:
     if isinstance(exc, anthropic.RateLimitError):
         return LLMRateLimitError(f"rate limited: {exc.message}")
     if isinstance(exc, anthropic.APIStatusError):
+        if is_account_error(exc.status_code, exc.message):
+            # the API's own message text (never the key or request) so the owner can act
+            log.error("llm_account_error", status=exc.status_code, api_message=exc.message)
+            return LLMAccountError(f"API account error {exc.status_code}: {exc.message}")
         if exc.status_code >= 500:
             return LLMUnavailableError(f"API error {exc.status_code}: {exc.message}")
         return LLMRequestError(f"API error {exc.status_code}: {exc.message}")

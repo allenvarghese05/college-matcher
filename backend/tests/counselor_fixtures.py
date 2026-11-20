@@ -252,6 +252,7 @@ class FakeRetriever:
 
     def candidates(self, profile: StudentProfile, k: int) -> list[Candidate]:
         bracket = profile.income_bracket.value
+        home = profile.home_state.value
         rows = sorted(
             (
                 p
@@ -265,7 +266,7 @@ class FakeRetriever:
         out: list[Candidate] = []
         for p in rows:
             inst = _INST[p["unitid"]]
-            facts = institution_facts(Institution(**institution_row(p["unitid"])), bracket)
+            facts = institution_facts(Institution(**institution_row(p["unitid"])), bracket, home)
             if facts["net_price"] is None:
                 continue
             facts["program_median_earnings"] = p["median_earnings"]

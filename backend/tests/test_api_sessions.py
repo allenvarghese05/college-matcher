@@ -90,6 +90,7 @@ async def test_full_session_replay(api: AsyncClient, retriever: FakeRetriever) -
         assert r["cip_title"] == cand.cip_title and r["admission_band"] == cand.admission_band
         assert r["claims"] and all(c["verified"] for c in r["claims"])
         assert not any(ch.isdigit() for reason in r["reasons"] for ch in reason)
+        assert r["net_price_basis"] == cand.facts["net_price_basis"]
 
     async with get_sessionmaker()() as db:
         set_row = await db.get(RecommendationSetRow, uuid.UUID(rs["id"]))
@@ -149,6 +150,47 @@ async def test_injected_wrong_claim_is_unverified(tmp_path: Path, retriever: Fak
     assert bad["value"] == "$1,234" and bad["db_value"] == true_value
     assert rs["groundedness"] == pytest.approx((len(claims) - 1) / len(claims))
     assert all(cl["verified"] for cl in claims if cl is not bad)
+
+
+async def test_out_of_state_public_price_is_shown_and_verified(
+    tmp_path: Path, retriever: FakeRetriever
+) -> None:
+    """Ohio student, public school in another state: the estimated out-of-state price
+    (bracket net price + tuition difference) is what verifies; the published in-state
+    figure does not."""
+    from tests.counselor_fixtures import institution_row, scenario_profile
+
+    oos = next(
+        c
+        for c in retriever.candidates(scenario_profile(), 40)
+        if c.facts["net_price_basis"] == "est_out_of_state"
+    )
+    inst = institution_row(oos.unitid)
+    in_state = inst["net_price_48_75k"]
+    expected = in_state + inst["tuition_out_of_state"] - inst["tuition_in_state"]
+    assert oos.facts["net_price"] == expected != in_state
+
+    rec_cassette, cas = _copy_cassettes(tmp_path)
+    out = json.loads(cas["response"]["text"])
+    out["recommendations"][0] = {
+        "unitid": oos.unitid,
+        "cip4": oos.cip4,
+        "reasons": ["A strong computing program in another state."],
+        "claims": [
+            {"field": "net_price", "value": f"${expected:,}"},
+            {"field": "net_price", "value": f"${in_state:,}"},
+        ],
+    }
+    cas["response"]["text"] = json.dumps(out)
+    rec_cassette.write_text(json.dumps(cas))
+
+    async for c in _client(tmp_path, retriever):
+        run = await run_api_scenario(c)
+    rec = run.recommendations["recommendations"][0]
+    assert rec["unitid"] == oos.unitid and rec["net_price_basis"] == "est_out_of_state"
+    shown, stale = rec["claims"]
+    assert shown["verified"] is True and shown["db_value"] == f"${expected:,}"
+    assert stale["verified"] is False and stale["db_value"] == f"${expected:,}"
 
 
 async def test_turn_stream_headers_and_errors(api: AsyncClient) -> None:
@@ -230,7 +272,8 @@ async def test_retriever_errors_map_to_http(exc: Exception, code: int) -> None:
     async for c in _client(CASSETTE_DIR, FakeRetriever()):
         run = await run_api_scenario(c)
     async for c in _client(CASSETTE_DIR, _RaisingRetriever(exc)):
-        r = await c.post(f"/api/sessions/{run.session_id}/recommendations", json={"k": 3})
+        # k differs from the scenario's, so the scenario's fresh set is not reused
+        r = await c.post(f"/api/sessions/{run.session_id}/recommendations", json={"k": 4})
     assert r.status_code == code
 
 

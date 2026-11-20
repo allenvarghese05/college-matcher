@@ -77,6 +77,8 @@ class Institution(Base):
     median_earnings_10yr: Mapped[int | None] = mapped_column(Integer)
     median_debt: Mapped[int | None] = mapped_column(Integer)
     url: Mapped[str | None] = mapped_column(Text)
+    tuition_in_state: Mapped[int | None] = mapped_column(Integer)  # TUITIONFEE_IN
+    tuition_out_of_state: Mapped[int | None] = mapped_column(Integer)  # TUITIONFEE_OUT
 
     programs: Mapped[list[Program]] = relationship(back_populates="institution")
 
