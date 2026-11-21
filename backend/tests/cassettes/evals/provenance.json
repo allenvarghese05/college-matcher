@@ -1,8 +1,8 @@
 {
   "transport": "fake",
   "sim": "scripted",
-  "recorded_at": "2026-11-20T02:28:53.723689+00:00",
-  "git_sha": "b62d623f2b69b4179fbfdb7196e7337175917db7",
+  "recorded_at": "2026-11-21T03:45:08.090880+00:00",
+  "git_sha": "7b28973a37af96bc075413c525922599a3536265",
   "personas": [
     "aaliyah-ga",
     "maya-oh",

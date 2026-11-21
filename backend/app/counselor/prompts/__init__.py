@@ -15,7 +15,7 @@ PROMPT_DIR = Path(__file__).resolve().parent
 ACTIVE: dict[str, int] = {
     "counselor_reply": 3,
     "extractor": 4,
-    "recommender": 3,
+    "recommender": 4,
 }
 
 

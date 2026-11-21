@@ -96,14 +96,28 @@ def candidate_payload(c: Candidate) -> dict[str, Any]:
     }
 
 
-def build_user_message(profile: StudentProfile, candidates: list[Candidate], k: int) -> str:
+def build_user_message(
+    profile: StudentProfile,
+    candidates: list[Candidate],
+    k: int,
+    search: dict[str, Any] | None = None,
+) -> str:
+    """``search`` (``search_notes.summarize``) is included only when something must be
+    disclosed (a relaxed budget, or fewer schools than ``k``)."""
     cands = json.dumps(
         [candidate_payload(c) for c in candidates], ensure_ascii=False, sort_keys=True
+    )
+    notes = (
+        f"<search_notes>\n{json.dumps(search, ensure_ascii=False, sort_keys=True)}\n"
+        "</search_notes>\n\n"
+        if search
+        else ""
     )
     return (
         "<student_profile>\n"
         f"{json.dumps(compact_profile(profile), ensure_ascii=False, sort_keys=True)}\n"
         "</student_profile>\n\n"
+        f"{notes}"
         "<candidates>\n"
         f"{cands}\n"
         "</candidates>\n\n"
@@ -180,6 +194,7 @@ class Recommender:
         k: int,
         *,
         stage: Stage | None = None,
+        search: dict[str, Any] | None = None,
     ) -> list[Recommendation]:
         if not candidates:
             return []
@@ -187,7 +202,7 @@ class Recommender:
         raw = await self.llm.parse(
             self.model,
             prompt.text,
-            [{"role": "user", "content": build_user_message(profile, candidates, k)}],
+            [{"role": "user", "content": build_user_message(profile, candidates, k, search)}],
             build_output_schema(candidates),
             effort=self.effort,
             max_tokens=self.max_tokens,
