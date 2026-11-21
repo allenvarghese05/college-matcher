@@ -155,6 +155,12 @@ export interface RecommendationSet {
   /** verified claims / all claims */
   groundedness: number;
   created_at: string;
+  /** relaxation steps the search took, e.g. ["budget"] */
+  relaxed?: string[];
+  /** fewer schools matched the stated filters than requested */
+  too_few?: boolean;
+  /** plain-language notes that must be shown with the list */
+  notices?: string[];
 }
 
 // ---------------------------------------------------------------- API I/O

@@ -82,14 +82,26 @@ function Ready({ set, onOpen }: { set: RecommendationSet; onOpen: (r: Recommenda
   const recs = set.recommendations;
   const mix = useMemo(() => bandMix(recs), [recs]);
   const n = recs.length;
+  const notices = set.notices ?? [];
+  const heading =
+    n === 0 ? "No matches for everything you asked." : `${WORDS[n] ?? n} ${n === 1 ? "place" : "places"} worth a closer look.`;
 
   return (
     <>
       <header className="flex flex-col gap-8 pb-16">
-        <MonoLabel className="rise">{mix}</MonoLabel>
+        {n > 0 && <MonoLabel className="rise">{mix}</MonoLabel>}
         <h1 className="rise max-w-[14ch] text-display font-medium text-balance" style={{ "--i": 1 } as CSSProperties}>
-          {WORDS[n] ?? n} places worth a closer look.
+          {heading}
         </h1>
+        {notices.length > 0 && (
+          <div role="note" className="rise flex max-w-[60ch] flex-col gap-2 border-l-2 pl-4" style={{ "--i": 2 } as CSSProperties}>
+            {notices.map((t) => (
+              <p key={t} className="text-pretty">
+                {t}
+              </p>
+            ))}
+          </div>
+        )}
         <div
           className="rise flex flex-col gap-6 md:flex-row md:items-end md:justify-between"
           style={{ "--i": 2 } as CSSProperties}
@@ -110,15 +122,17 @@ function Ready({ set, onOpen }: { set: RecommendationSet; onOpen: (r: Recommenda
         </div>
       </header>
 
-      <section aria-label="Recommended colleges">
-        <ol className="grid gap-6 lg:grid-cols-2">
-          {recs.map((r, i) => (
-            <li key={r.unitid} className="flex">
-              <SchoolCard rec={r} index={i} onOpen={onOpen} />
-            </li>
-          ))}
-        </ol>
-      </section>
+      {n > 0 && (
+        <section aria-label="Recommended colleges">
+          <ol className="grid gap-6 lg:grid-cols-2">
+            {recs.map((r, i) => (
+              <li key={r.unitid} className="flex">
+                <SchoolCard rec={r} index={i} onOpen={onOpen} />
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
     </>
   );
 }

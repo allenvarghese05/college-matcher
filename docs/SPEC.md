@@ -527,7 +527,11 @@ Upload PDF → Opus reads it as a document block → returns `ExtractionResult` 
 - If `intended_majors` given, map those to CIP directly and union with the above.
 
 ### Stage B — hard filters (SQL)
-In scope (D6) · offers ≥ 1 selected CIP at bachelor's level · net price at student's bracket ≤ budget cap × 1.15 (if cap given) · within distance/region if strict.
+In scope (D6) · offers ≥ 1 selected CIP at bachelor's level · budget · geography.
+- **Budget** uses the price the student would pay (`pricing.student_net_price`: bracket net price, + `TUITIONFEE_OUT − TUITIONFEE_IN` at publics outside the home state). Ceiling: stated cap × 1.15; with no cap, the bracket default — 0-30k $12k · 30-48k $15k · 48-75k $20k · 75-110k $27k · 110k+ $40k (none with `prestige`). No bracket and no cap → no budget filter.
+- **Distance** (`max_distance_miles`, from the home-state centroid, × 1.10) is hard; then `regions` are soft. Otherwise `regions` are hard. A "leave home" list (`out_of_state` + named places) means "not the home state" (hard, even when distance is the hard rule) with the named places as a soft preference.
+
+**Relaxation policy (too few results).** Stated distance and regions are **never** relaxed. If fewer than 3 schools pass, ONE step is allowed: a stated budget cap is replaced by the bracket default (trace `relaxed: ["budget"]`, `filters.n_within_cap` = how many schools did fit the cap, 0–2). Otherwise the retriever returns fewer than k with `too_few: true` and `filters` (distance, regions, leave-home, budget ceiling + source) in the trace. The orchestrator turns that into `RecommendationSet.relaxed / too_few / notices`: deterministic sentences ("No school we found has a net price within your $2,000 budget, so these are the closest realistic options, up to about $15,000 …" or "Only 2 schools we found fit within your $X budget, so we added …"; "Only 4 schools match your other filters (…). We didn't widen your distance or regions."). Any price quoted is the range of the recommendations actually shown (their displayed `net_price`). A bracket-default ceiling is described as the app's default, not as something the student asked for. The UI shows the notices; Opus gets a `<search_notes>` block (recommender.v4) so its reasons never claim a relaxed pick "fits your budget". Fewer than 10 (or zero) recommendations is a normal outcome; with zero candidates Opus is not called.
 
 ### Stage C — rerank
 Transparent weighted score (weights shift with stated `priorities`), each component 0–1, shown in UI as a breakdown:
@@ -540,7 +544,9 @@ Transparent weighted score (weights shift with stated `priorities`), each compon
 | Admission fit | band from estimator; penalise reach-heavy lists |
 | Preferences | distance, size, setting |
 
-Final list balances bands (e.g. 2–3 safety, 4–5 target, 2–3 reach) when bands are known.
+Final list balances bands (e.g. 2–3 safety, 4–5 target, 2–3 reach) when bands are known. Preferences skip the closeness bonus when `regions` contains `out_of_state`.
+
+**Far reaches** (`admission.is_far_reach`) keep their honest "reach" band but never take a balanced slot; they only fill otherwise-empty slots, at most `max(1, floor(0.1·k + 0.5))`. Far = admit < 15% unless the student is in the school's top test quartile (or has no test and GPA ≥ 3.8); admit < 50% and the student's best test is more than half the school's 25th–75th spread below the 25th; admit < 25% with GPA-only < 3.5. No stats → only admit < 15% is far.
 
 ### Admission estimator (deterministic, labelled "estimated")
 Data reality (`docs/data_coverage.md`): 95.7% of schools have an admission rate or are open-admission; only 43.7% report SAT/ACT ranges. So the estimator has tiers:
@@ -602,6 +608,8 @@ The gap between gold-profile and end-to-end recall isolates how much extraction 
 | Hybrid (embedding majors + SQL) | | |
 | Hybrid + rerank | | |
 | Hybrid + RIASEC + rerank (tier 2) | | |
+
+`evals/ablation.py --from-run <run>` re-scores gold AND end-to-end (each persona's saved `final_profile`) for every mode with no LLM calls; `--write-extra` writes the new top-10 picks outside `judged_unitids` (H1–H4 checked) to `evals/labels/pools/<id>.extra.csv` for a blind top-up labeling pass.
 
 ### Voice subset (tier 2)
 8–10 personas: persona text → Deepgram TTS (synthetic student voice) → full voice pipeline. Report TTFA p50/p95 per stage and **extraction accuracy voice vs text** for the same personas.

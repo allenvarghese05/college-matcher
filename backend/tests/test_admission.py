@@ -135,3 +135,43 @@ def test_estimate_for_reads_profile_and_row() -> None:
     row = SimpleNamespace(**EASY)
     est = estimate_for(profile, row)
     assert est.band == "safety" and est.basis == "test"
+
+
+# ------------------------------------------------------------------ far reach
+
+GPA_ONLY_20 = dict(
+    admission_rate=0.20, open_admission=False, sat_25=None, sat_75=None, act_25=None, act_75=None
+)
+GPA_ONLY_40 = dict(GPA_ONLY_20, admission_rate=0.40)
+
+
+def _p(**kw: object) -> StudentProfile:
+    return StudentProfile.model_validate(
+        {k: {"value": v, "confidence": 1.0} for k, v in kw.items()}
+    )
+
+
+@pytest.mark.parametrize(
+    ("student", "school", "far"),
+    [
+        ({}, ELITE, True),  # no stats: < 15% is a long shot for anyone
+        ({}, MID, False),
+        ({"sat": 1500}, ELITE, True),  # inside the range, not top quartile
+        ({"sat": 1560}, ELITE, False),  # at the 75th percentile
+        ({"gpa": 3.9}, ELITE, False),  # no test, strong GPA
+        ({"gpa": 3.7}, ELITE, True),
+        ({"sat": 1100}, MID, False),  # exactly half an IQR below the 25th: not far
+        ({"sat": 1090}, MID, True),  # more than half an IQR below
+        ({"act": 21}, MID, True),  # 4 below the 25th, IQR 6
+        ({"act": 23}, MID, False),
+        ({"sat": 1000}, EASY, False),  # admits >= 50%: never far on scores
+        ({"sat": 900}, OPEN, False),
+        ({"gpa": 3.2}, GPA_ONLY_20, True),
+        ({"gpa": 3.6}, GPA_ONLY_20, False),
+        ({"gpa": 3.2}, GPA_ONLY_40, False),
+    ],
+)
+def test_is_far_reach(student: dict, school: dict, far: bool) -> None:  # type: ignore[type-arg]
+    from app.retrieval.admission import is_far_reach
+
+    assert is_far_reach(_p(**student), SimpleNamespace(**school)) is far

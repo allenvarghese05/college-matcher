@@ -359,6 +359,17 @@ class RecommendationSet(_Strict):
     recommendations: list[RecommendationOut]
     groundedness: float = Field(ge=0, le=1, description="verified claims / all claims")
     created_at: datetime
+    relaxed: list[str] = Field(
+        default_factory=list,
+        description="Relaxation steps the search took, e.g. ['budget'] (SPEC §9).",
+    )
+    too_few: bool = Field(
+        default=False, description="Fewer schools matched the stated filters than requested."
+    )
+    notices: list[str] = Field(
+        default_factory=list,
+        description="Plain-language notes the UI must show (relaxed budget, too few matches).",
+    )
 
 
 # ---------------------------------------------------------------------- API I/O

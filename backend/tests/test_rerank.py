@@ -17,6 +17,8 @@ from app.retrieval.rerank import (
     balance_bands,
     band_quotas,
     best_per_school,
+    limit_far_reaches,
+    max_far_reach,
     outcome_scores,
     preferences,
     score_rows,
@@ -202,7 +204,7 @@ def test_score_rows_breakdown_bounds_and_major_fit() -> None:
 # ------------------------------------------------------------------ balancing
 
 
-def scored(unitid: int, band: str, total: float, cip: str = "1107") -> Scored:
+def scored(unitid: int, band: str, total: float, cip: str = "1107", far: bool = False) -> Scored:
     b = ScoreBreakdown(
         major_fit=0.5,
         affordability=0.5,
@@ -215,6 +217,7 @@ def scored(unitid: int, band: str, total: float, cip: str = "1107") -> Scored:
         row=row(unitid=unitid, cip4=cip),
         admission=AdmissionEstimate(band, "normal", None, "test"),  # type: ignore[arg-type]
         scores=b,
+        far_reach=far,
     )
 
 
@@ -249,6 +252,38 @@ def test_balance_bands_fills_when_band_missing() -> None:
 def test_balance_bands_short_pool() -> None:
     ranked = [scored(1, "reach", 0.9), scored(2, "safety", 0.5)]
     assert len(balance_bands(ranked, 10)) == 2
+
+
+def test_far_reaches_never_crowd_the_top_k() -> None:
+    # 12 far reaches score highest; enough other schools exist -> none in the top 10
+    ranked = (
+        [scored(100 + i, "reach", 0.99 - i * 0.001, far=True) for i in range(12)]
+        + [scored(150 + i, "reach", 0.9 - i * 0.001) for i in range(3)]
+        + [scored(200 + i, "target", 0.8 - i * 0.001) for i in range(10)]
+        + [scored(300 + i, "safety", 0.6 - i * 0.001) for i in range(10)]
+    )
+    out = balance_bands(ranked, 10)
+    assert len(out) == 10 and not any(s.far_reach for s in out)
+    assert 2 <= sum(s.admission.band == "reach" for s in out) <= 3  # honest reaches stay
+
+
+def test_far_reaches_only_fill_empty_slots_capped() -> None:
+    ranked = [scored(100 + i, "reach", 0.99 - i * 0.01, far=True) for i in range(5)] + [
+        scored(200 + i, "target", 0.5 - i * 0.01) for i in range(3)
+    ]
+    out = balance_bands(ranked, 10)
+    assert sum(s.far_reach for s in out) == max_far_reach(10) == 1
+    assert len(out) == 4  # fewer than k beats padding with long shots
+    assert limit_far_reaches(ranked, 10) == out
+    assert [s.row.unitid for s in limit_far_reaches(ranked, 3)] == [200, 201, 202]
+
+
+def test_leaving_home_drops_closeness_preference() -> None:
+    near, far = row(distance_miles=50.0), row(distance_miles=2500.0)
+    stay = prof(max_distance_miles=3000)
+    leave = prof(max_distance_miles=3000, regions=["out_of_state", "CA"])
+    assert preferences(near, stay) > preferences(far, stay)
+    assert preferences(near, leave) == preferences(far, leave)
 
 
 def test_best_per_school() -> None:

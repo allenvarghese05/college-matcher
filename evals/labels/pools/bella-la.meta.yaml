@@ -63,6 +63,13 @@ auto_judged:
   reasons:
   - 'H1: no bachelor''s in the major set'
   - 'H3: distance 1216 > 250'
+- unitid: 226408
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 227757
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H4: far below 25th percentile at a <50% school'
 n_sampled: 12
 n_system_only: 0
 seed: 20261119
@@ -71,3 +78,9 @@ runs:
 candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
 criteria_commit: ee31239af7170f4219e02b510a356cee57174605
 generated_at: '2026-11-20T03:21:12+00:00'
+topup:
+  date: '2026-11-20'
+  rows_added: 0
+  auto_judged_added: 2
+  reason: retriever fix (no silent relaxation, bracket default budget, far-reach cap);
+    new top-10 picks labeled blind

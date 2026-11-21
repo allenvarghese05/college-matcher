@@ -267,8 +267,8 @@ async def test_budget_and_region_filters(fixture_session: AsyncSession) -> None:
     p = prof(**ART_CA)
     r = Retriever(embedder=HashEmbedder())
     cands = await r.retrieve(fixture_session, p, k=10, mode="hybrid_rerank")
-    if not r.last_trace["location_relaxed"]:
-        assert {c.state for c in cands} <= states_for_regions(["west"], "CA")
+    assert r.last_trace["relaxed"] == []
+    assert {c.state for c in cands} <= states_for_regions(["west"], "CA")
     for c in cands:
         price = await fixture_session.scalar(
             text(f"SELECT {_price_sql('net_price_0_30k', True)} FROM institution WHERE unitid=:u"),
@@ -320,16 +320,160 @@ async def test_distance_hard_regions_soft_when_both(fixture_session: AsyncSessio
     assert all(r.region_match is None for r in rows2)
 
 
-async def test_relax_distance_before_regions(fixture_session: AsyncSession) -> None:
-    # 10 miles from RI: too few; dropping distance makes regions (northeast) hard, which
-    # still leaves >= k schools in the fixture, so regions are kept.
+async def test_distance_and_regions_never_relaxed(fixture_session: AsyncSession) -> None:
+    # 10 miles from RI: too few schools. The stated distance is kept (no silent
+    # widening); fewer than k come back and the trace says so.
     p = prof(home_state="RI", income_bracket="75-110k", interests=["computer science"],
              max_distance_miles=10, regions=["northeast", "south"])  # fmt: skip
+    for mode in ("sql_only", "hybrid", "hybrid_rerank"):
+        r = Retriever(embedder=HashEmbedder())
+        cands = await r.retrieve(fixture_session, p, k=10, mode=mode)  # type: ignore[arg-type]
+        assert r.last_trace["relaxed"] == [], mode
+        assert r.last_trace["too_few"] is True and len(cands) < 10
+        assert r.last_trace["filters"]["max_distance_miles"] == 10
+        rows = await sql_filters.candidates(fixture_session, p, None)
+        near = {row.unitid for row in rows}
+        assert {c.unitid for c in cands} <= near
+    # regions alone: hard and never widened, even when only a handful match
+    p2 = prof(home_state="OH", income_bracket="110k+", interests=["computer science"],
+              regions=["VT", "NH"])  # fmt: skip
     r = Retriever(embedder=HashEmbedder())
-    cands = await r.retrieve(fixture_session, p, k=5, mode="hybrid_rerank")
-    assert r.last_trace["relaxed"] == ["distance"]
-    allowed = states_for_regions(["northeast", "south"], "RI")
-    assert cands and {c.state for c in cands} <= allowed
+    cands = await r.retrieve(fixture_session, p2, k=10, mode="hybrid_rerank")
+    assert r.last_trace["relaxed"] == [] and len(cands) < 10
+    assert {c.state for c in cands} <= {"VT", "NH"}
+
+
+async def test_default_bracket_budget_without_cap(fixture_session: AsyncSession) -> None:
+    p = prof(home_state="TX", income_bracket="0-30k", interests=["computer science"])
+    r = Retriever(embedder=HashEmbedder())
+    cands = await r.retrieve(fixture_session, p, k=10, mode="hybrid_rerank")
+    assert cands
+    f = r.last_trace["filters"]
+    assert f["budget_source"] == "bracket_default" and f["budget_ceiling"] == 12000
+    for c in cands:
+        price = await fixture_session.scalar(
+            text(f"SELECT {_price_sql('net_price_0_30k', True)} FROM institution WHERE unitid=:u"),
+            {"u": c.unitid, "home": "TX"},
+        )
+        assert price is not None and price <= 12000
+    # stated cap wins; prestige at 110k+ means no default ceiling
+    assert sql_filters.budget_ceiling(prof(income_bracket="0-30k", budget_cap=20000)) == (
+        20000 * 1.15,
+        "cap",
+    )
+    assert sql_filters.budget_ceiling(prof(income_bracket="110k+", priorities=["prestige"])) == (
+        None,
+        None,
+    )
+    assert sql_filters.budget_ceiling(prof(home_state="TX")) == (None, None)
+
+
+async def test_budget_filter_uses_out_of_state_price(fixture_session: AsyncSession) -> None:
+    # a public school whose in-state price fits the cap but whose out-of-state price doesn't
+    res = await fixture_session.execute(
+        text(
+            "SELECT unitid, state, net_price_48_75k AS p,"
+            " tuition_out_of_state - tuition_in_state AS s FROM institution i"
+            " WHERE control = 1 AND net_price_48_75k IS NOT NULL"
+            " AND tuition_out_of_state - tuition_in_state > 3000 AND EXISTS (SELECT 1 FROM"
+            " program p WHERE p.unitid = i.unitid AND p.credential_level = 3)"
+            " ORDER BY unitid LIMIT 1"
+        )
+    )
+    school = res.one()
+    cap = int((school.p + school.s / 2) / 1.15)  # in-state ≤ cap×1.15 < out-of-state
+    away = "VT" if school.state != "VT" else "NH"
+    out = await sql_filters.candidates(
+        fixture_session, prof(home_state=away, income_bracket="48-75k", budget_cap=cap), None
+    )
+    home = await sql_filters.candidates(
+        fixture_session,
+        prof(home_state=school.state, income_bracket="48-75k", budget_cap=cap),
+        None,
+    )
+    assert school.unitid not in {r.unitid for r in out}
+    assert school.unitid in {r.unitid for r in home}
+
+
+async def test_budget_relaxation_counts_schools_within_cap(fixture_session: AsyncSession) -> None:
+    # a cap just above the cheapest school (any major, no distance): 1-2 schools fit it,
+    # relaxation still fires (< 3), and the trace says how many did fit
+    base = dict(home_state="OH", income_bracket="110k+")
+    rows = await sql_filters.candidates(
+        fixture_session, prof(**base), None, sql_filters.FilterOptions(apply_budget=False)
+    )
+    prices = sorted(p for row in rows if (p := row.price_for_scoring("110k+", "OH")) is not None)
+    cap = int(prices[0] / 1.15) + 1  # cap × 1.15 just covers the cheapest school
+    within = sum(1 for p in prices if p <= cap * 1.15)
+    assert 1 <= within <= 2
+    r = Retriever(embedder=HashEmbedder())
+    cands = await r.retrieve(fixture_session, prof(**base, budget_cap=cap), k=10)
+    assert r.last_trace["relaxed"] == ["budget"] and len(cands) > within
+    assert r.last_trace["filters"]["n_within_cap"] == within
+
+
+async def test_impossible_cap_relaxes_budget_not_distance(fixture_session: AsyncSession) -> None:
+    p = prof(home_state="OH", income_bracket="30-48k", budget_cap=500,
+             interests=["computer science", "business"], max_distance_miles=500)  # fmt: skip
+    r = Retriever(embedder=HashEmbedder())
+    cands = await r.retrieve(fixture_session, p, k=10, mode="hybrid_rerank")
+    assert cands
+    assert r.last_trace["relaxed"] == ["budget"]
+    f = r.last_trace["filters"]
+    assert f["budget_source"] == "bracket_default" and f["budget_ceiling"] == 15000
+    assert f["budget_cap"] == 500 and f["n_within_cap"] == 0
+    for c in cands:
+        assert c.facts["net_price"] is None or c.facts["net_price"] <= 15000
+    rows = await sql_filters.candidates(
+        fixture_session, p, None, sql_filters.FilterOptions(apply_budget=False)
+    )
+    assert {c.unitid for c in cands} <= {row.unitid for row in rows}  # distance kept
+    # a cap that leaves enough schools is never relaxed
+    ok = prof(home_state="OH", income_bracket="30-48k", budget_cap=40000,
+              interests=["computer science", "business"])  # fmt: skip
+    r2 = Retriever(embedder=HashEmbedder())
+    await r2.retrieve(fixture_session, ok, k=10, mode="hybrid_rerank")
+    assert r2.last_trace["relaxed"] == [] and r2.last_trace["filters"]["budget_source"] == "cap"
+
+
+async def test_far_reaches_capped_in_top_k(fixture_session: AsyncSession) -> None:
+    from types import SimpleNamespace
+
+    from app.retrieval.admission import is_far_reach
+
+    interests = ["biology", "psychology", "business", "computer science", "history"]
+    p = prof(home_state="NY", income_bracket="110k+", sat=950, gpa=2.9, interests=interests)
+    r = Retriever(embedder=HashEmbedder())
+    cands = await r.retrieve(fixture_session, p, k=10, mode="hybrid_rerank")
+    far = 0
+    for c in cands:
+        inst = (
+            await fixture_session.execute(
+                text(
+                    "SELECT admission_rate, open_admission, sat_25, sat_75, act_25, act_75"
+                    " FROM institution WHERE unitid = :u"
+                ),
+                {"u": c.unitid},
+            )
+        ).one()
+        far += is_far_reach(p, SimpleNamespace(**inst._mapping))
+    assert far <= 1
+    assert r.last_trace["far_reaches"]["kept"] == far
+    assert r.last_trace["far_reaches"]["found"] > far  # some were held back
+
+
+async def test_leave_home_regions(fixture_session: AsyncSession) -> None:
+    west = {"CA", "OR", "WA"}
+    p = prof(home_state="VT", income_bracket="110k+", regions=["out_of_state", *sorted(west)])
+    rows = await sql_filters.candidates(fixture_session, p, None)
+    states = {r.state for r in rows}
+    assert "VT" not in states and states - west, "named places are a preference, not a fence"
+    assert all(r.region_match == (r.state in west) for r in rows)
+    # "2,000 miles" extracted as a max distance: home is still excluded
+    p2 = prof(home_state="VT", income_bracket="110k+", max_distance_miles=2000,
+              regions=["out_of_state", "CA"])  # fmt: skip
+    rows2 = await sql_filters.candidates(fixture_session, p2, None)
+    assert rows2 and "VT" not in {r.state for r in rows2}
 
 
 async def test_stage_a_fallback_any_major(fixture_session: AsyncSession) -> None:
@@ -342,16 +486,6 @@ async def test_stage_a_fallback_any_major(fixture_session: AsyncSession) -> None
     r = Retriever(embedder=HashEmbedder())
     await r.retrieve(fixture_session, prof(**CS_TX), k=5)
     assert r.last_trace["stage_a_fallback"] is False
-
-
-async def test_location_relaxed_when_too_few(fixture_session: AsyncSession) -> None:
-    p = prof(home_state="RI", income_bracket="75-110k", interests=["computer science"],
-             max_distance_miles=10)  # fmt: skip
-    r = Retriever(embedder=HashEmbedder())
-    cands = await r.retrieve(fixture_session, p, k=10, mode="hybrid_rerank")
-    assert r.last_trace["location_relaxed"] is True
-    assert r.last_trace["relaxed"] == ["distance"]
-    assert len(cands) == 10
 
 
 async def test_band_balance(fixture_session: AsyncSession) -> None:
@@ -370,15 +504,18 @@ async def test_band_balance(fixture_session: AsyncSession) -> None:
         rerank.score_rows(rows, p, {c.cip4: c.similarity for c in cips}, med)
     )
     avail = {
-        b: sum(1 for s in ranked[: max(pool, 2 * k)] if s.admission.band == b)
+        b: sum(
+            1 for s in ranked[: max(pool, 2 * k)] if s.admission.band == b and not s.far_reach
+        )  # far reaches only fill empty slots, so they don't count toward the quotas
         for b in ("safety", "target", "reach")
     }
 
     bands = [c.admission_band for c in cands]
     for band, (lo, _hi) in rerank.band_quotas(k).items():
         assert bands.count(band) >= min(lo, avail[band]), (band, bands, avail)
-    others_short = sum(avail.values()) - max(avail.values()) < k
-    if not others_short:
+    quotas = rerank.band_quotas(k)
+    caps_fillable = sum(min(avail[b], hi) for b, (_, hi) in quotas.items()) >= k
+    if caps_fillable:
         for band, (_, hi) in rerank.band_quotas(k).items():
             assert bands.count(band) <= hi, (band, bands)
     assert all(c.band_confidence == "normal" or c.admission_band != "unknown" for c in cands)

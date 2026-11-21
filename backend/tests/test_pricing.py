@@ -112,14 +112,20 @@ CALI = dict(home_state="CA", income_bracket="48-75k", regions=["CA"])
 
 @pytest.mark.usefixtures("requires_db")
 async def test_retrieval_shows_out_of_state_price(db_session: AsyncSession) -> None:
-    rows = await sql_filters.candidates(db_session, _prof(**OHIO), None)
+    # no cap: the 48-75k default ceiling ($20,000) applies to the out-of-state price
+    no_cap = await sql_filters.candidates(db_session, _prof(**OHIO), None)
+    assert UCLA not in {r.unitid for r in no_cap}
+    roomy = 60000  # a cap high enough to keep UCLA for an OH student
+    rows = await sql_filters.candidates(db_session, _prof(**OHIO, budget_cap=roomy), None)
     ucla = next(r for r in rows if r.unitid == UCLA)
     assert ucla.net_price_48_75k == 10769  # the published (in-state) figure
     f = facts_for(ucla, "48-75k", "OH")
     assert (f["net_price"], f["net_price_basis"]) == (UCLA_OOS, "est_out_of_state")
     assert facts_for(ucla, "48-75k", "CA")["net_price"] == 10769
 
-    cands = await Retriever().retrieve(db_session, _prof(**OHIO), k=250, mode="sql_only")
+    cands = await Retriever().retrieve(
+        db_session, _prof(**OHIO, budget_cap=roomy), k=250, mode="sql_only"
+    )
     c = next(c for c in cands if c.unitid == UCLA)
     assert c.facts["net_price"] == UCLA_OOS and c.facts["net_price_basis"] == "est_out_of_state"
     cands = await Retriever().retrieve(db_session, _prof(**CALI), k=250, mode="sql_only")

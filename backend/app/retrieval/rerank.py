@@ -53,16 +53,22 @@ per school and aims for ~20–30% safety, 40–50% target, 20–30% reach (k=10:
 4–5 target, 2–3 reach): first the top ``min`` of each band are reserved, then slots
 fill in score order up to each band's ``max``, then (if still short) by score alone.
 The final list is sorted by total score.
+
+Far reaches (``admission.is_far_reach``) never take a slot in those passes: they only
+fill slots that would otherwise stay empty, at most ``max(1, floor(0.1·k + 0.5))`` of them
+(1 in a top 10). The same cap applies when bands are unknown (no student stats; then
+only schools admitting < 15% are far). Fewer than ``k`` results is acceptable.
 """
 
 from __future__ import annotations
 
 import bisect
+import math
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from app.retrieval.admission import AdmissionEstimate, estimate_for
-from app.retrieval.sql_filters import CandidateRow
+from app.retrieval.admission import AdmissionEstimate, estimate_for, is_far_reach
+from app.retrieval.sql_filters import CandidateRow, wants_out_of_state
 from app.schemas import AdmissionBand, Priority, ScoreBreakdown, StudentProfile
 
 COMPONENTS = ("major_fit", "affordability", "outcomes", "admission_fit", "preferences")
@@ -198,7 +204,7 @@ def preferences(row: CandidateRow, profile: StudentProfile) -> float:
     subs: list[float] = []
     d = row.distance_miles
     max_d = profile.max_distance_miles.value
-    if d is not None:
+    if d is not None and not wants_out_of_state(profile.regions.value):
         if max_d:
             subs.append(_clip(1 - d / max_d))
         elif "location" in (profile.priorities.value or []):
@@ -228,6 +234,7 @@ class Scored:
     scores: ScoreBreakdown
     similarity: float = 0.0  # raw Stage A similarity of row.cip4
     extra: dict[str, float] = field(default_factory=dict)
+    far_reach: bool = False
 
 
 def score_rows(
@@ -267,6 +274,7 @@ def score_rows(
                     **{c: round(v, 4) for c, v in comps.items()}, total=round(total, 4)
                 ),
                 similarity=sim,
+                far_reach=is_far_reach(profile, row),
             )
         )
     return scored
@@ -294,8 +302,23 @@ def band_quotas(k: int) -> dict[str, tuple[int, int]]:
     }
 
 
+def max_far_reach(k: int) -> int:
+    return max(1, math.floor(0.1 * k + 0.5))  # half-up, not banker's rounding
+
+
+def limit_far_reaches(ranked: list[Scored], k: int) -> list[Scored]:
+    """Top ``k`` (score order) with far reaches only filling otherwise-empty slots."""
+    near = [s for s in ranked if not s.far_reach]
+    far = [s for s in ranked if s.far_reach][: max(0, min(max_far_reach(k), k - len(near)))]
+    chosen = near[:k] + far
+    return sorted(chosen, key=lambda s: (-s.scores.total, s.row.unitid))
+
+
 def balance_bands(ranked: list[Scored], k: int) -> list[Scored]:
-    """Pick ``k`` items from ``ranked`` (score-desc, one per school) balancing bands."""
+    """Pick ``k`` items from ``ranked`` (score-desc, one per school) balancing bands;
+    far reaches only fill slots left empty (see module docstring)."""
+    far = [s for s in ranked if s.far_reach]
+    ranked = [s for s in ranked if not s.far_reach]
     quotas = band_quotas(k)
     chosen: list[Scored] = []
     ids: set[int] = set()
@@ -325,6 +348,10 @@ def balance_bands(ranked: list[Scored], k: int) -> list[Scored]:
             break
         if s.row.unitid not in ids:
             take(s)
+    for s in far[: max_far_reach(k)]:
+        if len(chosen) >= k:
+            break
+        take(s)
     return sorted(chosen, key=lambda s: (-s.scores.total, s.row.unitid))
 
 

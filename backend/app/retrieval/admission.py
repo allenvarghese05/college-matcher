@@ -22,6 +22,22 @@ Tiers, applied in order:
    low → ``reach``; otherwise ``target``.
 
 Scorecard has no school GPA data, so GPA is a modifier, never a comparison.
+
+Far reach (:func:`is_far_reach`)
+--------------------------------
+A *far reach* is a reach where nothing in the data suggests the student is competitive.
+It does not change the band (the school stays an honest "reach"); Stage C uses it to
+keep long shots from crowding the top of the list (``rerank.balance_bands``). The rule
+is stated relative to each school's own score spread rather than in fixed points:
+
+* open admission, or no admission rate → never far;
+* admission rate < 15% (``SELECTIVE_CAP``) → far unless the student is in the school's
+  top quartile on a test (≥ 75th percentile), or has no usable test position but a
+  GPA ≥ 3.8 (``GPA_UP``); with no stats at all it is far (a long shot for anyone);
+* admission rate < 50% with a usable test position → far when the student is below the
+  25th percentile by more than half the school's interquartile range (25th–75th);
+* admission rate < 25% with only a GPA → far when GPA < 3.5;
+* otherwise not far.
 """
 
 from __future__ import annotations
@@ -121,6 +137,49 @@ def estimate(
     else:
         band = "target"
     return AdmissionEstimate(band, confidence, pos, basis)
+
+
+FAR_MAX_ADMIT = 0.50
+FAR_IQR_FRACTION = 0.5
+FAR_GPA_ONLY_ADMIT = 0.25
+FAR_GPA_ONLY_GPA = 3.5
+
+
+def _iqr_gap(score: int | None, lo: int | None, hi: int | None) -> float | None:
+    """How far below the 25th percentile, in units of the school's IQR (≤ 0: not below)."""
+    if score is None or lo is None or hi is None:
+        return None
+    return (lo - score) / max(hi - lo, 1)
+
+
+def is_far_reach(profile: StudentProfile, school: Any) -> bool:
+    """See the module docstring ("Far reach")."""
+    if school.open_admission or school.admission_rate is None:
+        return False
+    rate = float(school.admission_rate)
+    sat, act, gpa = profile.sat.value, profile.act.value, profile.gpa.value
+    gaps = [
+        g
+        for g in (
+            _iqr_gap(sat, school.sat_25, school.sat_75),
+            _iqr_gap(act, school.act_25, school.act_75),
+        )
+        if g is not None
+    ]
+    if rate < SELECTIVE_CAP:
+        top_quartile = (sat is not None and school.sat_75 is not None and sat >= school.sat_75) or (
+            act is not None and school.act_75 is not None and act >= school.act_75
+        )
+        if top_quartile:
+            return False
+        return bool(gaps) or gpa is None or gpa < GPA_UP
+    if rate >= FAR_MAX_ADMIT:
+        return False
+    if gaps:
+        return min(gaps) > FAR_IQR_FRACTION
+    if gpa is not None:
+        return rate < FAR_GPA_ONLY_ADMIT and gpa < FAR_GPA_ONLY_GPA
+    return False
 
 
 def estimate_for(profile: StudentProfile, school: Any) -> AdmissionEstimate:

@@ -16,9 +16,19 @@ Modes (the §10 ablation):
 ``hybrid_riasec_rerank``
     Tier 2; not implemented yet.
 
-Every mode returns at most one program per school. If location filters (regions /
-max distance) leave fewer than ``k`` schools they are relaxed — distance first, then
-regions — and recorded in ``last_trace["relaxed"]``. The budget filter is never relaxed.
+Every mode returns at most one program per school, and may return fewer than ``k``.
+
+Too few results (SPEC §9 "Relaxation policy"): the student's stated distance and regions
+are never relaxed. If the hard filters leave fewer than ``MIN_RESULTS`` schools and the
+student stated a ``budget_cap``, ONE step is taken: the cap is replaced by the bracket
+default ceiling (``sql_filters.budget_ceiling``), recorded as
+``last_trace["relaxed"] == ["budget"]``; the recommender must disclose it. Whatever is
+left is returned; ``last_trace["too_few"]`` is true when fewer than ``k`` schools came
+back, and ``last_trace["filters"]`` describes the hard filters that applied (distance,
+regions, leave-home, budget ceiling and its source, and after a budget relaxation
+``n_within_cap``: how many schools fit the stated cap; 1-2 may, since the step fires
+below ``MIN_RESULTS``). Prices quoted to the student are computed later, over the
+recommendations actually shown (``counselor.search_notes``).
 If Stage A finds no majors (no interests, no intended majors) every mode falls back to
 "any major" (``cip4 = None``) and ``last_trace["stage_a_fallback"]`` is true.
 """
@@ -37,18 +47,42 @@ from app.retrieval.sql_filters import CandidateRow, FilterOptions
 from app.schemas import Candidate, IncomeBracket, RetrievalMode, ScoreBreakdown, StudentProfile
 
 STAGE_A_K = 8
+MIN_RESULTS = 3  # below this many schools the result set is "thin" (one relaxation step)
 
-# Location relaxation order (criteria H3): distance first, then regions.
-RELAX_STEPS: tuple[tuple[str, FilterOptions], ...] = (
-    ("distance", FilterOptions(apply_distance=False)),
-    ("regions", FilterOptions(apply_distance=False, apply_regions=False)),
-)
+BUDGET_TO_DEFAULT = FilterOptions(budget_to_default=True)
 
 
-def _filter_active(profile: StudentProfile, step: str) -> bool:
-    if step == "distance":
-        return profile.max_distance_miles.value is not None and bool(profile.home_state.value)
-    return bool(profile.regions.value)
+def _n_schools(rows: list[CandidateRow]) -> int:
+    return len({r.unitid for r in rows})
+
+
+def _can_relax_budget(profile: StudentProfile) -> bool:
+    """A stated cap whose bracket default would let more schools in."""
+    cap = profile.budget_cap.value
+    if cap is None or profile.income_bracket.value is None:
+        return False
+    default, _ = sql_filters.budget_ceiling(profile, BUDGET_TO_DEFAULT)
+    return default is None or default > cap * sql_filters.BUDGET_SLACK
+
+
+def filters_summary(
+    profile: StudentProfile, opts: FilterOptions, n_within_cap: int | None = None
+) -> dict[str, Any]:
+    """The hard filters that applied (for the trace and the student-facing notices)."""
+    ceiling, source = sql_filters.budget_ceiling(profile, opts)
+    home = profile.home_state.value
+    distance = profile.max_distance_miles.value if home else None
+    out: dict[str, Any] = {
+        "max_distance_miles": distance,
+        "regions": None if distance is not None else (profile.regions.value or None),
+        "outside_home_state": bool(home) and sql_filters.wants_out_of_state(profile.regions.value),
+        "budget_cap": profile.budget_cap.value,
+        "budget_ceiling": round(ceiling) if ceiling is not None else None,
+        "budget_source": source,
+    }
+    if n_within_cap is not None:
+        out["n_within_cap"] = n_within_cap
+    return out
 
 
 def facts_for(
@@ -134,18 +168,22 @@ class Retriever:
         # ---- Stage B
         with tl.stage("retrieve.sql_filter") as st:
             relaxed: list[str] = []
-            rows = await sql_filters.candidates(session, profile, cip_codes)
-            for step, opts in RELAX_STEPS:
-                if len({r.unitid for r in rows}) >= k or not _filter_active(profile, step):
-                    continue
-                rows = await sql_filters.candidates(session, profile, cip_codes, opts)
-                relaxed.append(step)
+            opts = FilterOptions()
+            n_within_cap: int | None = None
+            rows = await sql_filters.candidates(session, profile, cip_codes, opts)
+            if _n_schools(rows) < MIN_RESULTS and _can_relax_budget(profile):
+                wider = await sql_filters.candidates(session, profile, cip_codes, BUDGET_TO_DEFAULT)
+                if _n_schools(wider) > _n_schools(rows):
+                    n_within_cap = _n_schools(rows)  # 0-2 schools did fit the stated cap
+                    rows, opts = wider, BUDGET_TO_DEFAULT
+                    relaxed.append("budget")
             median = await sql_filters.bracket_median(session, profile.income_bracket.value)
-            st.set(n_rows=len(rows), n_schools=len({r.unitid for r in rows}), relaxed=relaxed)
+            st.set(n_rows=len(rows), n_schools=_n_schools(rows), relaxed=relaxed)
         trace.update(
             n_rows=len(rows),
-            location_relaxed=bool(relaxed),
+            n_schools=_n_schools(rows),
             relaxed=relaxed,
+            filters=filters_summary(profile, opts, n_within_cap),
             bracket_median=median,
         )
 
@@ -155,6 +193,11 @@ class Retriever:
             final = self._order(scored, profile, k, pool, mode)
             st.set(n_out=len(final))
         trace["unitids"] = [s.row.unitid for s in final]
+        trace["too_few"] = len(final) < k
+        trace["far_reaches"] = {
+            "found": len({s.row.unitid for s in scored if s.far_reach}),
+            "kept": sum(1 for s in final if s.far_reach),
+        }
 
         bracket = profile.income_bracket.value
         return [
@@ -198,5 +241,5 @@ class Retriever:
             return [_with_total(s, s.scores.major_fit) for s in ordered]
         ranked = rerank.best_per_school(scored)
         if not rerank.bands_known(profile):
-            return ranked[:k]
+            return rerank.limit_far_reaches(ranked, k)
         return rerank.balance_bands(ranked[: max(pool, 2 * k)], k)

@@ -50,6 +50,7 @@ from app.core.llm import (
     LLMRefusalError,
 )
 from app.core.logging import TurnLogger, get_logger
+from app.counselor import search_notes
 from app.counselor.context import (
     HistoryTurn,
     PlannerHistory,
@@ -271,8 +272,18 @@ async def recent_recommendation_set(
         recommendations=outs,
         groundedness=row.groundedness if row.groundedness is not None else report.groundedness,
         created_at=row.created_at,
+        **_search_fields(trace.get("search") or {}),
     )
     return result, report
+
+
+def _search_fields(summary: dict[str, Any]) -> dict[str, Any]:
+    """RecommendationSet fields derived from a ``search_notes.summarize`` dict."""
+    return {
+        "relaxed": list(summary.get("relaxed") or []),
+        "too_few": bool(summary.get("too_few")),
+        "notices": search_notes.notices(summary) if summary else [],
+    }
 
 
 def _basis(facts: dict[str, Any]) -> NetPriceBasis:
@@ -587,16 +598,43 @@ class CounselorOrchestrator:
                 candidates = await retriever.retrieve(
                     db, profile, max(RETRIEVE_K, k), mode, logger=tl
                 )
-                st.set(n_candidates=len(candidates), mode=mode)
+                # Retriever is built per request, so its last_trace is this call's.
+                search = search_notes.summarize(
+                    getattr(retriever, "last_trace", None),
+                    len({c.unitid for c in candidates}),
+                    k,
+                )
+                st.set(
+                    n_candidates=len(candidates),
+                    mode=mode,
+                    relaxed=search["relaxed"],
+                    too_few=search["too_few"],
+                )
             retrieve_ms = round((time.perf_counter() - t0) * 1000, 2)
 
         # B: Opus synthesis — no DB connection held
         with tl.stage("recommend") as st:
             try:
-                recs = await self.recommender.synthesize(profile, candidates, k, stage=st)
+                recs = await self.recommender.synthesize(
+                    profile,
+                    candidates,
+                    k,
+                    stage=st,
+                    search=search if search_notes.needs_disclosure(search) else None,
+                )
             except LLMRefusalError as exc:
                 st.set(refusals=1, refusal=exc.category)
                 raise
+        # prices quoted in the notices: only those of the schools actually shown
+        shown = {(c.unitid, c.cip4): c for c in candidates}
+        search = search_notes.with_shown_prices(
+            search,
+            (
+                shown[(r.unitid, r.cip4)].facts.get("net_price")
+                for r in recs
+                if (r.unitid, r.cip4) in shown
+            ),
+        )
 
         # C: groundedness against Postgres + persist
         async with self.sessionmaker() as db:
@@ -629,6 +667,7 @@ class CounselorOrchestrator:
                     "k": k,
                     "retrieve_ms": retrieve_ms,
                     "candidates": [c.model_dump(mode="json") for c in candidates],
+                    "search": search,
                     "reason_digit_violations": report.reason_digit_violations,
                 },
                 groundedness=report.groundedness,
@@ -696,5 +735,6 @@ class CounselorOrchestrator:
             recommendations=outs,
             groundedness=report.groundedness,
             created_at=set_row.created_at,
+            **_search_fields(search),
         )
         return result, report
