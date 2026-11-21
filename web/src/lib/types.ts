@@ -237,9 +237,16 @@ export interface VoiceTurnMetrics {
 
 /** JSON frames the server sends (binary frames are PCM16 audio for the last audio_start). */
 export type VoiceServerEvent =
-  | { type: "hello"; barge_in: boolean; input_sample_rate: number; output_sample_rate: number; provider: string }
+  | {
+      type: "hello";
+      barge_in: boolean;
+      backchannel?: boolean;
+      input_sample_rate: number;
+      output_sample_rate: number;
+      provider: string;
+    }
   | { type: "state"; state: VoiceServerState }
-  | { type: "transcript_interim"; text: string }
+  | { type: "transcript_interim"; text: string; during_reply?: boolean }
   | { type: "transcript_final"; text: string; turn: number }
   | { type: "assistant_text"; delta: string; turn: number }
   | { type: "profile"; profile: StudentProfile }
@@ -257,4 +264,5 @@ export type VoiceClientMessage =
   | { type: "playback_start"; turn: number; t_ms: number; sent_ms: number }
   | { type: "played"; turn: number; sentence: number }
   | { type: "interrupt"; turn: number; last_played: number; sent_ms: number }
+  | { type: "backchannel"; text: string }
   | { type: "stop" };

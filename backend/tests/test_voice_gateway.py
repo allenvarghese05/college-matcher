@@ -77,6 +77,7 @@ def _harness(
     stt: FakeSTT | None = None,
     tts: FakeTTS | None = None,
     barge_in: bool = False,
+    backchannel: bool = False,
     config: bool = True,
     idle_timeout_s: float = 90.0,
 ) -> Harness:
@@ -89,7 +90,12 @@ def _harness(
     app.dependency_overrides[get_orchestrator] = lambda: orch
     cfg = (
         VoiceConfig(
-            stt=stt, tts=tts, provider="fake", barge_in=barge_in, idle_timeout_s=idle_timeout_s
+            stt=stt,
+            tts=tts,
+            provider="fake",
+            barge_in=barge_in,
+            backchannel=backchannel,
+            idle_timeout_s=idle_timeout_s,
         )
         if config
         else None
@@ -162,7 +168,7 @@ async def test_happy_path_state_machine_audio_and_ttfa(
     with h.client.websocket_connect(f"/api/sessions/{sid}/voice") as ws:
         hello = _recv(ws)[1]
         assert hello == {
-            "type": "hello", "barge_in": False, "input_sample_rate": 16000,
+            "type": "hello", "barge_in": False, "backchannel": False, "input_sample_rate": 16000,
             "output_sample_rate": 24000, "provider": "fake",
         }  # fmt: skip
         assert _recv(ws)[1] == {"type": "state", "state": "listening"}
@@ -663,4 +669,186 @@ async def test_oversized_frames_are_dropped(
         ws.send_bytes(FRAME)
         _until(ws, _is("transcript_interim", text="I"))
         assert h.stt.streams[0].frames == 1
+        ws.send_json({"type": "stop"})
+
+
+# ------------------------------------------------- turn-taking (voice-feel)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("I like building things and", True),
+        ("I like building things, um", True),
+        ("I want to study,", True),
+        ("so yeah...", True),
+        ("I want to study and so", True),
+        ("I like building things.", False),
+        ("I think so.", False),  # complete answers ending in a list word don't wait
+        ("I'd love to.", False),
+        ("Okay then.", False),
+        ("Ohio", False),
+        ("", False),
+    ],
+)
+def test_trails_off(text: str, expected: bool) -> None:
+    from app.voice.gateway import trails_off
+
+    assert trails_off(text) is expected
+
+
+async def test_trailing_off_utterance_waits_for_the_rest(
+    sm: async_sessionmaker[AsyncSession], tmp_path: Path
+) -> None:
+    stt = FakeSTT(utterances=["I like building things and", "robots too"], auto_final_frames=5)
+    h = _harness(sm, tmp_path, stt=stt)
+    h.fake.add_stream(ScriptedStream(chunks=["Robots, nice! ", "Where do you live?"]))
+    h.fake.add_parse("ExtractionWire", _extraction(quote="robots"))
+    sid = await _new_session(sm)
+    with h.client.websocket_connect(f"/api/sessions/{sid}/voice") as ws:
+        _until(ws, _is("state", state="listening"))
+        for _ in range(5):
+            ws.send_bytes(FRAME)  # "I like building things and" -> final, held
+        for _ in range(2):
+            ws.send_bytes(FRAME)  # the student keeps going
+        interim = _until(ws, _is("transcript_interim", text="I like building things and robots"))
+        assert "transcript_final" not in _types(interim)
+        for _ in range(3):
+            ws.send_bytes(FRAME)
+        final = _until(ws, _is("transcript_final"))[-1][1]
+        assert final["text"] == "I like building things and robots too"
+        assert final["turn"] == 1
+        _until(ws, _is("done"))
+        ws.send_json({"type": "stop"})
+
+
+async def test_held_utterance_starts_after_the_hold(
+    sm: async_sessionmaker[AsyncSession], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("app.voice.gateway.TRAILING_HOLD_S", 0.2)
+    stt = FakeSTT(utterances=["I really like math and"], auto_final_frames=5)
+    h = _harness(sm, tmp_path, stt=stt)
+    h.fake.add_stream(ScriptedStream(chunks=["Math is great. ", "What else?"]))
+    h.fake.add_parse("ExtractionWire", _extraction(quote="math"))
+    sid = await _new_session(sm)
+    with h.client.websocket_connect(f"/api/sessions/{sid}/voice") as ws:
+        _until(ws, _is("state", state="listening"))
+        for _ in range(5):
+            ws.send_bytes(FRAME)
+        final = _until(ws, _is("transcript_final"))[-1][1]
+        assert final["text"] == "I really like math and"
+        _until(ws, _is("done"))
+        ws.send_json({"type": "stop"})
+
+
+async def test_interims_during_reply_are_sent_with_barge_in(
+    sm: async_sessionmaker[AsyncSession], tmp_path: Path
+) -> None:
+    stt = FakeSTT(utterances=[UTTERANCE, "wait hold on"], auto_final_frames=6)
+    h = _harness(sm, tmp_path, stt=stt, barge_in=True)
+    h.fake.add_stream(ScriptedStream(chunks=SLOW_REPLY, delay_s=1.2))
+    h.fake.add_parse("ExtractionWire", _extraction())
+    sid = await _new_session(sm)
+    with h.client.websocket_connect(f"/api/sessions/{sid}/voice") as ws:
+        _until(ws, _is("state", state="listening"))
+        for _ in range(6):
+            ws.send_bytes(FRAME)
+        _until(ws, _is("audio_start", sentence=0))
+        ws.send_bytes(FRAME)
+        ws.send_bytes(FRAME)
+        f = _until(ws, _is("transcript_interim", text="wait hold"))[-1][1]
+        assert f["during_reply"] is True
+        ws.send_json({"type": "stop"})
+
+
+async def test_student_continuing_before_any_audio_restarts_the_turn(
+    sm: async_sessionmaker[AsyncSession], tmp_path: Path
+) -> None:
+    stt = FakeSTT(utterances=["I love coding", "and I also like drawing"], auto_final_frames=3)
+    h = _harness(sm, tmp_path, stt=stt, barge_in=True)
+    h.fake.add_stream(ScriptedStream(chunks=["Coding is great. "], delay_s=3.0))  # slow start
+    h.fake.add_parse("ExtractionWire", _extraction())
+    h.fake.add_stream(ScriptedStream(chunks=["Drawing too, nice! ", "Where do you live?"]))
+    h.fake.add_parse("ExtractionWire", _extraction(quote="I love coding"))
+    sid = await _new_session(sm)
+    with h.client.websocket_connect(f"/api/sessions/{sid}/voice") as ws:
+        _until(ws, _is("state", state="listening"))
+        for _ in range(3):
+            ws.send_bytes(FRAME)  # turn 1
+        _until(ws, _is("transcript_final", turn=1))
+        for _ in range(3):
+            ws.send_bytes(FRAME)  # keeps talking while the counselor thinks
+        frames = _until(ws, _is("transcript_final", turn=2))
+        stopped = [f[1] for f in frames if f[0] == "json" and f[1]["type"] == "interrupted"]
+        assert stopped and stopped[0]["assistant_text"] == "…"
+        assert "<pcm>" not in _types(frames)
+        assert frames[-1][1]["text"] == "and I also like drawing"
+        _until(ws, _is("done", turn=2))
+        ws.send_json({"type": "stop"})
+    # what the student said before the pause is still saved (the cut reply's extraction)
+    async with sm() as db:
+        snaps = (
+            (
+                await db.execute(
+                    select(ProfileSnapshot)
+                    .where(ProfileSnapshot.session_id == sid)
+                    .order_by(ProfileSnapshot.after_turn)
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert snaps[0].next_topic is None  # the unheard question doesn't count as asked
+    assert snaps[-1].profile["interests"]["value"] == ["coding"]
+
+
+async def test_backchannel_clips_endpoint(
+    sm: async_sessionmaker[AsyncSession], tmp_path: Path
+) -> None:
+    import app.api.voice as voice_api
+
+    voice_api._backchannel_cache.clear()
+    on = _harness(sm, tmp_path, backchannel=True).client.get("/api/voice/backchannels").json()
+    assert on["sample_rate"] == 24000
+    assert [c["text"] for c in on["clips"]] == list(voice_api.BACKCHANNEL_TEXTS)
+    assert all(c["pcm16_b64"] for c in on["clips"])
+    off = _harness(sm, tmp_path).client.get("/api/voice/backchannels").json()
+    assert off["clips"] == []
+
+
+@pytest.mark.parametrize(
+    ("text", "clips", "expected"),
+    [
+        ("Mhm.", ["Mhm."], ""),
+        ("Mm, I see.", ["Mm, I see."], ""),
+        ("Yeah. And I like robots.", ["Yeah."], "And I like robots."),
+        ("I like robots, yeah.", ["Yeah."], "I like robots,"),
+        ("Yeah.", ["Mhm."], "Yeah."),  # a real answer, not the clip that played
+        ("I like robots.", [], "I like robots."),
+    ],
+)
+def test_strip_echo(text: str, clips: list[str], expected: str) -> None:
+    from app.voice.gateway import strip_echo
+
+    assert strip_echo(text, clips) == expected
+
+
+async def test_backchannel_echo_is_not_a_turn(
+    sm: async_sessionmaker[AsyncSession], tmp_path: Path
+) -> None:
+    stt = FakeSTT(utterances=["Mhm.", "I like robots"], auto_final_frames=3)
+    h = _harness(sm, tmp_path, stt=stt, backchannel=True)
+    h.fake.add_stream(ScriptedStream(chunks=["Robots, nice! ", "Where do you live?"]))
+    h.fake.add_parse("ExtractionWire", _extraction(quote="I like robots"))
+    sid = await _new_session(sm)
+    with h.client.websocket_connect(f"/api/sessions/{sid}/voice") as ws:
+        _until(ws, _is("state", state="listening"))
+        ws.send_json({"type": "backchannel", "text": "Mhm."})
+        for _ in range(3):
+            ws.send_bytes(FRAME)  # the clip heard back through the mic -> dropped
+        for _ in range(3):
+            ws.send_bytes(FRAME)
+        final = _until(ws, _is("transcript_final"))[-1][1]
+        assert final == {"type": "transcript_final", "text": "I like robots", "turn": 1}
+        _until(ws, _is("done"))
         ws.send_json({"type": "stop"})

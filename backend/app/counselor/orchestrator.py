@@ -54,6 +54,7 @@ from app.counselor import search_notes
 from app.counselor.context import (
     HistoryTurn,
     PlannerHistory,
+    PlannerTopic,
     describe_topic,
     plan_next_topic,
     planner_history,
@@ -98,6 +99,8 @@ log = get_logger(__name__)
 
 HISTORY_WINDOW = 20  # turns of history sent to the reply model
 RETRIEVE_K = 40  # candidates handed to the recommender (SPEC §8)
+# A stopped reply waits this long for its extraction so the answer is still saved.
+EXTRACT_ON_STOP_S = 8.0
 REPLY_ERROR_MESSAGE = "The counselor couldn't reply. Please retry."
 REFUSAL_FALLBACK = (
     "I'm not able to help with that one, but I'm happy to keep talking about college, "
@@ -308,11 +311,24 @@ def _metric_row(
     )
 
 
+def reply_system_prompt(source: EvidenceSource) -> str:
+    """The counselor's system prompt; spoken turns add the voice-style addendum."""
+    base = load_prompt("counselor_reply").text
+    if source == "voice":
+        return f"{base}\n\n{load_prompt('counselor_voice').text}"
+    return base
+
+
+def reply_prompt_id(source: EvidenceSource) -> str:
+    rid = load_prompt("counselor_reply").id
+    return f"{rid}+{load_prompt('counselor_voice').id}" if source == "voice" else rid
+
+
 def build_reply_messages(
     history: list[HistoryTurn],
     text: str,
     profile: StudentProfile,
-    next_topic: NextTopic | None = None,
+    next_topic: PlannerTopic | None = None,
 ) -> list[dict[str, Any]]:
     """History window + new user message + a trailing mid-conversation system note.
 
@@ -368,7 +384,7 @@ class CounselorOrchestrator:
         source: EvidenceSource,
         assistant_text: str | None,
         interrupted: bool,
-        snapshot: tuple[StudentProfile, NextTopic | None] | None,
+        snapshot: tuple[StudentProfile, PlannerTopic | None] | None,
         metrics: list[dict[str, Any]],
     ) -> Turn | None:
         async with self.sessionmaker() as db:
@@ -418,6 +434,7 @@ class CounselorOrchestrator:
             asked,
             student_wants_matches=wants_matches(text, previous_offer=previous_offer),
             offered_after_checklist=offered,
+            last_answer=text,
         )
         extractor = self.extractor
 
@@ -435,7 +452,7 @@ class CounselorOrchestrator:
         extract_task = asyncio.create_task(run_extraction())
         stream = self.llm.stream_text(
             self.reply_model,
-            load_prompt("counselor_reply").text,
+            reply_system_prompt(source),
             build_reply_messages(history, text, prev_profile, topic),
             effort=self.reply_effort,
             max_tokens=self.reply_max_tokens,
@@ -447,7 +464,7 @@ class CounselorOrchestrator:
         finished = False
         try:
             with tl.stage("reply_total") as st:
-                st.set(prompt=load_prompt("counselor_reply").id, next_topic=topic)
+                st.set(prompt=reply_prompt_id(source), next_topic=topic)
                 stream_stage = st
                 try:
                     async for chunk in stream:
@@ -474,11 +491,29 @@ class CounselorOrchestrator:
                 st.set(ttft_ms=stream.ttft_ms)
             finished = True
         finally:
-            if not finished:  # client went away (GeneratorExit / cancellation)
+            if not finished:  # reply stopped (barge-in / restart / client gone)
                 await stream.aclose()
-                extract_task.cancel()
                 if stream_stage is not None:
                     stream_stage.set(interrupted=True)
+                # Keep what the student said even though the reply was cut: wait briefly
+                # for the extraction and save its profile. Topic None = the planned
+                # question was never heard, so it doesn't count as asked.
+                stop_profile: StudentProfile | None = None
+                hard_cancel = False
+                try:
+                    outcome = await asyncio.wait_for(
+                        asyncio.shield(extract_task), EXTRACT_ON_STOP_S
+                    )
+                    stop_profile = apply_delta(prev_profile, outcome.result.delta, user_idx, source)
+                    stop_profile = add_extra_evidence(
+                        stop_profile, outcome.extra_quotes, user_idx, source
+                    )
+                except asyncio.CancelledError:  # hard cancel: save the turn, then re-raise
+                    extract_task.cancel()
+                    hard_cancel = True
+                except Exception as exc:  # timeout or failure: drop the extraction
+                    extract_task.cancel()
+                    log.info("extract_dropped_on_stop", error=type(exc).__name__)
                 await asyncio.shield(
                     self._persist_turn(
                         session_id=session_id,
@@ -487,10 +522,12 @@ class CounselorOrchestrator:
                         source=source,
                         assistant_text="".join(reply_parts) if reply_parts else None,
                         interrupted=True,
-                        snapshot=None,
+                        snapshot=None if stop_profile is None else (stop_profile, None),
                         metrics=list(tl.stages),
                     )
                 )
+                if hard_cancel:
+                    raise asyncio.CancelledError
 
         # 3. merge extraction — any failure keeps the previous profile
         profile = prev_profile
@@ -511,7 +548,7 @@ class CounselorOrchestrator:
             metrics.append({"stage": "reply_ttft", "ms": stream.ttft_ms, "model": self.reply_model})
         assistant_text = "".join(reply_parts)
         replied = reply_error is None or bool(reply_parts)
-        snapshot: tuple[StudentProfile, NextTopic | None] | None = (
+        snapshot: tuple[StudentProfile, PlannerTopic | None] | None = (
             (profile, topic if replied else None) if (extracted or replied) else None
         )
         assistant_turn = await self._persist_turn(

@@ -224,7 +224,8 @@ export function Talk() {
               next[i] = { ...prev, text: ev.assistant_text, interrupted: true };
               return next;
             });
-          } else {
+          } else if (ev.assistant_text !== "…") {
+            // "…" = stopped before any audio (the student kept talking): nothing to show.
             addTurn("assistant", ev.assistant_text, true);
           }
           voiceDoneTurn.current = ev.turn;

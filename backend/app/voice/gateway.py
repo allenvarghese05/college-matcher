@@ -8,12 +8,16 @@ Client -> server
   {"type":"playback_start", "turn", "t_ms", "sent_ms"}   first audio of a turn played (t5)
   {"type":"played", "turn", "sentence"}        a sentence finished playing (informational)
   {"type":"interrupt", "turn", "last_played"}  barge-in (only honoured with VOICE_BARGE_IN)
+  {"type":"backchannel", "text"}                the client just played a "mhm" clip: a final
+                                                that is only its echo is dropped
   {"type":"stop"}                              end the voice session
 
 Server -> client (JSON text frames, all carry ``type``)
-  hello {barge_in, input_sample_rate, output_sample_rate, provider}
+  hello {barge_in, backchannel, input_sample_rate, output_sample_rate, provider}
   state {state: listening|thinking|speaking}
-  transcript_interim {text}            transcript_final {text, turn}
+  transcript_interim {text, during_reply}   transcript_final {text, turn}
+      (``during_reply``: the counselor is thinking or speaking; with barge-in the client
+      uses these words to confirm the student is really talking over it, not echo)
   assistant_text {delta, turn}         profile {profile}      ready {ready, missing}
   audio_start {turn, sentence, text, sample_rate} -> binary PCM16 frames -> audio_end {...}
   done {turn, turn_id, assistant_text, audio}
@@ -38,6 +42,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import re
 import time
 import uuid
 from collections.abc import Callable
@@ -65,6 +70,62 @@ log = get_logger(__name__)
 State = Literal["listening", "thinking", "speaking"]
 NOTHING_PLAYED = "…"  # assistant text kept when barge-in cut the reply before any audio
 FINISH_TIMEOUT_S = 10.0  # wait for a stopped turn to persist before hard-cancelling it
+# A final transcript that trails off ("...and", "um") is held this long for more speech
+# before the turn starts, so a mid-thought pause doesn't hand the floor to the counselor.
+TRAILING_HOLD_S = 1.6
+TRAILING_HOLD_MAX_S = 3.0  # total cap, however much noise/speech keeps extending it
+# With barge-in, a final of at least this many words while the counselor is still
+# thinking (no audio sent yet) means the student wasn't done: restart the turn.
+CONTINUE_MIN_WORDS = 2
+# After terminal punctuation only true connectives/fillers count ("I think so." is done).
+_TRAILING_STRONG = frozenset("and but or because cause um uh umm uhh er hmm".split())
+_TRAILING_WORDS = _TRAILING_STRONG | frozenset(
+    "so like the a an to of with if that then my i i'm it's which when where who also plus".split()
+)
+
+
+def trails_off(text: str) -> bool:
+    """The utterance sounds unfinished: ends on a comma/ellipsis or a connective/filler."""
+    t = text.strip()
+    if not t:
+        return False
+    if t.endswith((",", "...", "…", "-", "—")):
+        return True
+    body = t.rstrip(".!?")
+    if not body.split():
+        return False
+    last = body.split()[-1].lower().strip(",.'\"")
+    return last in (_TRAILING_STRONG if body != t else _TRAILING_WORDS)
+
+
+# A final heard this soon after a backchannel clip that is just that clip is its echo.
+BACKCHANNEL_ECHO_S = 2.5
+
+
+def _norm(text: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9']+", text.lower()))
+
+
+def strip_echo(text: str, clips: list[str]) -> str:
+    """Remove a just-played backchannel clip heard back through the mic: the whole final,
+    or the clip's words at its very start or end ("Mhm. And I like robots")."""
+    words = text.split()
+    for clip in clips:
+        c = _norm(clip)
+        if not c:
+            continue
+        n = len(c.split())
+        if _norm(text) == c:
+            return ""
+        if len(words) > n and _norm(" ".join(words[:n])) == c:
+            words = words[n:]
+        elif len(words) > n and _norm(" ".join(words[-n:])) == c:
+            words = words[:-n]
+    return " ".join(words)
+
+
+def word_count(text: str) -> int:
+    return len(text.split())
 
 
 class Transport(Protocol):
@@ -104,6 +165,7 @@ class VoiceGateway:
     stt: STTProvider
     tts: TTSProvider
     barge_in: bool = False
+    backchannel: bool = False
     provider_name: str = "deepgram"
     input_sample_rate: int = 16000
     idle_timeout_s: float = 90.0
@@ -115,6 +177,13 @@ class VoiceGateway:
     _run: _TurnRun | None = None
     _pending_t0: tuple[float, float] | None = None  # (server-mapped, client ms)
     _buffered_finals: list[str] = field(default_factory=list)
+    _held: list[str] = field(default_factory=list)  # trailing-off finals awaiting more
+    _hold_task: asyncio.Task[None] | None = None
+    _hold_started: float = 0.0
+    _bg_tasks: set[asyncio.Task[None]] = field(default_factory=set)
+    _start_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    _stopping: bool = False  # shutting down: no new turns
+    _backchannels: list[tuple[float, str]] = field(default_factory=list)  # (played at, text)
     _last_activity: float = 0.0
     _closed: bool = False
     _send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -158,6 +227,7 @@ class VoiceGateway:
             {
                 "type": "hello",
                 "barge_in": self.barge_in,
+                "backchannel": self.backchannel,
                 "input_sample_rate": self.input_sample_rate,
                 "output_sample_rate": self.tts.sample_rate,
                 "provider": self.provider_name,
@@ -187,6 +257,12 @@ class VoiceGateway:
             await self._shutdown()
 
     async def _shutdown(self) -> None:
+        # A held (trailing-off) utterance is dropped at shutdown; a release already
+        # starting a turn is cancelled before the turn exists.
+        self._stopping = True
+        for task in list(self._bg_tasks):
+            task.cancel()
+        await asyncio.gather(*self._bg_tasks, return_exceptions=True)
         run = self._run
         if run is not None and run.running:
             self._request_stop(run, "shutdown")
@@ -249,6 +325,12 @@ class VoiceGateway:
                 await self._on_playback_start(msg)
             elif kind == "interrupt":
                 await self._on_interrupt(msg)
+            elif kind == "backchannel":
+                now = self.clock()
+                self._backchannels = [
+                    b for b in self._backchannels if now - b[0] < BACKCHANNEL_ECHO_S
+                ]
+                self._backchannels.append((now, str(msg.get("text") or "")[:40]))
             # "played" marks are informational; the interrupt carries last_played
 
     def _client_time(self, msg: dict[str, Any]) -> tuple[float, float] | None:
@@ -316,20 +398,98 @@ class VoiceGateway:
         if ev.kind == "speech_started":
             self._last_activity = self.clock()
             return
-        run = self._run
-        busy = run is not None and run.running and run.cancel is None
+        busy = self._busy()
         if ev.kind == "interim":
             self._last_activity = self.clock()
-            if not busy:
-                await self._send({"type": "transcript_interim", "text": ev.text})
+            if ev.text:
+                self._extend_hold()  # still talking: don't start the held turn yet
+            if not busy or self.barge_in:
+                text = " ".join([*self._held, ev.text]) if not busy else ev.text
+                await self._send({"type": "transcript_interim", "text": text, "during_reply": busy})
         elif ev.kind == "final":
             self._last_activity = self.clock()
-            if busy:
-                # Speech while the counselor talks (no barge-in): keep it for the next turn.
-                log.info("stt_final_buffered", state=self.state)
-                self._buffered_finals.append(ev.text)
+            await self._on_final(ev.text)
+
+    def _busy(self) -> bool:
+        run = self._run
+        return run is not None and run.running and run.cancel is None
+
+    def _absorb_while_busy(self, text: str) -> bool:
+        """A final heard while a reply is in flight. Before any reply audio (barge-in on),
+        2+ words mean the student wasn't done: stop the reply and return False so the
+        caller starts a new turn (the stopped turn's extraction is still saved). Otherwise
+        keep the words for the next turn and return True."""
+        run = self._run
+        assert run is not None
+        if self.barge_in and run.timing.t4 is None and word_count(text) >= CONTINUE_MIN_WORDS:
+            log.info("voice_turn_restarted", words=word_count(text))
+            run.last_played = -1
+            self._request_stop(run, "interrupt")
+            return False
+        log.info("stt_final_buffered", state=self.state)
+        self._buffered_finals.append(text)
+        return True
+
+    async def _on_final(self, text: str) -> None:
+        """Start the turn, unless the student seems mid-thought: then hold briefly."""
+        now = self.clock()
+        recent = [t for at, t in self._backchannels if now - at < BACKCHANNEL_ECHO_S]
+        if recent:
+            cleaned = strip_echo(text, recent)
+            if cleaned != text:
+                log.info("backchannel_echo_dropped", kept_words=word_count(cleaned))
+            if not cleaned:
                 return
-            await self._start_turn(ev.text)
+            text = cleaned
+        if self._busy() and self._absorb_while_busy(text):
+            return
+        self._held.append(text)
+        if trails_off(text):
+            if self._hold_task is None or self._hold_task.done():
+                self._hold_started = self.clock()
+            self._cancel_hold()
+            self._arm_hold()
+            return
+        self._cancel_hold()
+        await self._release_held()
+
+    def _cancel_hold(self) -> None:
+        if self._hold_task is not None and not self._hold_task.done():
+            self._hold_task.cancel()
+        self._hold_task = None
+
+    def _extend_hold(self) -> None:
+        """More speech is coming: restart the hold clock (if a turn is being held), but
+        never past ``TRAILING_HOLD_MAX_S`` from the start of the hold."""
+        if self._hold_task is not None and not self._hold_task.done():
+            self._cancel_hold()
+            self._arm_hold()
+
+    def _arm_hold(self) -> None:
+        remaining = TRAILING_HOLD_MAX_S - (self.clock() - self._hold_started)
+        delay = max(0.0, min(TRAILING_HOLD_S, remaining))
+
+        async def release_later() -> None:
+            await asyncio.sleep(delay)
+            self._hold_task = None  # from here on a new final can't cancel the release
+            await self._release_held()
+
+        task = asyncio.create_task(release_later())
+        self._hold_task = task
+        self._bg_tasks.add(task)
+        task.add_done_callback(self._bg_tasks.discard)
+
+    async def _release_held(self) -> None:
+        """Start one turn from the held text. Serialized: a final arriving while another
+        release is starting a turn waits, then sees that turn as busy."""
+        async with self._start_lock:
+            if not self._held or self._closed or self._stopping:
+                return
+            text = " ".join(self._held)
+            self._held.clear()
+            if self._busy() and self._absorb_while_busy(text):
+                return
+            await self._start_turn(text)
 
     # ---------------------------------------------------------------- the turn
 

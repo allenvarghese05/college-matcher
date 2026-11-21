@@ -7,7 +7,9 @@
  * Also: an energy-based VAD that reports end of speech (t0) so the server can finalize
  * the transcript early, "first audio played" (t5) and per-sentence playback marks, and —
  * when the server enables barge-in — an `interrupt` as soon as the student talks over
- * the counselor. Protocol: backend/app/voice/gateway.py.
+ * the counselor (ducked by the VAD, confirmed by live-transcript words that aren't echo),
+ * and soft "mhm" backchannels in the student's mid-answer pauses.
+ * Protocol: backend/app/voice/gateway.py.
  */
 import { API_BASE } from "@/lib/api";
 import type { VoiceClientMessage, VoiceServerEvent, VoiceServerState, VoiceStatus } from "@/lib/types";
@@ -40,6 +42,49 @@ export class MicMissingError extends Error {
 
 const INPUT_RATE = 16000;
 const FRAME_SAMPLES = 320; // 20 ms at 16 kHz
+
+// Barge-in: the VAD hearing the student during playback only ducks the counselor; the
+// live transcript confirms it (>= BARGE_MIN_WORDS words that aren't the counselor's own
+// echo) and only then is the reply stopped. No confirmation -> volume comes back.
+const BARGE_MIN_WORDS = 2;
+const DUCK_GAIN = 0.2;
+const DUCK_RELEASE_MS = 1500;
+// ...or the student keeps talking loudly while the counselor is ducked (its echo is then
+// far below the strict threshold), whichever comes first. Transcripts lag ~1-2 s.
+const DUCKED_VOICE_MS = 600;
+const ECHO_OVERLAP = 0.6; // share of heard words found in the reply being spoken = echo
+
+// Backchannels: a soft "mhm" in a mid-answer pause, at most every BACKCHANNEL_GAP_MS.
+const BACKCHANNEL_PAUSE_MS = 380; // pause long enough to react to...
+const BACKCHANNEL_WINDOW_MS = 160; // ...but before the utterance would end
+const BACKCHANNEL_MIN_TALK_MS = 2500;
+const BACKCHANNEL_GAP_MS = 7000;
+const BACKCHANNEL_CHANCE = 0.7;
+const BACKCHANNEL_GAIN = 0.45;
+const BACKCHANNEL_MUTE_TAIL_MS = 250; // keep the mic muted a bit past the clip (echo tail)
+
+const words = (text: string): string[] => text.toLowerCase().match(/[a-z0-9']+/g) ?? [];
+
+// Common words say nothing about echo ("no I want to..." shares "I", "to" with anything).
+const STOPWORDS = new Set(
+  "a an and are as at be but by do for from i i'm in is it it's me my no not of on or so that the to we you".split(" "),
+);
+
+/** Mostly words the counselor is saying right now -> the mic is hearing the speaker. */
+export function looksLikeEcho(heard: string, spoken: string): boolean {
+  const all = words(heard);
+  if (!all.length) return true;
+  const s = new Set(words(spoken));
+  if (!s.size) return false;
+  const content = all.filter((w) => !STOPWORDS.has(w));
+  const h = content.length ? content : all;
+  const hits = h.filter((w) => s.has(w)).length;
+  return hits / h.length >= ECHO_OVERLAP;
+}
+
+export function isBargeIn(heard: string, spoken: string): boolean {
+  return words(heard).length >= BARGE_MIN_WORDS && !looksLikeEcho(heard, spoken);
+}
 
 export async function fetchVoiceStatus(signal?: AbortSignal): Promise<VoiceStatus> {
   try {
@@ -100,13 +145,16 @@ export class EnergyVad {
   lastVoicedAt = 0;
 
   constructor(
-    private readonly hangMs = 700,
+    private readonly hangMs = 1000,
     private readonly startFrames = 3,
   ) {}
 
+  isVoiced(rms: number, strict = false): boolean {
+    return rms > Math.max(strict ? 0.04 : 0.012, this.floor * (strict ? 6 : 3));
+  }
+
   push(rms: number, now: number, strict = false): "start" | "end" | null {
-    const threshold = Math.max(strict ? 0.04 : 0.012, this.floor * (strict ? 6 : 3));
-    const voiced = rms > threshold;
+    const voiced = this.isVoiced(rms, strict);
     if (!voiced && !this.speaking) this.floor = this.floor * 0.95 + rms * 0.05;
     if (voiced) {
       this.voicedRun += 1;
@@ -153,7 +201,20 @@ export class VoiceSession {
   private serverState: VoiceServerState | null = null;
   private ui: VoiceUiState = "connecting";
   private bargeIn = false;
+  private backchannel = false;
   private outputRate = 24000;
+  private spokenText = ""; // what the counselor is saying this turn (echo filter)
+  private duckTimer: number | null = null;
+  private duckedVoiceMs = 0;
+  private bcClips: AudioBuffer[] = [];
+  private bcTexts: string[] = [];
+  private bcGain: GainNode | null = null;
+  private bcLastAt = 0;
+  private bcLastIdx = -1;
+  private bcThisPause = false;
+  private bcMutedUntil = 0;
+  private speechVoicedAt = 0; // last really-voiced frame (not bumped across clips): t0 // performance.now() until which mic upload/VAD ignore the clip
+  private utteranceStartAt = 0;
   private micLevel = 0;
   private closed = false;
   private closeError: { code: string; message: string } | null = null;
@@ -230,6 +291,9 @@ export class VoiceSession {
       this.analyserBuf = new Float32Array(new ArrayBuffer(this.analyser.fftSize * 4));
       this.outGain.connect(this.analyser);
       this.analyser.connect(ctx.destination);
+      this.bcGain = ctx.createGain();
+      this.bcGain.gain.value = BACKCHANNEL_GAIN;
+      this.bcGain.connect(ctx.destination);
       if (ctx.state === "suspended") await ctx.resume();
     } catch (e) {
       this.teardown();
@@ -270,16 +334,109 @@ export class VoiceSession {
     if (this.closed || !this.serverState) return;
     const now = performance.now();
     const listening = this.serverState === "listening" && !this.playing;
-    const vad = this.vad.push(rms, now, this.playing);
+    // While our own "mhm" plays (plus its echo tail) keep the VAD out of it. The real mic
+    // audio is still sent (the student may start talking again right then); the server
+    // drops a transcript that is just the clip's echo (we tell it via `backchannel`).
+    const muted = now < this.bcMutedUntil;
+    // Keep the hang clock moving across the clip: the pause it filled isn't silence
+    // the student owes us, so the end-of-speech countdown restarts after the clip.
+    if (muted && this.vad.speaking) this.vad.lastVoicedAt = now;
+    const vad = muted ? null : this.vad.push(rms, now, this.playing);
+    if (!muted && this.vad.isVoiced(rms, this.playing)) this.speechVoicedAt = now; // true t0
 
-    if (vad === "start" && this.playing && this.bargeIn) this.interrupt();
-    if (vad === "end" && listening) {
-      this.send({ type: "speech_end", t_ms: this.vad.lastVoicedAt, sent_ms: now });
+    if (vad === "start") this.utteranceStartAt = now;
+    if (!muted && this.playing && this.bargeIn && this.vad.isVoiced(rms, true)) {
+      if (this.duckTimer !== null) this.duckedVoiceMs += 20;
+      this.duck(); // (re)duck on every loud frame: stays down while they keep talking
+      if (this.duckedVoiceMs >= DUCKED_VOICE_MS) this.interrupt();
+    }
+    if (listening) this.maybeBackchannel(now);
+    if (vad === "end" && !this.playing) {
+      // Also while the server is thinking: a continuation that restarts the turn
+      // still gets its end-of-speech mark (t0).
+      this.send({ type: "speech_end", t_ms: this.speechVoicedAt || this.vad.lastVoicedAt, sent_ms: now });
     }
     if ((listening || this.bargeIn) && this.ws?.readyState === WebSocket.OPEN) this.ws.send(pcm);
   }
 
+  /** Student may be talking over the counselor: turn it down until the transcript says. */
+  private duck(): void {
+    if (!this.outGain || !this.ctx) return;
+    this.outGain.gain.setTargetAtTime(DUCK_GAIN, this.ctx.currentTime, 0.03);
+    if (this.duckTimer === null) this.duckedVoiceMs = 0;
+    if (this.duckTimer !== null) window.clearTimeout(this.duckTimer);
+    this.duckTimer = window.setTimeout(() => this.unduck(), DUCK_RELEASE_MS);
+  }
+
+  private unduck(): void {
+    if (this.duckTimer !== null) window.clearTimeout(this.duckTimer);
+    this.duckTimer = null;
+    this.duckedVoiceMs = 0;
+    if (this.outGain && this.ctx) this.outGain.gain.setTargetAtTime(1, this.ctx.currentTime, 0.05);
+  }
+
+  /** A soft "mhm" when the student pauses mid-answer (never while the counselor talks). */
+  private maybeBackchannel(now: number): void {
+    if (!this.backchannel || !this.bcClips.length || !this.vad.speaking) return;
+    const silent = now - this.vad.lastVoicedAt;
+    if (silent < BACKCHANNEL_PAUSE_MS) {
+      this.bcThisPause = false;
+      return;
+    }
+    if (this.bcThisPause || silent > BACKCHANNEL_PAUSE_MS + BACKCHANNEL_WINDOW_MS) return;
+    this.bcThisPause = true;
+    if (now - this.utteranceStartAt < BACKCHANNEL_MIN_TALK_MS) return;
+    if (now - this.bcLastAt < BACKCHANNEL_GAP_MS || Math.random() > BACKCHANNEL_CHANCE) return;
+    this.playBackchannel(now);
+  }
+
+  private playBackchannel(now: number): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.bcGain) return;
+    let idx = Math.floor(Math.random() * this.bcClips.length);
+    if (idx === this.bcLastIdx) idx = (idx + 1) % this.bcClips.length;
+    const clip = this.bcClips[idx];
+    if (!clip) return;
+    const src = ctx.createBufferSource();
+    src.buffer = clip;
+    src.connect(this.bcGain);
+    src.start();
+    this.bcMutedUntil = now + clip.duration * 1000 + BACKCHANNEL_MUTE_TAIL_MS;
+    this.send({ type: "backchannel", text: this.bcTexts[idx] ?? "" });
+    this.bcLastAt = now;
+    this.bcLastIdx = idx;
+  }
+
+  private async loadBackchannels(): Promise<void> {
+    try {
+      const res = await fetch(`${API_BASE}/voice/backchannels`);
+      if (!res.ok) return;
+      const body = (await res.json()) as { sample_rate: number; clips: { text: string; pcm16_b64: string }[] };
+      const ctx = this.ctx;
+      if (!ctx) return;
+      const usable = body.clips.filter((c) => c.pcm16_b64.length > 0);
+      this.bcTexts = usable.map((c) => c.text);
+      this.bcClips = usable
+        .map((c) => {
+          const bin = atob(c.pcm16_b64);
+          const pcm = new Int16Array(bin.length >> 1);
+          for (let i = 0; i < pcm.length; i++) {
+            const lo = bin.charCodeAt(2 * i);
+            const hi = bin.charCodeAt(2 * i + 1);
+            pcm[i] = (hi << 8) | lo;
+          }
+          const buf = ctx.createBuffer(1, pcm.length, body.sample_rate);
+          const data = buf.getChannelData(0);
+          for (let i = 0; i < pcm.length; i++) data[i] = (pcm[i] ?? 0) / 0x8000;
+          return buf;
+        });
+    } catch {
+      this.bcClips = [];
+    }
+  }
+
   private interrupt(): void {
+    this.unduck();
     const turn = this.audioTurn;
     const lastPlayed = this.lastPlayed.turn === turn ? this.lastPlayed.sentence : -1;
     this.stopPlayback();
@@ -300,12 +457,27 @@ export class VoiceSession {
     switch (ev.type) {
       case "hello":
         this.bargeIn = ev.barge_in;
+        this.backchannel = ev.backchannel ?? false;
         this.outputRate = ev.output_sample_rate;
+        if (this.backchannel) void this.loadBackchannels();
+        break;
+      case "transcript_interim":
+        if (ev.during_reply) {
+          // Heard while the counselor is thinking/speaking: echo, or a real barge-in?
+          if (!isBargeIn(ev.text, this.spokenText)) return;
+          // Speaking includes the gap between two sentences (nothing queued yet).
+          if (this.bargeIn && (this.playing || this.serverState === "speaking")) this.interrupt();
+        }
+        break;
+      case "transcript_final":
+        this.spokenText = "";
         break;
       case "state":
         this.serverState = ev.state;
         break;
       case "audio_start":
+        if (ev.turn !== this.audioTurn) this.spokenText = "";
+        this.spokenText += ` ${ev.text}`;
         this.audioTurn = ev.turn;
         this.outputRate = ev.sample_rate;
         break;
@@ -409,6 +581,8 @@ export class VoiceSession {
   }
 
   private teardown(): void {
+    if (this.duckTimer !== null) window.clearTimeout(this.duckTimer);
+    this.duckTimer = null;
     if (this.ticker !== null) window.clearInterval(this.ticker);
     this.ticker = null;
     this.stopPlayback();

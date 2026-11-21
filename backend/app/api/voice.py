@@ -11,6 +11,8 @@ Inbound limits: binary frames > 64 KB and text frames > 4 KB are dropped.
 
 from __future__ import annotations
 
+import asyncio
+import base64
 import contextlib
 import json
 import uuid
@@ -26,7 +28,7 @@ from app.counselor.orchestrator import CounselorOrchestrator, SessionNotFound, g
 from app.voice.config import get_voice_settings
 from app.voice.gateway import VoiceGateway
 from app.voice.stt import DeepgramSTT, FakeSTT, STTProvider
-from app.voice.tts import DeepgramTTS, FakeTTS, TTSProvider
+from app.voice.tts import DeepgramTTS, FakeTTS, TTSError, TTSProvider
 
 router = APIRouter(tags=["voice"])
 log = get_logger(__name__)
@@ -43,6 +45,7 @@ class VoiceConfig:
     tts: TTSProvider
     provider: str
     barge_in: bool = False
+    backchannel: bool = False
     input_sample_rate: int = 16000
     idle_timeout_s: float = 90.0
 
@@ -57,6 +60,7 @@ def get_voice_config() -> VoiceConfig | None:
             tts=FakeTTS(sample_rate=vs.TTS_SAMPLE_RATE, chunks_per_sentence=10, chunk_ms=50),
             provider="fake",
             barge_in=vs.VOICE_BARGE_IN,
+            backchannel=vs.VOICE_BACKCHANNEL,
             input_sample_rate=vs.INPUT_SAMPLE_RATE,
             idle_timeout_s=vs.VOICE_IDLE_TIMEOUT_S,
         )
@@ -78,6 +82,7 @@ def get_voice_config() -> VoiceConfig | None:
         ),
         provider="deepgram",
         barge_in=vs.VOICE_BARGE_IN,
+        backchannel=vs.VOICE_BACKCHANNEL,
         input_sample_rate=vs.INPUT_SAMPLE_RATE,
         idle_timeout_s=vs.VOICE_IDLE_TIMEOUT_S,
     )
@@ -126,6 +131,45 @@ async def voice_status(config: VoiceConfig | None = Depends(get_voice_config)) -
     return {"available": True, "provider": config.provider, "barge_in": config.barge_in}
 
 
+BACKCHANNEL_TEXTS = ("Mhm.", "Yeah.", "Right.", "Okay.", "Mm, I see.")
+_backchannel_cache: dict[str, dict[str, Any]] = {}
+_backchannel_lock = asyncio.Lock()
+
+
+async def synthesize_backchannels(tts: TTSProvider, cache_key: str) -> dict[str, Any]:
+    """Short listening sounds, synthesized once per voice model and cached in memory."""
+    async with _backchannel_lock:  # concurrent first requests synthesize once
+        if cache_key in _backchannel_cache:
+            return _backchannel_cache[cache_key]
+        clips = []
+        for text in BACKCHANNEL_TEXTS:
+            pcm = b"".join([chunk async for chunk in tts.synthesize(text)])
+            clips.append({"text": text, "pcm16_b64": base64.b64encode(pcm).decode("ascii")})
+        out = {"sample_rate": tts.sample_rate, "clips": clips}
+        _backchannel_cache[cache_key] = out
+        return out
+
+
+@router.get("/api/voice/backchannels")
+async def voice_backchannels(
+    config: VoiceConfig | None = Depends(get_voice_config),
+) -> dict[str, Any]:
+    """PCM16 mono clips for the client's mid-answer "mhm"s (empty when disabled)."""
+    if config is None or not config.backchannel:
+        return {"sample_rate": 24000, "clips": []}
+    key = f"{config.provider}:{getattr(config.tts, 'model', '')}:{config.tts.sample_rate}"
+    try:
+        return await synthesize_backchannels(config.tts, key)
+    except TTSError as exc:
+        log.warning("backchannel_synth_failed", error=str(exc))
+        return {"sample_rate": config.tts.sample_rate, "clips": []}
+    finally:
+        aclose = getattr(config.tts, "aclose", None)
+        if aclose is not None:
+            with contextlib.suppress(Exception):
+                await aclose()
+
+
 async def _fatal(ws: WebSocket, code: str, message: str, close_code: int) -> None:
     await ws.send_text(json.dumps({"type": "error", "code": code, "message": message,
                                    "fatal": True}))  # fmt: skip
@@ -156,6 +200,7 @@ async def voice_socket(
         stt=config.stt,
         tts=config.tts,
         barge_in=config.barge_in,
+        backchannel=config.backchannel,
         provider_name=config.provider,
         input_sample_rate=config.input_sample_rate,
         idle_timeout_s=config.idle_timeout_s,

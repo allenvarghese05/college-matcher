@@ -281,10 +281,10 @@ async def test_counselor_asks_location_size_and_priorities_before_offering_match
     are accepted (never re-asked)."""
     script = [
         ("hi! I love coding", {"interests": _upd(["coding"], "I love coding")}),
-        ("I'd make video games all day", {"dream_without_money": _upd("make video games",
+        ("make video games", {"dream_without_money": _upd("make video games",
                                                                      "make video games")}),
-        ("math class, and I'm good at puzzles", {
-            "favorite_subjects": _upd(["math"], "math class"),
+        ("math, good at puzzles", {
+            "favorite_subjects": _upd(["math"], "math"),
             "strengths": _upd(["puzzles"], "good at puzzles")}),
         ("I'm in robotics club", {"activities": _upd([Activity(name="robotics club")],
                                                      "robotics club")}),
@@ -366,10 +366,10 @@ async def test_waiver_offer_is_repeated_once_after_the_checklist_is_answered(
             "income_bracket": _upd("48-75k", "my family makes 60k"),
             "interests": _upd(["coding"], "I love coding")}),
         ("just show me schools", {}),
-        ("I'd make video games all day", {"dream_without_money": _upd("make video games",
+        ("make video games", {"dream_without_money": _upd("make video games",
                                                                      "make video games")}),
-        ("math class, and I'm good at puzzles", {
-            "favorite_subjects": _upd(["math"], "math class"),
+        ("math, good at puzzles", {
+            "favorite_subjects": _upd(["math"], "math"),
             "strengths": _upd(["puzzles"], "good at puzzles")}),
         ("I'm in robotics club", {"activities": _upd([Activity(name="robotics club")],
                                                      "robotics club")}),
@@ -467,11 +467,11 @@ async def test_client_disconnect_persists_partial_reply_as_interrupted(tmp_path:
     fake.add_stream(
         ScriptedStream(chunks=["Partial ", "reply ", "never ", "finished"], delay_s=0.4)
     )
-    p = _extraction()
+    p = _extraction(interests=Update(value=["coding"], confidence=0.9, quote="I love coding"))
     p.delay_s = 1.0
     fake.add_parse("ExtractionWire", p)
     sid = await _new_session()
-    agen = _orch(fake, tmp_path).handle_turn(sid, "hello")
+    agen = _orch(fake, tmp_path).handle_turn(sid, "hello, I love coding")
     got = [await agen.__anext__(), await agen.__anext__()]
     assert [e.data["text"] for e in got] == ["Partial ", "reply "]
     await agen.aclose()  # what the API layer does when the client goes away
@@ -482,11 +482,15 @@ async def test_client_disconnect_persists_partial_reply_as_interrupted(tmp_path:
             .all()
         )
         snaps = (
-            await db.execute(select(ProfileSnapshot).where(ProfileSnapshot.session_id == sid))
-        ).all()
+            (await db.execute(select(ProfileSnapshot).where(ProfileSnapshot.session_id == sid)))
+            .scalars()
+            .all()
+        )
     assert [(t.role, t.interrupted) for t in turns] == [("user", False), ("assistant", True)]
     assert turns[1].text == "Partial reply "
-    assert snaps == []  # extraction was cancelled
+    # the student's answer is still saved; the unheard question doesn't count as asked
+    assert len(snaps) == 1 and snaps[0].next_topic is None
+    assert snaps[0].profile["interests"]["value"] == ["coding"]
 
 
 async def test_refusal_counts_are_recorded_per_stage(tmp_path: Path) -> None:
@@ -514,3 +518,42 @@ async def test_refusal_counts_are_recorded_per_stage(tmp_path: Path) -> None:
         mod.TurnLogger = real  # type: ignore[misc]
     extract = next(s for s in seen[0]["stages"] if s["stage"] == "extract")
     assert extract["refusals"] == 1
+
+
+def test_voice_turns_get_the_spoken_style_addendum() -> None:
+    from app.counselor.orchestrator import reply_prompt_id, reply_system_prompt
+
+    chat, voice = reply_system_prompt("chat"), reply_system_prompt("voice")
+    assert voice.startswith(chat) and "spoken out loud" in voice
+    assert "spoken out loud" not in chat
+    assert reply_prompt_id("chat") == "counselor_reply.v4"
+    assert reply_prompt_id("voice") == "counselor_reply.v4+counselor_voice.v1"
+
+
+async def test_follow_up_is_planned_persisted_and_the_checklist_still_completes(
+    tmp_path: Path,
+) -> None:
+    """A substantive dream answer earns one follow-up; the intake still reaches the offer."""
+    script = [
+        ("hi! I love coding", {"interests": _upd(["coding"], "I love coding")}),
+        ("I'd build video games with my friends all day long", {
+            "dream_without_money": _upd("build video games", "build video games")}),
+        ("mostly the coding part", {}),
+        ("math, good at puzzles", {
+            "favorite_subjects": _upd(["math"], "math"),
+            "strengths": _upd(["puzzles"], "good at puzzles")}),
+        ("robotics club", {"activities": _upd([Activity(name="robotics club")],
+                                              "robotics club")}),
+        ("I live in Ohio", {"home_state": _upd("OH", "I live in Ohio")}),
+        ("no preference really", {}),
+        ("anywhere is fine", {}),
+        ("cost matters most", {"priorities": _upd(["cost"], "cost matters most")}),
+        ("my parents make about 60k", {"income_bracket": _upd("48-75k", "60k")}),
+        ("cool", {}),
+    ]  # fmt: skip
+    fake, sid = await _play(script, tmp_path)
+    topics = [n.split("Suggested next topic: ")[1].split(" (")[0].split("\n")[0]
+              for n in _notes(fake)]  # fmt: skip
+    assert topics[:3] == ["dream_without_money", "follow_up", "strengths_subjects"]
+    assert topics.count("follow_up") == 1
+    assert topics[-1] == "ready_to_recommend"
