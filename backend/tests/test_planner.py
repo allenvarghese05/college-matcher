@@ -292,3 +292,55 @@ def test_offer_after_checklist_covered_by_volunteered_answers_counts() -> None:
 def topic_key_of(p: StudentProfile, topic: str) -> str:
     """The planner key a planned topic is recorded under (as asked_from_history)."""
     return asked_from_history([(p, topic)])[0]
+
+
+# --------------------------------------------------------------- follow-ups
+
+
+LONG = "I'd build video games with my friends all day long"
+
+
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        (LONG, True),
+        ("I really love drawing comics and making characters", True),
+        ("video games", False),  # too short to dig into
+        ("I don't know, not really sure yet", False),  # a shrug
+        (None, False),
+        ("", False),
+    ],
+)
+def test_is_substantive(answer: str | None, expected: bool) -> None:
+    from app.counselor.context import is_substantive
+
+    assert is_substantive(answer) is expected
+
+
+def test_follow_up_after_a_substantive_open_answer() -> None:
+    p = _p(dream_without_money="make video games")
+    assert plan_next_topic(p, ["dream_without_money"], last_answer=LONG) == "follow_up"
+    # the follow-up is asked once, then the checklist resumes
+    assert plan_next_topic(p, ["dream_without_money", "follow_up"], last_answer=LONG) == (
+        "interests"
+    )
+
+
+def test_no_follow_up_for_short_answers_closed_topics_or_match_requests() -> None:
+    p = _p(**READY)
+    assert plan_next_topic(_p(), ["dream_without_money"], last_answer="games") == "interests"
+    # home state / money are closed questions: never followed up
+    assert plan_next_topic(p, [*EARLY, "location"], last_answer=LONG) != "follow_up"
+    assert (
+        plan_next_topic(p, ["activities"], student_wants_matches=True, last_answer=LONG)
+        == "ready_to_recommend"
+    )
+    # without last_answer (old callers) the planner never follows up
+    assert plan_next_topic(_p(), ["dream_without_money"]) == "interests"
+
+
+def test_follow_up_is_recorded_in_history_and_described() -> None:
+    p = _p(dream_without_money="make video games")
+    history = [(StudentProfile(), "dream_without_money"), (p, "follow_up")]
+    assert asked_from_history(history) == ["dream_without_money", "follow_up"]
+    assert describe_topic("follow_up", p).startswith("follow_up (one follow-up")

@@ -10,6 +10,9 @@ from typing import Any, Literal, NamedTuple
 
 from app.schemas import NextTopic, ProfileField, StudentProfile
 
+# The planner's hint: a NextTopic, or "follow_up" (planner-only; the extractor never picks it).
+PlannerTopic = NextTopic | Literal["follow_up"]
+
 Role = Literal["user", "assistant"]
 
 
@@ -159,6 +162,31 @@ CORE_ORDER: tuple[str, ...] = (
     *QUALITY_CHECKLIST,
     "money",
 )
+# Follow-ups: after a substantive answer to one of these open topics, the next turn asks
+# ONE follow-up about that answer (persisted as the hint "follow_up") before moving on,
+# so the conversation digs in instead of marching down the checklist.
+FOLLOW_UP: Literal["follow_up"] = "follow_up"
+FOLLOW_UP_AFTER: frozenset[str] = frozenset(
+    {"dream_without_money", "interests", STRENGTHS_SUBJECTS, "activities"}
+)
+FOLLOW_UP_MIN_WORDS = 6
+_NON_ANSWER = re.compile(
+    r"\b(i\s+(?:do\s*n['’]?t|dunno)\s+know|not\s+sure|no\s+idea|idk|nothing\s+really|"
+    r"no\s+preference|skip|pass)\b",
+    re.I,
+)
+
+
+def is_substantive(answer: str | None) -> bool:
+    """Worth a follow-up: at least a few words and not a shrug ("I don't know")."""
+    if not answer:
+        return False
+    words = re.findall(r"[A-Za-z0-9'’]+", answer)
+    if len(words) < FOLLOW_UP_MIN_WORDS:
+        return False
+    return not (len(words) < 12 and _NON_ANSWER.search(answer))
+
+
 # A missing readiness topic is asked at most this many times in all (1 + 2 re-asks).
 MAX_READINESS_ASKS = 3
 # Enrichment topics: asked once each after matches have been offered. (Academics stays
@@ -324,7 +352,8 @@ def plan_next_topic(
     *,
     student_wants_matches: bool = False,
     offered_after_checklist: bool | None = None,
-) -> NextTopic:
+    last_answer: str | None = None,
+) -> PlannerTopic:
     """The one topic the counselor should raise next (deterministic).
 
     ``asked`` = planner keys already steered to on earlier turns
@@ -349,6 +378,11 @@ def plan_next_topic(
        An offer made on a one-turn waiver (before the checklist was done) does not
        count, so the normal offer still comes once the checklist completes.
     5. Then enrichment topics once each, and ``ready_to_recommend`` when all are asked.
+
+    Follow-ups (only when ``last_answer``, the student's latest message, is given): if
+    the previous hint was an open topic in ``FOLLOW_UP_AFTER`` and the answer is
+    substantive (:func:`is_substantive`), this turn is ``follow_up`` — one question
+    about that answer. Rule 1 still wins, and a follow-up never follows a follow-up.
     """
     missing = profile.missing_for_recommendation()
     asked_set = set(asked)
@@ -357,6 +391,8 @@ def plan_next_topic(
 
     if student_wants_matches:
         return "ready_to_recommend" if not missing else first_missing[0]  # type: ignore[return-value]
+    if last in FOLLOW_UP_AFTER and is_substantive(last_answer):
+        return FOLLOW_UP
 
     offered = (
         _offered_after_checklist(profile, asked, missing)
@@ -398,10 +434,12 @@ TOPIC_GUIDANCE: dict[str, str] = {
     "activities": "clubs, sports, jobs, volunteering or projects",
     "work_values": "what they want from work",
     "ready_to_recommend": "offer their college matches",
+    FOLLOW_UP: "one follow-up about what they just told you: what draws them to it, a "
+    "specific example, or why it matters to them. Don't move to a new topic yet",
 }
 
 
-def describe_topic(topic: NextTopic, profile: StudentProfile) -> str:
+def describe_topic(topic: PlannerTopic, profile: StudentProfile) -> str:
     """'location (how far from home ...)' — the hint line for the reply prompt. The
     combined classes/strengths topic is named by its planner key."""
     key = topic_key(topic, home_state_known(profile)) or topic

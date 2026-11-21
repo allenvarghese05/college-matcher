@@ -47,6 +47,7 @@ INTAKE_ORDER: tuple[str, ...] = (
 
 COMBINED_QUESTION = "Which classes do you like most, and what do you feel you're good at?"
 QUESTIONS: dict[str, str] = {
+    "follow_up": "Oh, that's cool. What is it about that that you enjoy most?",
     "interests": "Nice to meet you! What do you like doing in your free time?",
     "dream_without_money": (
         "If money weren't involved and you weren't getting paid, what would you happily do "
