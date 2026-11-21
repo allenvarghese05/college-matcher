@@ -1,4 +1,4 @@
-.PHONY: setup db-up db-down dev-api test lint fmt migrate data data-sample data-cip-download eval dev-web \
+.PHONY: voice-probe setup db-up db-down dev-api test lint fmt migrate data data-sample data-cip-download eval dev-web \
 	eval-db eval-replay eval-record-smoke eval-live pool label
 
 BACKEND := backend
@@ -83,6 +83,10 @@ RUNS ?= latest
 
 eval: eval-replay
 
+# Live voice round trip against a running API (needs DEEPGRAM_API_KEY; macOS `say` for input).
+voice-probe:
+	cd $(BACKEND) && uv run python ../evals/voice_probe.py
+
 eval-db:
 	cd $(BACKEND) && DATABASE_URL=$(EVAL_DATABASE_URL) uv run python ../evals/db_setup.py
 
@@ -118,7 +122,7 @@ pool:
 label:
 	cd $(BACKEND) && uv run python ../evals/labels/label.py $(ARGS)
 
-# ---- Placeholders: owned by other phases ----
+# ---- Web ----
 
-dev-web:  ## PLACEHOLDER (web agent)
-	@echo "make dev-web: not yet implemented"
+dev-web:
+	npm --prefix web install && npm --prefix web run dev
