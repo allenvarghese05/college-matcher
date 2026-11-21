@@ -57,6 +57,9 @@ auto_judged:
 - unitid: 181330
   reasons:
   - 'H2: net price 21,475 > 20,000'
+- unitid: 173142
+  reasons:
+  - 'H3: distance 336 > 250'
 n_sampled: 42
 n_system_only: 0
 seed: 20261119
@@ -65,3 +68,9 @@ runs:
 candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
 criteria_commit: ee31239af7170f4219e02b510a356cee57174605
 generated_at: '2026-11-20T03:21:13+00:00'
+topup:
+  date: '2026-11-20'
+  rows_added: 0
+  auto_judged_added: 1
+  reason: retriever fix (no silent relaxation, bracket default budget, far-reach cap);
+    new top-10 picks labeled blind

@@ -49,6 +49,33 @@ auto_judged:
   reasons:
   - 'H3: distance 2123 > 700'
   - 'H4: admission rate < 15%'
+- unitid: 153384
+  reasons:
+  - 'H2: net price 8,161 > 5,750'
+  - 'H4: admission rate < 15%'
+- unitid: 156082
+  reasons:
+  - 'H2: out-of-state estimate 9,829 > 5,750'
+- unitid: 190415
+  reasons:
+  - 'H2: net price 6,371 > 5,750'
+  - 'H4: admission rate < 15%'
+- unitid: 190594
+  reasons:
+  - 'H2: out-of-state estimate 9,001 > 5,750'
+- unitid: 190725
+  reasons:
+  - 'H2: net price 9,053 > 5,750'
+- unitid: 193973
+  reasons:
+  - 'H2: net price 7,865 > 5,750'
+- unitid: 216287
+  reasons:
+  - 'H2: net price 6,966 > 5,750'
+  - 'H4: admission rate < 15%'
+- unitid: 479956
+  reasons:
+  - 'H2: out-of-state estimate 10,210 > 5,750'
 n_sampled: 9
 n_system_only: 0
 seed: 20261119
@@ -57,3 +84,9 @@ runs:
 candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
 criteria_commit: ee31239af7170f4219e02b510a356cee57174605
 generated_at: '2026-11-20T03:21:12+00:00'
+topup:
+  date: '2026-11-20'
+  rows_added: 0
+  auto_judged_added: 8
+  reason: retriever fix (no silent relaxation, bracket default budget, far-reach cap);
+    new top-10 picks labeled blind

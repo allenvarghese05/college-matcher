@@ -4,9 +4,9 @@ major_cip4s:
 - 0907
 - '5001'
 - '5006'
-pool_size: 502
+pool_size: 511
 relaxed: []
-shown: 75
+shown: 84
 auto_judged:
 - unitid: 110583
   reasons:
@@ -81,6 +81,21 @@ auto_judged:
 - unitid: 436429
   reasons:
   - 'H2: net price 47,762 > 20,000'
+- unitid: 130697
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 190099
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 195526
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 196866
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 197133
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
 n_sampled: 60
 n_system_only: 15
 seed: 20261119
@@ -89,3 +104,9 @@ runs:
 candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
 criteria_commit: ee31239af7170f4219e02b510a356cee57174605
 generated_at: '2026-11-20T03:21:13+00:00'
+topup:
+  date: '2026-11-20'
+  rows_added: 9
+  auto_judged_added: 5
+  reason: retriever fix (no silent relaxation, bracket default budget, far-reach cap);
+    new top-10 picks labeled blind

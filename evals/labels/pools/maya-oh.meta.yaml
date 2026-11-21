@@ -6,9 +6,9 @@ major_cip4s:
 - '1513'
 - '5004'
 - '5007'
-pool_size: 244
+pool_size: 245
 relaxed: []
-shown: 82
+shown: 83
 auto_judged:
 - unitid: 144050
   reasons:
@@ -51,3 +51,9 @@ runs:
 candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
 criteria_commit: ee31239af7170f4219e02b510a356cee57174605
 generated_at: '2026-11-20T03:21:13+00:00'
+topup:
+  date: '2026-11-20'
+  rows_added: 1
+  auto_judged_added: 0
+  reason: retriever fix (no silent relaxation, bracket default budget, far-reach cap);
+    new top-10 picks labeled blind

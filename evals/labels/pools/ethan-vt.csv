@@ -80,3 +80,16 @@ unitid,name,city,state,control,undergrad_size,locale,net_price,out_of_state_esti
 219046,Black Hills State University,Spearfish,SD,public,1928,town,21151,24343,0.96,965-1135,18-24,"Physical Sciences, General; Physics",1540
 222178,Abilene Christian University,Abilene,TX,private nonprofit,3195,city,27712,,0.66,1070-1270,22-28,Natural Resources Conservation and Research; Physics,1688
 165866,Framingham State University,Framingham,MA,public,2566,city,14560,20640,0.84,1100-1280,,"Natural Resources Conservation and Research (earnings $57,280); Geological and Earth Sciences/Geosciences",169
+117140,University of La Verne,La Verne,CA,private nonprofit,3050,suburb,20523,,0.71,986-1236,18-25,Natural Resources Conservation and Research; Physics,2496
+110413,California Lutheran University,Thousand Oaks,CA,private nonprofit,2296,city,24034,,0.76,1150-1330,24-31,Natural Resources Conservation and Research; Geological and Earth Sciences/Geosciences; Physics,2546
+107983,Southern Arkansas University Main Campus,Magnolia,AR,public,2708,town,16922,22802,0.75,875-1105,17-24,"Physics (earnings $89,685)",1361
+127918,Regis University,Denver,CO,private nonprofit,2627,city,21859,,0.86,,22-29,Natural Resources Conservation and Research; Physics,1692
+121691,University of Redlands,Redlands,CA,private nonprofit,2049,city,26452,,0.83,1107-1350,21-28,"Natural Resources Conservation and Research (earnings $57,319); Physics",2468
+120883,University of the Pacific,Stockton,CA,private nonprofit,3204,city,24916,,0.71,1183-1480,23-32,Natural Resources Conservation and Research; Geological and Earth Sciences/Geosciences; Physics,2542
+209825,University of Portland,Portland,OR,private nonprofit,2957,city,27553,,0.89,1160-1370,25-31,"Natural Resources Conservation and Research (earnings $54,975); Physics",2415
+240471,University of Wisconsin-River Falls,River Falls,WI,public,4205,town,17054,25939,0.82,,19-26,"Natural Resources Conservation and Research (earnings $50,797); Geological and Earth Sciences/Geosciences; Physics (earnings $85,638)",991
+235316,Gonzaga University,Spokane,WA,private nonprofit,5198,city,28852,,0.82,1190-1380,27-31,"Natural Resources Conservation and Research (earnings $60,015); Physics",2134
+122436,University of San Diego,San Diego,CA,private nonprofit,5671,city,24962,,0.52,,,"Natural Resources Conservation and Research (earnings $58,517); Physics",2516
+204635,Ohio Northern University,Ada,OH,private nonprofit,2489,town,24414,,0.74,1175-1400,24-29,Natural Resources Conservation and Research; Physics,639
+122612,University of San Francisco,San Francisco,CA,private nonprofit,5287,city,27201,,0.62,1190-1390,25-30,"Natural Resources Conservation and Research (earnings $53,369); Physical Sciences, General; Physics",2603
+174792,Saint Johns University,Collegeville,MN,private nonprofit,1395,rural,19653,,0.91,941-1228,21-27,"Natural Resources Conservation and Research (earnings $59,718); Physics",1072

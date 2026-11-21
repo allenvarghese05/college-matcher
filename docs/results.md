@@ -32,6 +32,20 @@ Scored against `evals/labels/labels.yaml` (12 labeled persona(s) with a non-empt
 | hybrid_rerank | 0.337 | 0.352 | 0.284 | 0.306 | 0.258 | 0.267 | 0 / 0 | 12 / 12 |
 | hybrid_riasec_rerank | – | – | – | – | – | – | – | 0 (not implemented) |
 
+## Retrieval after the retriever fix (re-scored offline)
+
+The conversations above ran on the old retriever. After labeling, the benchmark showed that its top 10s broke stated constraints: it silently widened the distance limit, applied no budget when none was given, and let far reaches in. The fix stops silent distance/region widening (it returns fewer schools and says so), allows only one disclosed relaxation (budget, to the bracket default, when fewer than 3 schools fit an impossible cap), uses a bracket-default budget when there is no cap, prices out-of-state publics at the out-of-state estimate, caps far reaches at 1 of 10, and treats "out of state" as a hard home-state exclusion. Both columns below are scored against the **same, final** labels (pool topped up; criteria.md changelog 2026-11-20) by re-running retrieval on the gold profiles and on each session's saved extracted profile, with no LLM calls (`evals/ablation.py --from-run live-full-1`). Unjudged@10 is 0 everywhere.
+
+| mode | recall@10 gold (before → after) | recall@10 e2e (before → after) | nDCG@10 gold | nDCG@10 e2e | judged-P@10 gold | judged-P@10 e2e |
+|---|---|---|---|---|---|---|
+| sql_only | 0.152 → 0.181 | 0.221 → 0.292 | 0.124 → 0.158 | 0.206 → 0.264 | 0.100 → 0.236 | 0.155 → 0.267 |
+| hybrid | 0.164 → 0.441 | 0.295 → 0.589 | 0.133 → 0.436 | 0.226 → 0.540 | 0.117 → 0.433 | 0.175 → 0.492 |
+| **hybrid_rerank** | **0.312 → 0.602** | **0.352 → 0.615** | 0.266 → 0.564 | 0.298 → 0.612 | 0.233 → 0.556 | 0.242 → 0.548 |
+
+**Where the gain comes from (and a bias to disclose).** The reviewer ablated the fix on the pre-top-up labels (hybrid_rerank gold / e2e): before 0.337 / 0.352; no silent relaxation + out-of-state + leave-home only 0.479 / 0.468; + far-reach cap 0.515 / 0.504; + bracket-default budget 0.533 / 0.541; both 0.585 / 0.596. The bracket-default budget table is **identical to the labeling rule H2**, and the far-reach cap follows **H4's structure** with different thresholds. Both are defensible counselor defaults, but they make those hard criteria easier to pass by construction, so roughly a third of the gain comes from aligning the system with the grader rather than from independent retrieval quality. The location-honesty changes, which the grader does not mirror, account for the largest single step.
+
+**Caveats specific to this section.** Recommendations and groundedness in the headline come from the old retriever (they were not re-run). The pool top-up rows are all system picks, so the top-up labeler could tell they came from a system. kenji-hi's acceptable set shrank from 20 to 5 under the unchanged 10–25 rule once the top-up pushed it to 26 schools at S1 ≥ 1.
+
 ## Extraction per field
 
 | field | precision | recall | TP | FP | FN |
