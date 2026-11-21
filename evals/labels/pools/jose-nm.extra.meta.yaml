@@ -1,0 +1,26 @@
+persona: jose-nm
+n_extra: 3
+n_pass_h1_h4: 0
+relaxed: []
+passing: []
+auto_judged:
+- unitid: 110592
+  name: California State University-Los Angeles
+  reasons:
+  - 'H3: CA not in [''mountain'']'
+- unitid: 126678
+  name: Colorado College
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 142294
+  name: The College of Idaho
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+picked_by:
+  110592:
+  - hybrid/e2e
+  126678:
+  - hybrid/gold
+  - hybrid/e2e
+  142294:
+  - hybrid/gold

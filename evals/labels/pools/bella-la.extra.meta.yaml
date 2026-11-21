@@ -1,0 +1,23 @@
+persona: bella-la
+n_extra: 2
+n_pass_h1_h4: 0
+relaxed:
+- budget
+passing: []
+auto_judged:
+- unitid: 226408
+  name: College of the Mainland
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 227757
+  name: Rice University
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H4: far below 25th percentile at a <50% school'
+picked_by:
+  226408:
+  - sql_only/gold
+  - sql_only/e2e
+  227757:
+  - sql_only/gold
+  - sql_only/e2e

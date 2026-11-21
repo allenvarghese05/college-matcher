@@ -1,0 +1,47 @@
+persona: ethan-vt
+n_extra: 13
+n_pass_h1_h4: 13
+relaxed: []
+passing:
+- 107983
+- 110413
+- 117140
+- 120883
+- 121691
+- 122436
+- 122612
+- 127918
+- 174792
+- 204635
+- 209825
+- 235316
+- 240471
+auto_judged: []
+picked_by:
+  107983:
+  - hybrid_rerank/e2e
+  110413:
+  - hybrid_rerank/gold
+  117140:
+  - hybrid_rerank/gold
+  120883:
+  - hybrid_rerank/gold
+  121691:
+  - hybrid_rerank/gold
+  122436:
+  - hybrid_rerank/gold
+  122612:
+  - hybrid_rerank/gold
+  127918:
+  - hybrid_rerank/gold
+  174792:
+  - hybrid_rerank/e2e
+  204635:
+  - hybrid_rerank/e2e
+  209825:
+  - hybrid_rerank/gold
+  235316:
+  - hybrid_rerank/gold
+  - hybrid_rerank/e2e
+  240471:
+  - hybrid_rerank/e2e

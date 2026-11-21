@@ -1,0 +1,10 @@
+unitid,name,city,state,control,undergrad_size,locale,net_price,out_of_state_estimate,admission_rate,sat_range,act_range,programs,distance_miles
+170082,Grand Valley State University,Allendale,MI,public,18854,town,12816,19532,0.83,940-1190,22-30,"Communication and Media Studies (earnings $46,938); Radio, Television, and Digital Communication (earnings $43,011); Film/Video and Photographic Arts (earnings $39,082)",4261
+447689,Georgia Gwinnett College,Lawrenceville,GA,public,11344,suburb,9667,19243,0.95,,,Film/Video and Photographic Arts,4407
+135717,Miami Dade College,Miami,FL,public,46182,city,5098,11921,,,,"Film/Video and Photographic Arts (earnings $35,402)",4728
+214175,Muhlenberg College,Allentown,PA,private nonprofit,1727,city,15397,,0.72,1250-1410,29-33,"Communication and Media Studies (earnings $58,473); Film/Video and Photographic Arts",4808
+130590,Trinity College,Hartford,CT,private nonprofit,2146,city,17524,,0.29,1298-1470,30-34,Film/Video and Photographic Arts,4939
+236577,Seattle Pacific University,Seattle,WA,private nonprofit,1762,city,16952,,0.83,,,"Communication and Media Studies (earnings $62,411); Visual and Performing Arts, General; Film/Video and Photographic Arts",2659
+135726,University of Miami,Coral Gables,FL,private nonprofit,12913,suburb,19695,,0.19,1320-1480,30-33,"Communication and Media Studies; Radio, Television, and Digital Communication (earnings $62,053); Film/Video and Photographic Arts (earnings $52,032)",4723
+190637,CUNY Lehman College,Bronx,NY,public,10696,city,3967,11917,0.57,850-1150,,"Communication and Media Studies (earnings $50,265); Visual and Performing Arts, General",4888
+212577,Franklin and Marshall College,Lancaster,PA,private nonprofit,1799,city,14636,,0.28,1310-1463,30-33,Film/Video and Photographic Arts,4771

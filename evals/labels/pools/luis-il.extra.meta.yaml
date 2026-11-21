@@ -1,0 +1,15 @@
+persona: luis-il
+n_extra: 1
+n_pass_h1_h4: 0
+relaxed: []
+passing: []
+auto_judged:
+- unitid: 144050
+  name: University of Chicago
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H4: far below 25th percentile at a <50% school'
+picked_by:
+  144050:
+  - sql_only/gold
+  - sql_only/e2e

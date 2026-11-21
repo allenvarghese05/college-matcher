@@ -1,0 +1,11 @@
+persona: maya-oh
+n_extra: 1
+n_pass_h1_h4: 1
+relaxed: []
+passing:
+- 202523
+auto_judged: []
+picked_by:
+  202523:
+  - hybrid_rerank/gold
+  - hybrid_rerank/e2e
