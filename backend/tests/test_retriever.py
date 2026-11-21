@@ -395,6 +395,23 @@ async def test_budget_filter_uses_out_of_state_price(fixture_session: AsyncSessi
     assert school.unitid in {r.unitid for r in home}
 
 
+async def test_budget_relaxation_counts_schools_within_cap(fixture_session: AsyncSession) -> None:
+    # a cap just above the cheapest school (any major, no distance): 1-2 schools fit it,
+    # relaxation still fires (< 3), and the trace says how many did fit
+    base = dict(home_state="OH", income_bracket="110k+")
+    rows = await sql_filters.candidates(
+        fixture_session, prof(**base), None, sql_filters.FilterOptions(apply_budget=False)
+    )
+    prices = sorted(p for row in rows if (p := row.price_for_scoring("110k+", "OH")) is not None)
+    cap = int(prices[0] / 1.15) + 1  # cap × 1.15 just covers the cheapest school
+    within = sum(1 for p in prices if p <= cap * 1.15)
+    assert 1 <= within <= 2
+    r = Retriever(embedder=HashEmbedder())
+    cands = await r.retrieve(fixture_session, prof(**base, budget_cap=cap), k=10)
+    assert r.last_trace["relaxed"] == ["budget"] and len(cands) > within
+    assert r.last_trace["filters"]["n_within_cap"] == within
+
+
 async def test_impossible_cap_relaxes_budget_not_distance(fixture_session: AsyncSession) -> None:
     p = prof(home_state="OH", income_bracket="30-48k", budget_cap=500,
              interests=["computer science", "business"], max_distance_miles=500)  # fmt: skip
@@ -404,7 +421,7 @@ async def test_impossible_cap_relaxes_budget_not_distance(fixture_session: Async
     assert r.last_trace["relaxed"] == ["budget"]
     f = r.last_trace["filters"]
     assert f["budget_source"] == "bracket_default" and f["budget_ceiling"] == 15000
-    assert f["budget_cap"] == 500 and f["cheapest_price"] > 500 * 1.15
+    assert f["budget_cap"] == 500 and f["n_within_cap"] == 0
     for c in cands:
         assert c.facts["net_price"] is None or c.facts["net_price"] <= 15000
     rows = await sql_filters.candidates(

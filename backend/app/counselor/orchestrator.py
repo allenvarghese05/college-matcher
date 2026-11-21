@@ -625,6 +625,16 @@ class CounselorOrchestrator:
             except LLMRefusalError as exc:
                 st.set(refusals=1, refusal=exc.category)
                 raise
+        # prices quoted in the notices: only those of the schools actually shown
+        shown = {(c.unitid, c.cip4): c for c in candidates}
+        search = search_notes.with_shown_prices(
+            search,
+            (
+                shown[(r.unitid, r.cip4)].facts.get("net_price")
+                for r in recs
+                if (r.unitid, r.cip4) in shown
+            ),
+        )
 
         # C: groundedness against Postgres + persist
         async with self.sessionmaker() as db:

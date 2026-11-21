@@ -25,7 +25,10 @@ default ceiling (``sql_filters.budget_ceiling``), recorded as
 ``last_trace["relaxed"] == ["budget"]``; the recommender must disclose it. Whatever is
 left is returned; ``last_trace["too_few"]`` is true when fewer than ``k`` schools came
 back, and ``last_trace["filters"]`` describes the hard filters that applied (distance,
-regions, budget ceiling and its source, cheapest price found).
+regions, leave-home, budget ceiling and its source, and after a budget relaxation
+``n_within_cap``: how many schools fit the stated cap; 1-2 may, since the step fires
+below ``MIN_RESULTS``). Prices quoted to the student are computed later, over the
+recommendations actually shown (``counselor.search_notes``).
 If Stage A finds no majors (no interests, no intended majors) every mode falls back to
 "any major" (``cip4 = None``) and ``last_trace["stage_a_fallback"]`` is true.
 """
@@ -63,22 +66,23 @@ def _can_relax_budget(profile: StudentProfile) -> bool:
 
 
 def filters_summary(
-    profile: StudentProfile, rows: list[CandidateRow], opts: FilterOptions
+    profile: StudentProfile, opts: FilterOptions, n_within_cap: int | None = None
 ) -> dict[str, Any]:
     """The hard filters that applied (for the trace and the student-facing notices)."""
     ceiling, source = sql_filters.budget_ceiling(profile, opts)
     home = profile.home_state.value
     distance = profile.max_distance_miles.value if home else None
-    bracket = profile.income_bracket.value
-    prices = [p for r in rows if (p := r.student_price(bracket, home)[0]) is not None]
-    return {
+    out: dict[str, Any] = {
         "max_distance_miles": distance,
         "regions": None if distance is not None else (profile.regions.value or None),
+        "outside_home_state": bool(home) and sql_filters.wants_out_of_state(profile.regions.value),
         "budget_cap": profile.budget_cap.value,
         "budget_ceiling": round(ceiling) if ceiling is not None else None,
         "budget_source": source,
-        "cheapest_price": min(prices) if prices else None,
     }
+    if n_within_cap is not None:
+        out["n_within_cap"] = n_within_cap
+    return out
 
 
 def facts_for(
@@ -165,10 +169,12 @@ class Retriever:
         with tl.stage("retrieve.sql_filter") as st:
             relaxed: list[str] = []
             opts = FilterOptions()
+            n_within_cap: int | None = None
             rows = await sql_filters.candidates(session, profile, cip_codes, opts)
             if _n_schools(rows) < MIN_RESULTS and _can_relax_budget(profile):
                 wider = await sql_filters.candidates(session, profile, cip_codes, BUDGET_TO_DEFAULT)
                 if _n_schools(wider) > _n_schools(rows):
+                    n_within_cap = _n_schools(rows)  # 0-2 schools did fit the stated cap
                     rows, opts = wider, BUDGET_TO_DEFAULT
                     relaxed.append("budget")
             median = await sql_filters.bracket_median(session, profile.income_bracket.value)
@@ -177,7 +183,7 @@ class Retriever:
             n_rows=len(rows),
             n_schools=_n_schools(rows),
             relaxed=relaxed,
-            filters=filters_summary(profile, rows, opts),
+            filters=filters_summary(profile, opts, n_within_cap),
             bracket_median=median,
         )
 

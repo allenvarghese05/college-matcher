@@ -55,7 +55,7 @@ fill in score order up to each band's ``max``, then (if still short) by score al
 The final list is sorted by total score.
 
 Far reaches (``admission.is_far_reach``) never take a slot in those passes: they only
-fill slots that would otherwise stay empty, at most ``max(1, round(0.1·k))`` of them
+fill slots that would otherwise stay empty, at most ``max(1, floor(0.1·k + 0.5))`` of them
 (1 in a top 10). The same cap applies when bands are unknown (no student stats; then
 only schools admitting < 15% are far). Fewer than ``k`` results is acceptable.
 """
@@ -63,6 +63,7 @@ only schools admitting < 15% are far). Fewer than ``k`` results is acceptable.
 from __future__ import annotations
 
 import bisect
+import math
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
@@ -302,7 +303,7 @@ def band_quotas(k: int) -> dict[str, tuple[int, int]]:
 
 
 def max_far_reach(k: int) -> int:
-    return max(1, round(0.1 * k))
+    return max(1, math.floor(0.1 * k + 0.5))  # half-up, not banker's rounding
 
 
 def limit_far_reaches(ranked: list[Scored], k: int) -> list[Scored]:
