@@ -1,0 +1,67 @@
+persona: megan-ne
+major_cip4s:
+- '1312'
+- '1907'
+- '4228'
+- '4407'
+- '5100'
+- '5107'
+- '5202'
+pool_size: 42
+relaxed: []
+shown: 42
+auto_judged:
+- unitid: 153250
+  reasons:
+  - 'H2: net price 23,449 > 20,000'
+- unitid: 153269
+  reasons:
+  - 'H2: net price 25,416 > 20,000'
+- unitid: 153384
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 319 > 250'
+  - 'H4: admission rate < 15%'
+- unitid: 153603
+  reasons:
+  - 'H2: out-of-state estimate 33,061 > 20,000'
+  - 'H3: distance 277 > 250'
+- unitid: 154095
+  reasons:
+  - 'H2: out-of-state estimate 25,224 > 20,000'
+  - 'H3: distance 345 > 250'
+- unitid: 154527
+  reasons:
+  - 'H3: distance 349 > 250'
+- unitid: 154590
+  reasons:
+  - 'H2: net price 20,097 > 20,000'
+  - 'H3: distance 319 > 250'
+- unitid: 154721
+  reasons:
+  - 'H2: net price 26,675 > 20,000'
+- unitid: 173920
+  reasons:
+  - 'H2: out-of-state estimate 24,199 > 20,000'
+  - 'H3: distance 334 > 250'
+- unitid: 175078
+  reasons:
+  - 'H3: distance 295 > 250'
+- unitid: 176965
+  reasons:
+  - 'H2: out-of-state estimate 21,365 > 20,000'
+  - 'H3: distance 300 > 250'
+- unitid: 178615
+  reasons:
+  - 'H3: distance 326 > 250'
+- unitid: 181330
+  reasons:
+  - 'H2: net price 21,475 > 20,000'
+n_sampled: 42
+n_system_only: 0
+seed: 20261119
+runs:
+- /Users/allen/Desktop/college-matcher/evals/results/live-full-1
+candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
+criteria_commit: ee31239af7170f4219e02b510a356cee57174605
+generated_at: '2026-11-20T03:21:13+00:00'

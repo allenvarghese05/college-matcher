@@ -1,0 +1,59 @@
+persona: aaliyah-ga
+major_cip4s:
+- '2601'
+- '2602'
+- '2609'
+- '5100'
+- '5110'
+- '5111'
+pool_size: 9
+relaxed: []
+shown: 9
+auto_judged:
+- unitid: 112260
+  reasons:
+  - 'H3: distance 1901 > 700'
+  - 'H4: admission rate < 15%'
+- unitid: 144050
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 147767
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 162928
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 179867
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 190150
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 198385
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 217156
+  reasons:
+  - 'H3: distance 903 > 700'
+  - 'H4: admission rate < 15%'
+- unitid: 221999
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 227757
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 234207
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 243744
+  reasons:
+  - 'H3: distance 2123 > 700'
+  - 'H4: admission rate < 15%'
+n_sampled: 9
+n_system_only: 0
+seed: 20261119
+runs:
+- /Users/allen/Desktop/college-matcher/evals/results/live-full-1
+candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
+criteria_commit: ee31239af7170f4219e02b510a356cee57174605
+generated_at: '2026-11-20T03:21:12+00:00'

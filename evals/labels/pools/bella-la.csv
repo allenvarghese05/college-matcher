@@ -1,0 +1,13 @@
+unitid,name,city,state,control,undergrad_size,locale,net_price,out_of_state_estimate,admission_rate,sat_range,act_range,programs,distance_miles
+159647,Louisiana Tech University,Ruston,LA,public,8312,town,8771,,0.86,1100-1310,21-27,"Apparel and Textiles; Design and Applied Arts (earnings $41,534); Marketing (earnings $51,118)",164
+175616,Delta State University,Cleveland,MS,public,1620,town,7013,7013,1.00,925-1210,17-23,Marketing,256
+159966,Nicholls State University,Thibodaux,LA,public,4737,city,10478,,0.91,934-1196,19-24,"Marketing (earnings $53,871)",80
+160658,University of Louisiana at Lafayette,Lafayette,LA,public,12428,city,11685,,0.87,1120-1240,23-28,"Design and Applied Arts (earnings $42,867); Marketing (earnings $53,685)",2
+159993,University of Louisiana at Monroe,Monroe,LA,public,5022,city,11277,,0.85,1160-1360,18-24,Marketing,160
+160065,University of Holy Cross,New Orleans,LA,private nonprofit,471,city,5905,,0.74,,,Marketing,125
+227863,University of St Thomas,Houston,TX,private nonprofit,3220,city,12963,,0.90,980-1210,18-25,"Marketing (earnings $78,424)",202
+176053,Mississippi Christian University,Clinton,MS,private nonprofit,2518,suburb,13321,,0.29,,19-25,"Design and Applied Arts (earnings $39,178); Marketing (earnings $46,780)",179
+159717,McNeese State University,Lake Charles,LA,public,5005,city,8834,,0.78,940-1198,18-23,"Marketing (earnings $44,589)",69
+159939,University of New Orleans,New Orleans,LA,public,4638,city,7223,,0.74,935-1241,17-23,"Marketing (earnings $51,474)",120
+159416,Louisiana State University-Shreveport,Shreveport,LA,public,2153,city,9122,,0.51,1000-1195,18-24,"Marketing (earnings $52,371)",182
+160612,Southeastern Louisiana University,Hammond,LA,public,9514,city,9771,,0.99,,18-24,"Marketing (earnings $53,477)",97

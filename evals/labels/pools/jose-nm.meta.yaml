@@ -1,0 +1,119 @@
+persona: jose-nm
+major_cip4s:
+- '0301'
+- '0302'
+- '0305'
+- '0306'
+- '2613'
+- '4302'
+pool_size: 14
+relaxed: []
+shown: 14
+auto_judged:
+- unitid: 102614
+  reasons:
+  - 'H2: out-of-state estimate 19,332 > 15,000'
+  - 'H3: AK not in [''mountain'']'
+- unitid: 102632
+  reasons:
+  - 'H2: out-of-state estimate 27,487 > 15,000'
+  - 'H3: AK not in [''mountain'']'
+- unitid: 105330
+  reasons:
+  - 'H2: out-of-state estimate 30,600 > 15,000'
+- unitid: 105589
+  reasons:
+  - 'H2: net price 15,477 > 15,000'
+- unitid: 110422
+  reasons:
+  - 'H2: out-of-state estimate 31,941 > 15,000'
+  - 'H3: CA not in [''mountain'']'
+- unitid: 110635
+  reasons:
+  - 'H2: out-of-state estimate 42,993 > 15,000'
+  - 'H3: CA not in [''mountain'']'
+  - 'H4: admission rate < 15%'
+- unitid: 110644
+  reasons:
+  - 'H2: out-of-state estimate 46,644 > 15,000'
+  - 'H3: CA not in [''mountain'']'
+- unitid: 112260
+  reasons:
+  - 'H3: CA not in [''mountain'']'
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 115755
+  reasons:
+  - 'H2: out-of-state estimate 23,571 > 15,000'
+  - 'H3: CA not in [''mountain'']'
+- unitid: 121257
+  reasons:
+  - 'H3: CA not in [''mountain'']'
+- unitid: 121345
+  reasons:
+  - 'H3: CA not in [''mountain'']'
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 126818
+  reasons:
+  - 'H2: out-of-state estimate 34,670 > 15,000'
+- unitid: 127185
+  reasons:
+  - 'H2: out-of-state estimate 34,638 > 15,000'
+- unitid: 138558
+  reasons:
+  - 'H3: GA not in [''mountain'']'
+- unitid: 142285
+  reasons:
+  - 'H2: out-of-state estimate 30,281 > 15,000'
+- unitid: 149222
+  reasons:
+  - 'H3: IL not in [''mountain'']'
+- unitid: 160621
+  reasons:
+  - 'H2: out-of-state estimate 23,700 > 15,000'
+  - 'H3: LA not in [''mountain'']'
+- unitid: 180489
+  reasons:
+  - 'H2: out-of-state estimate 44,981 > 15,000'
+- unitid: 182290
+  reasons:
+  - 'H2: out-of-state estimate 29,598 > 15,000'
+- unitid: 187897
+  reasons:
+  - 'H2: net price 16,136 > 15,000'
+- unitid: 187967
+  reasons:
+  - 'H2: net price 17,614 > 15,000'
+- unitid: 194392
+  reasons:
+  - 'H2: net price 17,105 > 15,000'
+  - 'H3: NY not in [''mountain'']'
+- unitid: 214740
+  reasons:
+  - 'H3: PA not in [''mountain'']'
+- unitid: 218061
+  reasons:
+  - 'H2: out-of-state estimate 19,651 > 15,000'
+  - 'H3: SC not in [''mountain'']'
+- unitid: 228431
+  reasons:
+  - 'H2: out-of-state estimate 22,976 > 15,000'
+  - 'H3: TX not in [''mountain'']'
+- unitid: 230728
+  reasons:
+  - 'H2: out-of-state estimate 26,660 > 15,000'
+- unitid: 236939
+  reasons:
+  - 'H2: out-of-state estimate 24,601 > 15,000'
+  - 'H3: WA not in [''mountain'']'
+- unitid: 441937
+  reasons:
+  - 'H2: out-of-state estimate 19,442 > 15,000'
+  - 'H3: CA not in [''mountain'']'
+n_sampled: 14
+n_system_only: 0
+seed: 20261119
+runs:
+- /Users/allen/Desktop/college-matcher/evals/results/live-full-1
+candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
+criteria_commit: ee31239af7170f4219e02b510a356cee57174605
+generated_at: '2026-11-20T03:21:13+00:00'

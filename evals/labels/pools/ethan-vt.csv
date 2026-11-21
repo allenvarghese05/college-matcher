@@ -1,0 +1,82 @@
+unitid,name,city,state,control,undergrad_size,locale,net_price,out_of_state_estimate,admission_rate,sat_range,act_range,programs,distance_miles
+110574,California State University-East Bay,Hayward,CA,public,9809,suburb,8642,21962,0.97,,,"Natural Resources Conservation and Research (earnings $59,333); Geological and Earth Sciences/Geosciences; Physics",2588
+237525,Marshall University,Huntington,WV,public,7266,city,8915,19917,0.96,910-1150,19-24,"Natural Resources Conservation and Research (earnings $43,995); Geological and Earth Sciences/Geosciences; Physics",674
+141334,University of West Georgia,Carrollton,GA,public,7520,town,13971,26019,0.52,950-1140,17-22,"Geological and Earth Sciences/Geosciences (earnings $60,355); Physics",1023
+170806,Madonna University,Livonia,MI,private nonprofit,1632,city,15441,,0.63,880-1080,,Natural Resources Conservation and Research,574
+150756,Hanover College,Hanover,IN,private nonprofit,1031,town,20259,,0.84,1110-1280,23-29,Natural Resources Conservation and Research; Geological and Earth Sciences/Geosciences; Physics,788
+240480,University of Wisconsin-Stevens Point,Stevens Point,WI,public,7306,town,16885,25905,0.92,,20-26,Geological and Earth Sciences/Geosciences; Physics,844
+211981,Delaware Valley University,Doylestown,PA,private nonprofit,1628,suburb,26427,,0.93,1090-1303,23-30,Natural Resources Conservation and Research,332
+190044,Clarkson University,Potsdam,NY,private nonprofit,2196,town,30286,,0.77,1200-1390,25-32,Natural Resources Conservation and Research; Physics,129
+216010,Shippensburg University of Pennsylvania,Shippensburg,PA,public,4086,town,22074,24424,0.86,,16-28,"Natural Resources Conservation and Research (earnings $57,130); Geological and Earth Sciences/Geosciences; Physics (earnings $91,610)",412
+168546,Albion College,Albion,MI,private nonprofit,1300,town,16299,,0.81,,,Natural Resources Conservation and Research; Geological and Earth Sciences/Geosciences; Physics,641
+433660,Florida Gulf Coast University,Fort Myers,FL,public,13874,suburb,13168,32212,0.63,1040-1200,20-25,"Natural Resources Conservation and Research (earnings $51,265); Geological and Earth Sciences/Geosciences; Physics",1361
+236939,Washington State University,Pullman,WA,public,21099,town,15212,32318,0.87,,,"Natural Resources Conservation and Research; Physical Sciences, General; Geological and Earth Sciences/Geosciences (earnings $45,002); Physics",2136
+230038,Brigham Young University,Provo,UT,private nonprofit,32952,city,12916,,0.68,1270-1460,28-32,"Astronomy and Astrophysics; Geological and Earth Sciences/Geosciences; Physics (earnings $73,747)",2005
+164924,Boston College,Chestnut Hill,MA,private nonprofit,10085,city,23616,,0.16,1440-1540,33-35,"Natural Resources Conservation and Research (earnings $82,861); Geological and Earth Sciences/Geosciences; Physics",171
+163204,University of Maryland Global Campus,Adelphi,MD,public,49664,suburb,23144,27200,,,,"Natural Resources Conservation and Research (earnings $77,259)",457
+212133,Eastern University,Saint Davids,PA,private nonprofit,2404,suburb,25512,,0.91,,,Natural Resources Conservation and Research,353
+215929,University of Scranton,Scranton,PA,private nonprofit,3554,city,30068,,0.81,1160-1318,25-30,Natural Resources Conservation and Research; Physics,279
+126562,University of Colorado Denver/Anschutz Medical Campus,Denver,CO,public,10519,city,11237,30581,0.75,980-1220,23-32,Physics,1684
+173258,Carleton College,Northfield,MN,private nonprofit,2086,town,18309,,0.20,1450-1560,32-34,Natural Resources Conservation and Research; Geological and Earth Sciences/Geosciences; Physics,1020
+121257,Pitzer College,Claremont,CA,private nonprofit,1227,suburb,32711,,0.25,,,Natural Resources Conservation and Research; Geological and Earth Sciences/Geosciences; Physics,2493
+239716,Saint Norbert College,De Pere,WI,private nonprofit,1662,suburb,30248,,0.86,1033-1290,21-28,Natural Resources Conservation and Research; Geological and Earth Sciences/Geosciences; Physics,771
+229179,Texas Woman's University,Denton,TX,public,8767,city,13920,23640,0.96,,,Natural Resources Conservation and Research,1537
+177117,Cottey College,Nevada,MO,private nonprofit,254,town,21258,,0.69,,,Natural Resources Conservation and Research,1231
+219091,Dakota Wesleyan University,Mitchell,SD,private nonprofit,670,town,22897,,0.73,,,Physics,1267
+243780,Purdue University-Main Campus,West Lafayette,IN,public,44503,city,15253,34055,0.50,1200-1480,27-34,"Natural Resources Conservation and Research (earnings $69,768); Atmospheric Sciences and Meteorology; Geological and Earth Sciences/Geosciences; Physics (earnings $67,505)",794
+192703,Manhattan University,Riverdale,NY,private nonprofit,2744,city,27956,,0.79,1180-1358,25-29,Natural Resources Conservation and Research; Atmospheric Sciences and Meteorology; Physics,271
+202480,University of Dayton,Dayton,OH,private nonprofit,7682,city,26601,,0.65,1200-1380,25-31,"Natural Resources Conservation and Research; Physical Sciences, General; Geological and Earth Sciences/Geosciences; Physics",692
+179326,Southwest Baptist University,Bolivar,MO,private nonprofit,1341,town,19278,,0.68,810-1210,17-26,Physics,1193
+238078,Wheeling University,Wheeling,WV,private nonprofit,589,city,11577,,0.63,,,"Physical Sciences, General; Physics",529
+215770,Saint Joseph's University - Philadelphia,Philadelphia,PA,private nonprofit,4948,city,31720,,0.89,1170-1350,28-31,Natural Resources Conservation and Research; Earth Systems Science; Physics,353
+201654,Cedarville University,Cedarville,OH,private nonprofit,4024,rural,22853,,0.65,1130-1360,22-29,Natural Resources Conservation and Research; Geological and Earth Sciences/Geosciences; Physics,675
+221351,Rhodes College,Memphis,TN,private nonprofit,1836,city,20256,,0.50,1300-1486,26-32,Natural Resources Conservation and Research; Physics,1137
+154235,Saint Ambrose University,Davenport,IA,private nonprofit,1916,city,21927,,0.77,930-1170,20-25,Physics,941
+196130,SUNY Buffalo State University,Buffalo,NY,public,5097,city,15205,26945,0.73,980-1240,,Geological and Earth Sciences/Geosciences; Physics,345
+149772,Western Illinois University,Macomb,IL,public,4410,town,524,524,0.71,,,Atmospheric Sciences and Meteorology; Geological and Earth Sciences/Geosciences; Physics,973
+106467,Arkansas Tech University,Russellville,AR,public,5388,town,13320,19495,0.96,880-1100,17-23,"Natural Resources Conservation and Research; Physical Sciences, General; Geological and Earth Sciences/Geosciences; Physics",1270
+180179,Montana State University Billings,Billings,MT,public,2626,city,17310,32932,,,,Natural Resources Conservation and Research,1746
+139940,Georgia State University,Atlanta,GA,public,26623,city,15297,31953,0.55,940-1180,19-26,"Geological and Earth Sciences/Geosciences (earnings $47,111); Physics (earnings $60,393)",988
+228875,Texas Christian University,Fort Worth,TX,private nonprofit,11026,city,34094,,0.44,1140-1350,26-31,Natural Resources Conservation and Research; Astronomy and Astrophysics; Geological and Earth Sciences/Geosciences; Physics,1570
+221892,Trevecca Nazarene University,Nashville,TN,private nonprofit,1737,city,13215,,0.69,980-1235,18-24,Physics,956
+167288,Massachusetts College of Liberal Arts,North Adams,MA,public,713,town,11971,20916,0.90,,,Natural Resources Conservation and Research; Physics,140
+145637,University of Illinois Urbana-Champaign,Champaign,IL,public,36258,city,11952,32304,0.42,1310-1520,30-34,"Natural Resources Conservation and Research (earnings $55,382); Astronomy and Astrophysics; Atmospheric Sciences and Meteorology (earnings $71,425); Geological and Earth Sciences/Geosciences (earnings $68,201); Physics (earnings $81,077)",866
+192323,Le Moyne College,Syracuse,NY,private nonprofit,2439,suburb,26270,,0.83,1160-1330,25-30,"Natural Resources Conservation and Research; Physics (earnings $99,009)",215
+366711,California State University-San Marcos,San Marcos,CA,public,14877,suburb,12320,25640,0.95,,,"Natural Resources Conservation and Research (earnings $55,903); Physics",2501
+194091,New York Institute of Technology,Old Westbury,NY,private nonprofit,3440,rural,26861,,0.81,1190-1420,24-32,Physics,272
+199148,University of North Carolina at Greensboro,Greensboro,NC,public,14062,city,17108,34082,0.89,1150-1355,22-27,Natural Resources Conservation and Research; Physics,710
+185590,Montclair State University,Montclair,NJ,public,18376,suburb,21770,32486,0.88,910-1210,,"Geological and Earth Sciences/Geosciences (earnings $65,826); Physics",278
+196866,Union College,Schenectady,NY,private nonprofit,2046,city,28594,,0.44,1310-1480,29-33,Natural Resources Conservation and Research; Astronomy and Astrophysics; Geological and Earth Sciences/Geosciences; Physics,148
+186432,Saint Peter's University,Jersey City,NJ,private nonprofit,2135,city,10963,,0.90,,,Natural Resources Conservation and Research; Physics,284
+195030,University of Rochester,Rochester,NY,private nonprofit,6331,city,28472,,0.40,1410-1540,31-34,Natural Resources Conservation and Research; Geological and Earth Sciences/Geosciences; Physics,282
+130697,Wesleyan University,Middletown,CT,private nonprofit,3067,city,12753,,0.16,1415-1540,33-35,"Natural Resources Conservation and Research; Physical Sciences, General; Astronomy and Astrophysics; Physics",214
+156295,Berea College,Berea,KY,private nonprofit,1513,town,8610,,0.19,1156-1335,23-28,Physics,788
+176947,Central Methodist University-College of Liberal Arts and Sciences,Fayette,MO,private nonprofit,1040,rural,21381,,0.57,960-1045,17-23,Natural Resources Conservation and Research; Physics,1108
+228149,St. Mary's University,San Antonio,TX,private nonprofit,1951,city,17930,,0.98,900-1310,15-27,Natural Resources Conservation and Research; Physics,1772
+157809,Thomas More University,Crestview Hills,KY,private nonprofit,1293,suburb,22941,,0.90,1030-1230,21-27,"Physical Sciences, General; Physics",737
+200466,Sitting Bull College,Fort Yates,ND,public,257,rural,2278,2278,,,,Natural Resources Conservation and Research,1370
+221519,The University of the South,Sewanee,TN,private nonprofit,1607,rural,27659,,0.57,1260-1390,27-31,Natural Resources Conservation and Research; Geological and Earth Sciences/Geosciences; Physics,967
+209056,Lewis & Clark College,Portland,OR,private nonprofit,2120,city,27142,,0.78,,,Natural Resources Conservation and Research; Physics,2414
+110538,California State University-Chico,Chico,CA,public,13631,city,16700,30020,0.93,,,"Natural Resources Conservation and Research (earnings $69,531); Atmospheric Sciences and Meteorology; Geological and Earth Sciences/Geosciences; Physics",2516
+142522,Brigham Young University-Idaho,Rexburg,ID,private nonprofit,44397,town,7844,,0.96,970-1200,20-26,Natural Resources Conservation and Research; Geological and Earth Sciences/Geosciences; Physics,1932
+229267,Trinity University,San Antonio,TX,private nonprofit,2505,city,21393,,0.26,1340-1500,31-34,Natural Resources Conservation and Research; Geological and Earth Sciences/Geosciences; Physics,1768
+174251,University of Minnesota-Morris,Morris,MN,public,936,town,11022,13316,0.75,,20-26,"Natural Resources Conservation and Research (earnings $43,584); Geological and Earth Sciences/Geosciences; Physics",1144
+190576,CUNY Graduate School and University Center,New York,NY,public,3254,city,4766,12716,0.68,,,"Natural Resources Conservation and Research; Physical Sciences, General; Geological and Earth Sciences/Geosciences; Physics",282
+240277,University of Wisconsin-Green Bay,Green Bay,WI,public,6341,city,14693,23281,0.89,,18-24,"Natural Resources Conservation and Research (earnings $51,048); Geological and Earth Sciences/Geosciences",763
+194824,Rensselaer Polytechnic Institute,Troy,NY,private nonprofit,5714,city,33659,,0.63,1375-1510,30-34,"Natural Resources Conservation and Research; Geological and Earth Sciences/Geosciences; Physics (earnings $81,840)",148
+130590,Trinity College,Hartford,CT,private nonprofit,2146,city,15009,,0.29,1298-1470,30-34,Natural Resources Conservation and Research; Physics,201
+152992,Briar Cliff University,Sioux City,IA,private nonprofit,624,city,30461,,,,,Natural Resources Conservation and Research,1208
+224004,Concordia University Texas,Austin,TX,private nonprofit,1185,city,28063,,0.91,,,Natural Resources Conservation and Research,1695
+112075,Concordia University-Irvine,Irvine,CA,private nonprofit,1536,city,27209,,0.66,,,Physics,2514
+174747,College of Saint Benedict,Saint Joseph,MN,private nonprofit,1370,suburb,22318,,0.92,1048-1233,20-27,Natural Resources Conservation and Research; Physics,1068
+166124,College of the Holy Cross,Worcester,MA,private nonprofit,3106,city,24516,,0.18,1240-1410,27-32,"Natural Resources Conservation and Research; Physics (earnings $99,165)",169
+215798,Saint Vincent College,Latrobe,PA,private nonprofit,1259,suburb,23581,,0.62,1020-1230,20-27,Natural Resources Conservation and Research; Physics,467
+237066,Whitworth University,Spokane,WA,private nonprofit,1858,suburb,23840,,0.90,1090-1330,21-29,"Natural Resources Conservation and Research; Physics (earnings $99,842)",2134
+106704,University of Central Arkansas,Conway,AR,public,7762,city,18724,26530,0.89,910-1170,19-25,Natural Resources Conservation and Research; Physics,1248
+179159,Saint Louis University,Saint Louis,MO,private nonprofit,7267,city,30576,,0.75,1200-1410,25-31,Natural Resources Conservation and Research; Atmospheric Sciences and Meteorology; Geological and Earth Sciences/Geosciences; Physics,1008
+157076,Kentucky Wesleyan College,Owensboro,KY,private nonprofit,842,city,20325,,0.72,890-1130,16-23,Physics,901
+213543,Lehigh University,Bethlehem,PA,private nonprofit,5898,city,20869,,0.26,1370-1500,31-34,"Natural Resources Conservation and Research; Astronomy and Astrophysics; Geological and Earth Sciences/Geosciences (earnings $72,978); Physics",318
+214698,Pennsylvania State University-Penn State Beaver,Monaca,PA,public,482,suburb,17195,27157,0.96,1080-1290,24-27,"Geological and Earth Sciences/Geosciences (earnings $81,092)",487
+219046,Black Hills State University,Spearfish,SD,public,1928,town,21151,24343,0.96,965-1135,18-24,"Physical Sciences, General; Physics",1540
+222178,Abilene Christian University,Abilene,TX,private nonprofit,3195,city,27712,,0.66,1070-1270,22-28,Natural Resources Conservation and Research; Physics,1688
+165866,Framingham State University,Framingham,MA,public,2566,city,14560,20640,0.84,1100-1280,,"Natural Resources Conservation and Research (earnings $57,280); Geological and Earth Sciences/Geosciences",169

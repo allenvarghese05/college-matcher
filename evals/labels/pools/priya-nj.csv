@@ -1,0 +1,80 @@
+unitid,name,city,state,control,undergrad_size,locale,net_price,out_of_state_estimate,admission_rate,sat_range,act_range,programs,distance_miles
+166629,University of Massachusetts-Amherst,Amherst,MA,public,23671,city,33795,57067,0.60,1310-1500,30-33,"Computer and Information Sciences, General; Computer Science (earnings $123,519); Computer Engineering (earnings $113,083); Mathematics and Computer Science",157
+168254,Western New England University,Springfield,MA,private nonprofit,2603,city,29285,,0.83,1090-1300,21-28,"Computer Science (earnings $100,055); Computer Engineering; Data Science",142
+209551,University of Oregon,Eugene,OR,public,20497,city,31631,60953,0.88,1130-1360,23-30,"Computer and Information Sciences, General (earnings $100,540); Mathematics and Computer Science; Data Science",2465
+211608,Cheyney University of Pennsylvania,Cheyney,PA,public,617,rural,26023,34275,,,,"Computer and Information Sciences, General",77
+193292,Molloy University,Rockville Centre,NY,private nonprofit,3162,suburb,31089,,0.82,1088-1290,22-28,"Computer and Information Sciences, General",38
+120883,University of the Pacific,Stockton,CA,private nonprofit,3204,city,35741,,0.71,1183-1480,23-32,"Computer Science (earnings $147,511); Computer Engineering",2489
+161004,Bowdoin College,Brunswick,ME,private nonprofit,1873,town,40929,,0.07,1470-1550,33-35,"Computer Science (earnings $137,611); Mathematics and Computer Science",321
+215275,University of Pittsburgh-Greensburg,Greensburg,PA,public,1305,suburb,25328,37310,0.95,1055-1253,17-26,"Computer and Information Sciences, General (earnings $65,892)",274
+214704,Pennsylvania State University-Penn State Berks,Reading,PA,public,1872,suburb,27366,38616,0.99,1090-1275,18-27,"Computer and Information Sciences, General (earnings $120,729)",87
+209542,Oregon State University,Corvallis,OR,public,30743,city,29717,54677,0.77,1140-1400,24-31,"Computer Science (earnings $121,405)",2468
+168281,Wheaton College (Massachusetts),Norton,MA,private nonprofit,1773,suburb,36108,,0.68,1220-1390,29-33,Computer Science; Mathematics and Computer Science,190
+130226,Quinnipiac University,Hamden,CT,private nonprofit,6531,suburb,44609,,0.72,1150-1320,25-30,"Computer Science (earnings $77,324); Computer Engineering; Data Science",95
+216524,Ursinus College,Collegeville,PA,private nonprofit,1491,suburb,36259,,0.92,1200-1385,28-32,Computer Science,64
+213358,La Roche University,Pittsburgh,PA,private nonprofit,751,suburb,32159,,0.76,940-1200,15-22,"Computer and Information Sciences, General (earnings $68,717); Computer Science (earnings $68,248)",298
+209825,University of Portland,Portland,OR,private nonprofit,2957,city,42792,,0.89,1160-1370,25-31,"Computer Science (earnings $125,929)",2429
+128744,University of Bridgeport,Bridgeport,CT,private nonprofit,1534,city,30930,,0.83,,,Computer Science; Computer Engineering,73
+436818,University of Connecticut-Waterbury Campus,Waterbury,CT,public,733,city,20946,43614,0.87,910-1200,,"Computer and Information Sciences, General (earnings $117,412); Computer Science (earnings $108,934); Computer Engineering (earnings $115,117)",96
+110486,California State University-Bakersfield,Bakersfield,CA,public,8577,city,14673,27993,0.94,,,"Computer Science (earnings $80,432); Computer Engineering (earnings $93,797)",2439
+166124,College of the Holy Cross,Worcester,MA,private nonprofit,3106,city,58649,,0.18,1240-1410,27-32,Computer Science,175
+236577,Seattle Pacific University,Seattle,WA,private nonprofit,1762,city,30941,,0.83,,,"Computer Science (earnings $133,039); Computer Engineering",2392
+195474,Siena University,Loudonville,NY,private nonprofit,3409,suburb,38830,,0.69,1110-1360,27-33,"Computer and Information Sciences, General (earnings $91,712); Computer Science; Data Science",151
+185828,New Jersey Institute of Technology,Newark,NJ,public,9019,city,29832,,0.65,1210-1460,27-34,"Computer and Information Sciences, General (earnings $97,926); Computer Science; Computer Engineering (earnings $99,880); Data Science",15
+193584,Nazareth University,Rochester,NY,private nonprofit,1873,suburb,37291,,0.75,1070-1320,23-32,"Computer and Information Sciences, General",239
+122612,University of San Francisco,San Francisco,CA,private nonprofit,5287,city,38553,,0.62,1190-1390,25-30,"Computer Science (earnings $150,341)",2552
+110547,California State University-Dominguez Hills,Carson,CA,public,12538,city,18260,31580,0.93,,,"Computer and Information Sciences, General (earnings $74,788); Computer Science (earnings $59,603)",2435
+130697,Wesleyan University,Middletown,CT,private nonprofit,3067,city,45770,,0.16,1415-1540,33-35,Computer Science,111
+121150,Pepperdine University,Malibu,CA,private nonprofit,3553,suburb,63600,,0.63,1290-1450,29-32,Mathematics and Computer Science,2453
+129020,University of Connecticut,Storrs,CT,public,19835,town,36552,59220,0.52,1210-1440,28-33,"Computer and Information Sciences, General (earnings $117,412); Computer Science (earnings $108,934); Computer Engineering (earnings $115,117)",138
+230816,Bennington College,Bennington,VT,private nonprofit,780,town,43575,,0.45,1291-1403,30-32,"Computer and Information Sciences, General; Computer Science; Data Science",172
+191649,Hofstra University,Hempstead,NY,private nonprofit,6488,suburb,34880,,0.68,1230-1400,28-32,"Computer and Information Sciences, General; Computer Science (earnings $88,137); Computer Engineering",40
+190576,CUNY Graduate School and University Center,New York,NY,public,3254,city,4766,12716,0.68,,,"Computer and Information Sciences, General; Computer Science; Computer Engineering",22
+262086,University of Massachusetts Global,Aliso Viejo,CA,public,4491,suburb,39262,39262,,,,"Computer and Information Sciences, General",2415
+122755,San Jose State University,San Jose,CA,public,27601,city,24449,37769,0.85,,,Computer Science; Computer Engineering,2533
+216597,Villanova University,Villanova,PA,private nonprofit,6938,suburb,57135,,0.27,1395-1510,32-34,"Computer and Information Sciences, General (earnings $130,585); Computer Science; Computer Engineering (earnings $119,137)",64
+110653,University of California-Irvine,Irvine,CA,public,30197,city,30831,68433,0.29,,,"Computer and Information Sciences, General (earnings $96,347); Computer Science (earnings $127,404); Computer Engineering (earnings $132,357); Mathematics and Computer Science",2419
+235422,Heritage University,Toppenish,WA,private nonprofit,812,rural,12908,,,,,Computer Science,2310
+213020,Indiana University of Pennsylvania,Indiana,PA,public,6764,town,22657,27737,0.91,970-1180,20-27,"Computer and Information Sciences, General (earnings $77,097)",253
+167525,Quincy College,Quincy,MA,public,2300,suburb,18169,18169,,,,Computer Science,208
+125897,Woodbury University,Burbank,CA,private nonprofit,779,city,52941,,0.82,,,"Computer and Information Sciences, General; Mathematics and Computer Science",2430
+216339,Temple University,Philadelphia,PA,public,20970,city,29206,42269,0.80,,,"Computer and Information Sciences, General (earnings $101,670); Mathematics and Computer Science",59
+441937,California State University-Channel Islands,Camarillo,CA,public,5013,rural,20024,33344,0.95,,,"Computer and Information Sciences, General; Computer Science (earnings $100,887)",2468
+213774,Manor College,Jenkintown,PA,private nonprofit,443,suburb,25118,,0.95,725-935,,"Computer and Information Sciences, General",52
+196176,State University of New York at New Paltz,New Paltz,NY,public,6086,town,26806,37406,0.62,1170-1340,25-29,"Computer and Information Sciences, General (earnings $103,020); Computer Engineering",82
+110592,California State University-Los Angeles,Los Angeles,CA,public,19562,city,13082,26402,0.91,,,"Computer and Information Sciences, General (earnings $69,022); Computer Science (earnings $87,525)",2424
+211291,Bucknell University,Lewisburg,PA,private nonprofit,3876,town,67428,,0.29,1310-1470,30-33,"Computer and Information Sciences, General (earnings $122,651); Computer Engineering (earnings $156,885)",136
+213367,La Salle University,Philadelphia,PA,private nonprofit,1953,city,24967,,0.97,,,"Computer and Information Sciences, General (earnings $91,837); Computer Science (earnings $94,659)",56
+213543,Lehigh University,Bethlehem,PA,private nonprofit,5898,city,36233,,0.26,1370-1500,31-34,"Computer and Information Sciences, General (earnings $116,999); Computer Science (earnings $141,691); Computer Engineering (earnings $116,214)",55
+190594,CUNY Hunter College,New York,NY,public,16289,city,10600,18550,0.54,1100-1420,,"Computer and Information Sciences, General; Computer Science (earnings $102,321)",24
+190549,CUNY Brooklyn College,Brooklyn,NY,public,10543,city,11027,18977,0.58,950-1340,,"Computer and Information Sciences, General (earnings $89,943); Computer Science",21
+190600,CUNY John Jay College of Criminal Justice,New York,NY,public,11590,city,11308,19258,0.57,930-1220,,Computer Science,23
+196121,SUNY Brockport,Brockport,NY,public,5784,town,22266,29756,0.71,1100-1280,23-26,"Computer and Information Sciences, General (earnings $80,807); Computer Science; Data Science",260
+209056,Lewis & Clark College,Portland,OR,private nonprofit,2120,city,44072,,0.78,,,Computer Science; Mathematics and Computer Science,2428
+196024,SUNY College of Technology at Delhi,Delhi,NY,public,2843,rural,25585,29575,0.89,910-1160,18-23,"Computer and Information Sciences, General",121
+196015,SUNY College of Technology at Canton,Canton,NY,public,2741,town,19084,23914,0.92,,,"Computer and Information Sciences, General",282
+190512,CUNY Bernard M Baruch College,New York,NY,public,16154,city,10728,18678,0.48,1100-1400,,Computer Science,22
+129941,University of New Haven,West Haven,CT,private nonprofit,4841,suburb,36618,,0.60,1060-1265,,"Computer and Information Sciences, General; Computer Science; Computer Engineering",87
+213507,Lebanon Valley College,Annville,PA,private nonprofit,1684,suburb,33171,,0.84,1140-1302,,"Computer and Information Sciences, General; Computer Science; Data Science",116
+197133,Vassar College,Poughkeepsie,NY,private nonprofit,2444,suburb,50834,,0.19,1450-1550,33-35,"Computer and Information Sciences, General (earnings $124,469)",81
+130253,Sacred Heart University,Fairfield,CT,private nonprofit,7087,suburb,49120,,0.65,,,"Computer and Information Sciences, General (earnings $93,209); Computer Engineering",73
+217402,Providence College,Providence,RI,private nonprofit,4229,city,57392,,0.51,1250-1390,29-32,Computer Science,175
+183026,Southern New Hampshire University,Manchester,NH,private nonprofit,163164,suburb,39780,,1.00,,,"Computer and Information Sciences, General (earnings $81,533); Computer Science (earnings $115,259)",226
+193353,Mount Saint Mary College,Newburgh,NY,private nonprofit,1148,city,33603,,0.89,,19-28,"Computer and Information Sciences, General (earnings $55,814)",67
+211477,Central Penn College,Summerdale,PA,private for-profit,662,suburb,20067,,0.18,,,"Computer Science (earnings $71,198)",138
+190646,CUNY Medgar Evers College,Brooklyn,NY,public,3233,city,7609,15559,0.86,850-1020,,Computer Science,21
+110714,University of California-Santa Cruz,Santa Cruz,CA,public,17940,city,35350,72952,0.66,,,"Computer and Information Sciences, General; Computer Science (earnings $123,422); Computer Engineering (earnings $124,641)",2551
+216667,Washington & Jefferson College,Washington,PA,private nonprofit,1295,suburb,27036,,0.81,,,"Computer and Information Sciences, General (earnings $79,272)",312
+209065,Linfield University,McMinnville,OR,private nonprofit,1621,town,31216,,0.85,,,Computer Science; Data Science,2456
+399869,Southern California Institute of Technology,Anaheim,CA,private for-profit,508,city,36440,,0.74,,,Computer Science,2419
+119605,National University,San Diego,CA,private nonprofit,10794,city,24008,,,,,"Computer Science (earnings $95,555)",2405
+165866,Framingham State University,Framingham,MA,public,2566,city,23325,29405,0.84,1100-1280,,"Computer and Information Sciences, General (earnings $82,590)",192
+122931,Santa Clara University,Santa Clara,CA,private nonprofit,6552,city,63129,,0.48,1350-1490,31-33,"Computer and Information Sciences, General; Computer Engineering (earnings $163,765); Mathematics and Computer Science (earnings $147,013)",2536
+236948,University of Washington-Seattle Campus,Seattle,WA,public,31942,city,30441,61675,0.39,,,"Computer and Information Sciences, General (earnings $114,798); Computer Science (earnings $175,616); Computer Engineering (earnings $169,570)",2389
+185572,Monmouth University,West Long Branch,NJ,private nonprofit,3684,suburb,40191,,0.89,1140-1310,24-29,"Computer and Information Sciences, General (earnings $95,960); Computer Engineering (earnings $111,422)",27
+212577,Franklin and Marshall College,Lancaster,PA,private nonprofit,1799,city,48580,,0.28,1310-1463,30-33,Computer Science; Data Science,110
+214041,Millersville University of Pennsylvania,Millersville,PA,public,5728,suburb,23543,35847,0.86,1020-1210,,"Computer and Information Sciences, General (earnings $86,012)",113
+110680,University of California-San Diego,La Jolla,CA,public,34948,city,32338,69940,0.27,,,"Computer and Information Sciences, General; Computer Science (earnings $159,487); Computer Engineering (earnings $149,139); Mathematics and Computer Science (earnings $137,218)",2410
+212656,Geneva College,Beaver Falls,PA,private nonprofit,1096,suburb,24557,,,,,"Computer and Information Sciences, General (earnings $70,610)",314
+123554,Saint Mary's College of California,Moraga,CA,private nonprofit,1947,suburb,40613,,0.87,,,Computer Science; Mathematics and Computer Science; Data Science,2533
+186371,Rutgers University-Camden,Camden,NJ,public,3753,city,24651,,0.66,1050-1300,19-25,"Computer and Information Sciences, General (earnings $125,303)",60

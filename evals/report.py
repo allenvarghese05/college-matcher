@@ -25,6 +25,8 @@ import json  # noqa: E402
 from dataclasses import dataclass  # noqa: E402
 from typing import Any  # noqa: E402
 
+import yaml  # noqa: E402
+
 from evals.ablation import Label, load_labels  # noqa: E402
 from evals.common import (  # noqa: E402
     DEFAULT_LABELS,
@@ -204,6 +206,32 @@ def _usd(v: Any, nd: int = 4) -> str:
     return "–" if v is None else f"${v:.{nd}f}"
 
 
+def _model_labeled(m: dict[str, Any]) -> bool:
+    return m.get("labeler", "project owner") != "project owner"
+
+
+def _labeler_short(m: dict[str, Any]) -> str:
+    if _model_labeled(m):
+        return "relevance labels judged by an LLM (not a human)"
+    return "a single labeler who also built the system"
+
+
+def _labeler_caveat(m: dict[str, Any]) -> str:
+    if _model_labeled(m):
+        return (
+            f"- **LLM-judged labels** — {m['labeler']}. Pass 1 major sets were drafted by the "
+            "assistant from each persona file and reviewed by the project owner; pass 2 fit "
+            "scores (S1) were assigned by the model blind (shuffled pool, no source, rank or "
+            "score) under the frozen rubric, with a one-line rationale per school in "
+            "`evals/labels/rationales/`. The judge is the same model family as the "
+            "recommender, so self-preference bias is possible; no human agreement is reported."
+        )
+    return (
+        "- **Single labeler** — the project owner, who also built the system; no inter-rater "
+        "agreement unless reported separately."
+    )
+
+
 def render(m: dict[str, Any], summary: dict[str, Any]) -> str:
     g = m["groundedness"]
     ex = m["extraction"]
@@ -218,7 +246,7 @@ def render(m: dict[str, Any], summary: dict[str, Any]) -> str:
     a("")
     a(
         "> **Internal benchmark, not ground truth.** Simulated students (made-up personas), "
-        "a single labeler who also built the system, and Scorecard data limits. See Caveats."
+        f"{_labeler_short(m)}, and Scorecard data limits. See Caveats."
     )
     a("")
     models = summary.get("models", {})
@@ -402,10 +430,7 @@ def render(m: dict[str, Any], summary: dict[str, Any]) -> str:
         "- **Internal benchmark, not ground truth.** Labels follow the frozen protocol in "
         "`evals/labels/criteria.md` (TREC-style pooling, hard criteria H1–H4, soft rubric S1)."
     )
-    a(
-        "- **Single labeler** — the project owner, who also built the system; no inter-rater "
-        "agreement unless reported separately."
-    )
+    a(_labeler_caveat(m))
     a(f"- **Simulated students.** Personas are invented. {sim_caveat(summary)}")
     a(
         "- **Heuristic coverage.** Questions-asked coverage uses keyword matching on the "
@@ -465,12 +490,21 @@ def check_gates(
     return failures
 
 
+def _labeler(labels_path: Path | None) -> str:
+    """Who labeled (``_meta.labeler`` in labels.yaml); the project owner by default."""
+    if not labels_path or not Path(labels_path).exists():
+        return "project owner"
+    doc = yaml.safe_load(Path(labels_path).read_text()) or {}
+    return str((doc.get("_meta") or {}).get("labeler") or "project owner")
+
+
 def build_report(
     run_dir: Path, labels_path: Path | None = DEFAULT_LABELS
 ) -> tuple[str, dict[str, Any]]:
     data = load_run(run_dir)
     labels = load_labels(labels_path) if labels_path and Path(labels_path).exists() else {}
     m = compute_metrics(data, labels)
+    m["labeler"] = _labeler(labels_path)
     m["_results"] = data.results
     md = render(m, data.summary)
     m.pop("_results")

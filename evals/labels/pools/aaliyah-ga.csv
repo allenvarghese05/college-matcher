@@ -1,0 +1,10 @@
+unitid,name,city,state,control,undergrad_size,locale,net_price,out_of_state_estimate,admission_rate,sat_range,act_range,programs,distance_miles
+138901,Atlanta Metropolitan State College,Atlanta,GA,public,1228,city,2114,,,,,"Biology, General",1
+149772,Western Illinois University,Macomb,IL,public,4410,town,3427,3427,0.71,,,"Biology, General (earnings $50,855); Clinical/Medical Laboratory Science/Research and Allied Professions",580
+139463,Dalton State College,Dalton,GA,public,4553,city,1524,,,,,"Biology, General (earnings $47,218); Health Services/Allied Health/Health Sciences, General",80
+139621,East Georgia State College,Swainsboro,GA,public,1413,town,5628,,,,,"Biology, General",144
+139700,Georgia Highlands College,Rome,GA,public,4761,suburb,4638,,,,,"Health Services/Allied Health/Health Sciences, General",55
+156295,Berea College,Berea,KY,private nonprofit,1513,town,5373,,0.19,1156-1335,23-28,"Biology, General (earnings $32,729); Health Services/Allied Health/Health Sciences, General",266
+229887,Wiley University,Marshall,TX,private nonprofit,712,town,5259,,,,,"Biology, General",582
+160065,University of Holy Cross,New Orleans,LA,private nonprofit,471,city,4833,,0.74,,,"Biology, General; Health Services/Allied Health/Health Sciences, General; Health/Medical Preparatory Programs",420
+138558,Abraham Baldwin Agricultural College,Tifton,GA,public,3208,town,5482,,0.76,860-1080,17-22,"Biology, General (earnings $46,194)",163
