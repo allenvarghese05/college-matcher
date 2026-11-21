@@ -4,11 +4,17 @@
   ingest; we additionally require ≥ 1 bachelor's program (``credential_level = 3``).
 * Offers ≥ 1 selected CIP at the bachelor's level (one output row per school × CIP).
   ``cips=None`` means "any major": one row per school with ``cip4 = None``.
-* Budget (if ``budget_cap``): the student's net price (``pricing.student_net_price``:
+* Budget (:func:`budget_ceiling`): the student's net price (``pricing.student_net_price``:
   bracket price, plus the out-of-state surcharge at public schools outside the home
-  state) ≤ cap × 1.15. If the bracket price is missing we fall back to the school's
-  average net price; if no price can be computed the school is excluded (we can't show
-  it is affordable). Applied in Python after the SQL query.
+  state — the price the student would actually pay) ≤ the ceiling:
+  - a stated ``budget_cap`` → cap × 1.15 (source ``cap``);
+  - no cap → the income bracket's default ceiling (``BRACKET_DEFAULT_BUDGET``, source
+    ``bracket_default``; 110k+ with the ``prestige`` priority has none);
+  - no cap and no bracket → no budget filter.
+  ``FilterOptions(budget_to_default=True)`` swaps a stated cap for the bracket default
+  (the retriever's one relaxation step, see ``retriever``). If the bracket price is
+  missing we fall back to the school's average net price; if no price can be computed
+  the school is excluded (we can't show it is affordable). Applied in Python.
 * Geography (criteria H3):
   - Distance (if ``max_distance_miles`` and ``home_state``): haversine from the home
     state's population centroid to the school ≤ max distance × 1.10 (computed in
@@ -16,7 +22,11 @@
   - Regions (if ``regions``): school state ∈ ``states_for_regions(regions, home_state)``
     — hard **only when distance is not the hard rule**. When distance is enforced,
     regions become a soft preference (``CandidateRow.region_match``).
-  - Relaxation order (done by the retriever): distance first, then regions.
+  - "Leave home" lists (``out_of_state`` plus named places, e.g. ``[out_of_state, CA,
+    OR, WA]``): the hard filter is "not the home state"; the named places are a soft
+    preference (``region_match``) instead of being swallowed by the union. The
+    home-state exclusion stays hard even when distance is the hard rule.
+  - Distance and regions are never relaxed (the student stated them).
 
 Rows carry every fact the recommender may cite (see ``CandidateRow``).
 """
@@ -24,12 +34,12 @@ Rows carry every fact the recommender may cite (see ``CandidateRow``).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.retrieval.geo import distance_from_home, states_for_regions
+from app.retrieval.geo import OUT_OF_STATE, distance_from_home, states_for_regions
 from app.retrieval.pricing import (
     NET_PRICE_COLUMNS,
     NetPriceBasis,
@@ -39,12 +49,15 @@ from app.retrieval.pricing import (
 from app.schemas import IncomeBracket, StudentProfile
 
 __all__ = [
+    "BRACKET_DEFAULT_BUDGET",
     "BUDGET_SLACK",
     "DISTANCE_SLACK",
     "NET_PRICE_COLUMNS",
     "CandidateRow",
     "FilterOptions",
     "bracket_median",
+    "budget_ceiling",
+    "region_sets",
     "candidates",
     "net_price_column",
 ]
@@ -52,6 +65,19 @@ __all__ = [
 BUDGET_SLACK = 1.15
 DISTANCE_SLACK = 1.10
 BACHELORS = 3
+
+# Net-price ceiling when the student gave no budget: "a stretch most families in the
+# bracket could plausibly manage with loans and work" (the same table the benchmark
+# froze in evals/labels/criteria.md H2 before labeling; a product default, not tuned).
+BRACKET_DEFAULT_BUDGET: dict[str, int] = {
+    "0-30k": 12000,
+    "30-48k": 15000,
+    "48-75k": 20000,
+    "75-110k": 27000,
+    "110k+": 40000,
+}
+
+BudgetSource = Literal["cap", "bracket_default"]
 
 _INST_COLS = (
     "unitid",
@@ -139,6 +165,55 @@ class FilterOptions:
     apply_budget: bool = True
     apply_distance: bool = True
     apply_regions: bool = True
+    budget_to_default: bool = False  # replace a stated cap with the bracket default
+
+
+def bracket_default_budget(profile: StudentProfile) -> int | None:
+    """Default ceiling for the student's bracket (None: unknown bracket, or prestige
+    at 110k+)."""
+    bracket = profile.income_bracket.value
+    if bracket is None:
+        return None
+    if bracket == "110k+" and "prestige" in (profile.priorities.value or []):
+        return None
+    return BRACKET_DEFAULT_BUDGET.get(bracket)
+
+
+def budget_ceiling(
+    profile: StudentProfile, opts: FilterOptions | None = None
+) -> tuple[float | None, BudgetSource | None]:
+    """(max net price, where it came from); ``(None, None)`` = no budget filter."""
+    opts = opts or FilterOptions()
+    if not opts.apply_budget:
+        return None, None
+    cap = profile.budget_cap.value
+    if cap is not None and not opts.budget_to_default:
+        return cap * BUDGET_SLACK, "cap"
+    default = bracket_default_budget(profile)
+    if default is None:
+        return None, None
+    return float(default), "bracket_default"
+
+
+def wants_out_of_state(regions: list[str] | None) -> bool:
+    """The student listed ``out_of_state`` (wants to leave their home state)."""
+    return any(r.strip().lower().replace("-", "_") == OUT_OF_STATE for r in regions or [])
+
+
+def region_sets(regions: list[str] | None, home: str | None) -> tuple[set[str], set[str]]:
+    """(states allowed, states preferred) for ``regions``.
+
+    Normally both are the union of the entries. A "leave home" list (``out_of_state``
+    plus named places) allows every state but home and prefers the named places.
+    """
+    if not regions:
+        return set(), set()
+    allowed = states_for_regions(regions, home)
+    named = [r for r in regions if r.strip().lower().replace("-", "_") != OUT_OF_STATE]
+    if len(named) < len(regions) and named:
+        preferred = states_for_regions(named, home) - {(home or "").strip().upper()}
+        return allowed, preferred
+    return allowed, allowed
 
 
 async def candidates(
@@ -175,13 +250,14 @@ async def candidates(
     home = profile.home_state.value
     max_d = profile.max_distance_miles.value
     distance_hard = opts.apply_distance and max_d is not None and bool(home)
-    region_states: set[str] = (
-        states_for_regions(profile.regions.value, home) if profile.regions.value else set()
-    )
+    region_states, preferred_states = region_sets(profile.regions.value, home)
     regions_hard = opts.apply_regions and not distance_hard and bool(region_states)
     if regions_hard:
         where.append("i.state = ANY(:states)")
         params["states"] = sorted(region_states)
+    elif opts.apply_regions and home and wants_out_of_state(profile.regions.value):
+        where.append("i.state <> :home")  # an explicit "not my home state" stays hard
+        params["home"] = home.strip().upper()
 
     if where:
         sql += " AND " + " AND ".join(where)
@@ -192,15 +268,14 @@ async def candidates(
 
     for row in rows:
         row.distance_miles = distance_from_home(home, row.lat, row.lon)
-        if region_states and not regions_hard:
-            row.region_match = row.state in region_states
+        if preferred_states and (not regions_hard or preferred_states != region_states):
+            row.region_match = row.state in preferred_states
     if distance_hard and max_d is not None:
         cutoff = max_d * DISTANCE_SLACK
         rows = [r for r in rows if r.distance_miles is not None and r.distance_miles <= cutoff]
-    cap = profile.budget_cap.value
-    if opts.apply_budget and cap is not None:
+    max_price, _source = budget_ceiling(profile, opts)
+    if max_price is not None:
         bracket = profile.income_bracket.value
-        max_price = cap * BUDGET_SLACK
         rows = [
             r
             for r in rows
