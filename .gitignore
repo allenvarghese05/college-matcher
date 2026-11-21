@@ -85,3 +85,6 @@ __pycache__/
 
 # v2 web app build output
 web/dist/
+
+# Live eval recordings (simulated-student API responses; large, regenerable)
+evals/recordings/
