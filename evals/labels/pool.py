@@ -611,6 +611,55 @@ async def generate(
     return pools
 
 
+async def extra_rows(
+    persona: Persona,
+    major_cip4s: list[str],
+    extra_unitids: set[int],
+    relaxed: bool,
+    session: AsyncSession,
+    raw: RawInstitutions,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Top-up for a later system version: picks outside ``judged_unitids``.
+
+    Returns (rows passing H1–H4 in the pool CSV format, shuffled with the persona's
+    seed; auto-judged failures ``{unitid, name, reasons}``), using the same hard
+    criteria (and the persona's recorded ``relaxed`` budget) as the original pool.
+    """
+    cip4s = {norm_cip4(c) for c in major_cip4s}
+    schools = await load_schools(session, cip4s, extra_unitids, raw)
+    home = raw.home_latlon(persona.hidden.get("home_zip"), persona.hidden.get("home_state"))
+    rows: list[dict[str, Any]] = []
+    failed: list[dict[str, Any]] = []
+    for uid in sorted(extra_unitids):
+        s = schools.get(uid)
+        if s is None:
+            failed.append({"unitid": uid, "name": None, "reasons": ["not in database"]})
+            continue
+        v = judge(s, persona.hidden, cip4s, home, relaxed)
+        if v.ok:
+            rows.append(_row(s, v, cip4s))
+        else:
+            failed.append({"unitid": uid, "name": s.name, "reasons": v.reasons})
+    random.Random(f"{DEFAULT_SEED}:{persona.id}:extra").shuffle(rows)
+    return rows, failed
+
+
+def write_extra(
+    persona_id: str, rows: list[dict[str, Any]], meta: dict[str, Any], out_dir: Path = POOLS_DIR
+) -> Path:
+    """``<persona>.extra.csv`` (same columns as the pool CSV) + ``.extra.meta.yaml``."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = out_dir / f"{persona_id}.extra.csv"
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
+        w.writeheader()
+        w.writerows(rows)
+    (out_dir / f"{persona_id}.extra.meta.yaml").write_text(
+        yaml.safe_dump(meta, sort_keys=False, allow_unicode=True)
+    )
+    return csv_path
+
+
 async def _main(a: argparse.Namespace) -> int:
     personas = load_personas(a.personas)
     major_sets = load_major_sets(a.major_sets)
