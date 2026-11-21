@@ -1,0 +1,112 @@
+persona: kenji-hi
+major_cip4s:
+- 0901
+- 0907
+- '5001'
+- '5006'
+pool_size: 511
+relaxed: []
+shown: 84
+auto_judged:
+- unitid: 110583
+  reasons:
+  - 'H2: out-of-state estimate 20,896 > 20,000'
+- unitid: 110653
+  reasons:
+  - 'H2: out-of-state estimate 47,499 > 20,000'
+- unitid: 110671
+  reasons:
+  - 'H2: out-of-state estimate 46,701 > 20,000'
+- unitid: 110705
+  reasons:
+  - 'H2: out-of-state estimate 51,783 > 20,000'
+- unitid: 110714
+  reasons:
+  - 'H2: out-of-state estimate 51,048 > 20,000'
+- unitid: 111948
+  reasons:
+  - 'H2: net price 31,307 > 20,000'
+- unitid: 118888
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 122597
+  reasons:
+  - 'H2: out-of-state estimate 21,892 > 20,000'
+- unitid: 123961
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 130794
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 132903
+  reasons:
+  - 'H2: out-of-state estimate 27,589 > 20,000'
+- unitid: 134237
+  reasons:
+  - 'H2: net price 35,932 > 20,000'
+- unitid: 139940
+  reasons:
+  - 'H2: out-of-state estimate 28,177 > 20,000'
+- unitid: 140951
+  reasons:
+  - 'H2: net price 48,028 > 20,000'
+- unitid: 144050
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 144281
+  reasons:
+  - 'H2: net price 34,435 > 20,000'
+- unitid: 144740
+  reasons:
+  - 'H2: net price 24,864 > 20,000'
+- unitid: 165662
+  reasons:
+  - 'H2: net price 42,830 > 20,000'
+- unitid: 166027
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 167358
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 189097
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 190415
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 193900
+  reasons:
+  - 'H2: net price 21,188 > 20,000'
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 436429
+  reasons:
+  - 'H2: net price 47,762 > 20,000'
+- unitid: 130697
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 190099
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 195526
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 196866
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 197133
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+n_sampled: 60
+n_system_only: 15
+seed: 20261119
+runs:
+- /Users/allen/Desktop/college-matcher/evals/results/live-full-1
+candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
+criteria_commit: ee31239af7170f4219e02b510a356cee57174605
+generated_at: '2026-11-20T03:21:13+00:00'
+topup:
+  date: '2026-11-20'
+  rows_added: 9
+  auto_judged_added: 5
+  reason: retriever fix (no silent relaxation, bracket default budget, far-reach cap);
+    new top-10 picks labeled blind

@@ -1,0 +1,86 @@
+persona: bella-la
+major_cip4s:
+- '1909'
+- '5004'
+- '5214'
+- '5218'
+- '5219'
+pool_size: 12
+relaxed:
+- budget
+shown: 12
+auto_judged:
+- unitid: 118888
+  reasons:
+  - 'H3: distance 1794 > 250'
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 160074
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 162928
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 1077 > 250'
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 163532
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 1073 > 250'
+- unitid: 179867
+  reasons:
+  - 'H3: distance 592 > 250'
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 200554
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 1235 > 250'
+- unitid: 215062
+  reasons:
+  - 'H3: distance 1164 > 250'
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 217156
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 1400 > 250'
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 219277
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 1068 > 250'
+- unitid: 219374
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 1020 > 250'
+- unitid: 366340
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 1563 > 250'
+- unitid: 440794
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 1238 > 250'
+- unitid: 451398
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 1216 > 250'
+- unitid: 226408
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 227757
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H4: far below 25th percentile at a <50% school'
+n_sampled: 12
+n_system_only: 0
+seed: 20261119
+runs:
+- /Users/allen/Desktop/college-matcher/evals/results/live-full-1
+candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
+criteria_commit: ee31239af7170f4219e02b510a356cee57174605
+generated_at: '2026-11-20T03:21:12+00:00'
+topup:
+  date: '2026-11-20'
+  rows_added: 0
+  auto_judged_added: 2
+  reason: retriever fix (no silent relaxation, bracket default budget, far-reach cap);
+    new top-10 picks labeled blind

@@ -1,0 +1,15 @@
+unitid,name,city,state,control,undergrad_size,locale,net_price,out_of_state_estimate,admission_rate,sat_range,act_range,programs,distance_miles
+188304,Western New Mexico University,Silver City,NM,public,2026,town,8900,,,,,Natural Resources Conservation and Research; Wildlife and Wildlands Science and Management,96
+188030,New Mexico State University-Main Campus,Las Cruces,NM,public,11946,suburb,4271,,0.89,870-1110,17-24,"Natural Resources Conservation and Research; Environmental/Natural Resources Management and Policy; Wildlife and Wildlands Science and Management (earnings $44,272); Ecology, Evolution, Systematics, and Population Biology",1
+187596,Navajo Technical University,Crownpoint,NM,public,1124,rural,6722,,,,,Natural Resources Conservation and Research,249
+142522,Brigham Young University-Idaho,Rexburg,ID,private nonprofit,44397,town,3678,,0.96,970-1200,20-26,Natural Resources Conservation and Research; Wildlife and Wildlands Science and Management,843
+182005,College of Southern Nevada,Las Vegas,NV,public,27252,city,5455,14355,,,,Natural Resources Conservation and Research; Fire Protection,554
+187648,Eastern New Mexico University-Main Campus,Portales,NM,public,3357,town,3982,,0.92,830-1060,17-23,Natural Resources Conservation and Research; Wildlife and Wildlands Science and Management,236
+230807,Westminster University,Salt Lake City,UT,private nonprofit,823,city,12868,,0.67,1070-1310,23-29,"Natural Resources Conservation and Research (earnings $53,132)",649
+483124,Arizona State University Digital Immersion,Scottsdale,AZ,public,53782,city,11594,13692,0.67,,,"Natural Resources Conservation and Research (earnings $60,369)",312
+127918,Regis University,Denver,CO,private nonprofit,2627,city,14181,,0.86,,22-29,Natural Resources Conservation and Research,528
+230038,Brigham Young University,Provo,UT,private nonprofit,32952,city,8507,,0.68,1270-1460,28-32,"Ecology, Evolution, Systematics, and Population Biology (earnings $61,078)",615
+188058,Northern New Mexico College,Espanola,NM,public,926,town,3630,,,,,Natural Resources Conservation and Research,260
+180647,Salish Kootenai College,Pablo,MT,public,580,rural,1315,8947,,,,Forestry; Wildlife and Wildlands Science and Management,1127
+128106,Colorado State University Pueblo,Pueblo,CO,public,3042,city,6225,14736,0.95,,19-26,Natural Resources Conservation and Research,434
+180203,Aaniiih Nakoda College,Harlem,MT,public,106,rural,8019,8019,,,,"Ecology, Evolution, Systematics, and Population Biology",1125

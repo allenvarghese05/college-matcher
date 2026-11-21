@@ -1,0 +1,124 @@
+/*
+ * College Matcher design tokens.
+ *
+ * Calm, spacious, editorial. Warm bone canvas (light) / near-black (dark),
+ * ink text, cream accents, and a lavender-to-sky atmosphere used sparingly.
+ *
+ * Spacing scale (px): 4 8 12 16 24 32 48 64 96 128 — use only these.
+ * Type scale: display / title / body / label. Max three per screen + labels.
+ * Radius: sm 10 · md 16 · lg 24 · pill.
+ */
+
+:root {
+  /* Surfaces */
+  --canvas: #f5f3ee;
+  --surface: rgb(255 255 255 / 0.62);
+  --surface-solid: #fbfaf7;
+  --surface-sunken: #ece9e2;
+  --line: rgb(23 22 26 / 0.09);
+  --line-strong: rgb(23 22 26 / 0.16);
+
+  /* Text */
+  --ink: #17161a;
+  --ink-muted: #5c5953; /* 6.2:1 on canvas */
+  --ink-faint: #a19d95; /* decorative only, never body text */
+
+  /* Accents */
+  --cream: #f1e9d8;
+  --cream-ink: #17161a;
+  --primary: var(--ink);
+  --primary-ink: #f6f0e3;
+  --focus: #4d6fd9;
+
+  /* Atmosphere (orb + background wash) */
+  --lavender: #cbc3f4;
+  --sky: #b7daf3;
+  --peach: #f4d8c4;
+  --orb-core: #fbf6ea;
+  --atmos-opacity: 0.55;
+
+  /* Admission bands (estimated) */
+  --band-safety-bg: #e4efe1;
+  --band-safety-ink: #2c5530;
+  --band-target-bg: #e0ecf7;
+  --band-target-ink: #1d5a86;
+  --band-reach-bg: #ebe7fa;
+  --band-reach-ink: #4a3d94;
+  --band-unknown-bg: #eceae5;
+  --band-unknown-ink: #5c5953;
+
+  /* Semantic */
+  --verified: #2c5530; /* 7.7:1 on canvas */
+  --overlay: rgb(13 13 15 / 0.28);
+
+  /* Data bars */
+  --bar-track: rgb(23 22 26 / 0.07);
+  --bar-fill: #17161a;
+
+  /* Type */
+  --ff-sans: "Geist Variable", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --ff-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  --ff-quote: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+
+  --fs-display: clamp(2.75rem, 1.6rem + 4.6vw, 5.75rem);
+  --fs-title: 1.375rem;
+  --fs-body: 1rem;
+  --fs-label: 0.75rem;
+
+  /* Radius */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 24px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --breath: 8s;
+
+  --shadow-soft: 0 1px 2px rgb(23 22 26 / 0.03), 0 8px 32px rgb(23 22 26 / 0.04);
+
+  color-scheme: light;
+}
+
+.dark {
+  --canvas: #0d0d0f;
+  --surface: rgb(255 255 255 / 0.04);
+  --surface-solid: #151518;
+  --surface-sunken: #1b1b1f;
+  --line: rgb(255 255 255 / 0.08);
+  --line-strong: rgb(255 255 255 / 0.16);
+
+  --ink: #eeebe4;
+  --ink-muted: #a29e96; /* 7.4:1 on canvas */
+  --ink-faint: #5d5a55;
+
+  --cream: #efe6d2;
+  --cream-ink: #141316;
+  --primary: var(--cream);
+  --primary-ink: #141316;
+  --focus: #9bb3ff;
+
+  --lavender: #6e5fd0;
+  --sky: #3f86c4;
+  --peach: #b9765a;
+  --orb-core: #f3ecdc;
+  --atmos-opacity: 0.32;
+
+  --band-safety-bg: rgb(140 196 138 / 0.13);
+  --band-safety-ink: #a8d4a4;
+  --band-target-bg: rgb(120 176 230 / 0.13);
+  --band-target-ink: #9fc9ee;
+  --band-reach-bg: rgb(170 152 245 / 0.15);
+  --band-reach-ink: #c6bbf7;
+  --band-unknown-bg: rgb(255 255 255 / 0.06);
+  --band-unknown-ink: #a29e96;
+
+  --verified: #a8d4a4;
+  --overlay: rgb(0 0 0 / 0.55);
+
+  --bar-track: rgb(255 255 255 / 0.08);
+  --bar-fill: #efe6d2;
+
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.2), 0 12px 40px rgb(0 0 0 / 0.25);
+
+  color-scheme: dark;
+}

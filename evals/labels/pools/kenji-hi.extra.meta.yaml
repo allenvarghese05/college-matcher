@@ -1,0 +1,64 @@
+persona: kenji-hi
+n_extra: 14
+n_pass_h1_h4: 9
+relaxed: []
+passing:
+- 130590
+- 135717
+- 135726
+- 170082
+- 190637
+- 212577
+- 214175
+- 236577
+- 447689
+auto_judged:
+- unitid: 130697
+  name: Wesleyan University
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 190099
+  name: Colgate University
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 195526
+  name: Skidmore College
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 196866
+  name: Union College
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 197133
+  name: Vassar College
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+picked_by:
+  130590:
+  - hybrid_rerank/gold
+  130697:
+  - hybrid/gold
+  135717:
+  - hybrid/gold
+  135726:
+  - hybrid/gold
+  170082:
+  - hybrid/gold
+  190099:
+  - hybrid/e2e
+  190637:
+  - hybrid_rerank/e2e
+  195526:
+  - hybrid_rerank/e2e
+  196866:
+  - hybrid_rerank/e2e
+  197133:
+  - hybrid/e2e
+  212577:
+  - hybrid_rerank/gold
+  214175:
+  - hybrid_rerank/gold
+  236577:
+  - hybrid_rerank/gold
+  447689:
+  - hybrid/gold

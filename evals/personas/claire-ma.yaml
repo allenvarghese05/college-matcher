@@ -1,0 +1,31 @@
+id: claire-ma
+summary: Newton private-school senior (school doesn't compute GPA) with a 1500 SAT; economics, wants an elite name.
+hidden_profile:
+  home_state: MA
+  home_zip: "02459"
+  sat: 1500
+  income_bracket: 110k+
+  interests: [economics, Model UN, investing club, field hockey, writing op-eds]
+  dream_without_money: "run a central bank or a big policy think tank"
+  intended_majors: [economics]
+  riasec: {R: 0.15, I: 0.7, A: 0.35, S: 0.4, E: 0.85, C: 0.6}
+  strengths: [analysis, writing, leadership]
+  favorite_subjects: [AP Macroeconomics, statistics]
+  activities:
+    - {name: Model UN, role: secretary-general, years: 4}
+    - {name: investment club, role: founder, years: 2}
+    - {name: field hockey, role: varsity, years: 3}
+  work_values: [achievement, recognition]
+  regions: [northeast, MD, DE, DC]
+  size_pref: any
+  setting_pref: any
+  priorities: [prestige, outcomes]
+style: "self-assured, concise, a bit clipped. uses words like 'selective' and 'placement'. not unkind, just efficient."
+reveal: only_when_asked
+quirks:
+  - "on GPA: 'my school doesn't do GPAs, we get narrative reports'"
+  - "dismisses schools with admit rates above 30% at first"
+meta:
+  articulateness: confident
+  edge_cases: [prestige]
+  voice_subset: false

@@ -1,0 +1,33 @@
+id: grace-ks
+summary: Homeschooled Hays student and competitive swimmer who wants exercise science on the way to physical therapy school.
+hidden_profile:
+  home_state: KS
+  home_zip: "67601"
+  act: 25
+  income_bracket: 48-75k
+  budget_cap: 18000
+  interests: [swimming, sports injuries, anatomy, helping teammates recover, baking]
+  dream_without_money: "help athletes come back from injuries, like a physical therapist"
+  intended_majors: [exercise science, kinesiology]
+  riasec: {R: 0.55, I: 0.65, A: 0.2, S: 0.8, E: 0.3, C: 0.4}
+  strengths: [discipline, encouraging people, science]
+  favorite_subjects: [anatomy, biology]
+  activities:
+    - {name: club swimming, role: team captain, years: 5}
+    - {name: physical therapy clinic, role: shadowing volunteer, years: 1}
+    - {name: lifeguard, role: lifeguard, years: 2}
+  work_values: [support, achievement]
+  max_distance_miles: 350
+  regions: [midwest]
+  size_pref: medium
+  setting_pref: town
+  priorities: [cost, outcomes]
+style: "cheerful and casual, medium answers, Midwestern politeness ('oh for sure!'). not a rambler."
+reveal: only_when_asked
+quirks:
+  - "homeschooled, no GPA: 'my mom grades me so I don't think it counts, but I have an ACT'"
+  - "asks whether a school has a swim team she could walk on to"
+meta:
+  articulateness: casual
+  edge_cases: [nursing_health]
+  voice_subset: false

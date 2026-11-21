@@ -1,0 +1,11 @@
+unitid,name,city,state,control,undergrad_size,locale,net_price,out_of_state_estimate,admission_rate,sat_range,act_range,programs,distance_miles
+235431,Highline College,Des Moines,WA,public,3838,suburb,18849,19434,,,,Allied Health and Medical Assisting Services,494
+142522,Brigham Young University-Idaho,Rexburg,ID,private nonprofit,44397,town,4926,,0.96,970-1200,20-26,Animal Sciences; Wildlife and Wildlands Science and Management,272
+230782,Weber State University,Ogden,UT,public,16360,city,9053,20173,,,,"Zoology/Animal Biology (earnings $49,480); Allied Health and Medical Assisting Services",454
+180461,Montana State University,Bozeman,MT,public,14451,city,21133,,0.82,1065-1285,21-27,"Animal Sciences (earnings $46,313); Wildlife and Wildlands Science and Management",148
+200572,Valley City State University,Valley City,ND,public,958,town,8809,14047,0.99,830-1070,17-24,"Wildlife and Wildlands Science and Management (earnings $69,799)",644
+230038,Brigham Young University,Provo,UT,private nonprofit,32952,city,9268,,0.68,1270-1460,28-32,"Zoology/Animal Biology (earnings $57,020)",519
+180489,The University of Montana,Missoula,MT,public,7488,city,21615,,0.96,,23-28,"Wildlife and Wildlands Science and Management (earnings $43,286); Allied Health and Medical Assisting Services",123
+236692,Spokane Community College,Spokane,WA,public,4533,city,20309,21757,,,,Allied Health and Medical Assisting Services,263
+180647,Salish Kootenai College,Pablo,MT,public,580,rural,1980,,,,,Wildlife and Wildlands Science and Management,112
+127060,University of Denver,Denver,CO,private nonprofit,6025,city,19505,,0.78,1240-1410,28-33,Animal Sciences,652

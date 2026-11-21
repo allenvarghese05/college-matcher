@@ -1,0 +1,146 @@
+persona: marcus-al
+major_cip4s:
+- '0402'
+- 0409
+- '1408'
+- '1510'
+- '4604'
+- '5220'
+pool_size: 1
+relaxed: []
+shown: 1
+auto_judged:
+- unitid: 100724
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 166 > 150'
+- unitid: 100751
+  reasons:
+  - 'H2: net price 18,067 > 12,000'
+- unitid: 101587
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 174 > 150'
+- unitid: 102298
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 102377
+  reasons:
+  - 'H2: net price 40,091 > 12,000'
+  - 'H3: distance 169 > 150'
+- unitid: 127060
+  reasons:
+  - 'H2: net price 15,042 > 12,000'
+  - 'H3: distance 1063 > 150'
+- unitid: 135364
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 135726
+  reasons:
+  - 'H2: net price 14,575 > 12,000'
+  - 'H3: distance 729 > 150'
+- unitid: 138901
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 139463
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 139658
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H4: admission rate < 15%'
+- unitid: 142522
+  reasons:
+  - 'H3: distance 1476 > 150'
+- unitid: 149231
+  reasons:
+  - 'H3: distance 336 > 150'
+- unitid: 149772
+  reasons:
+  - 'H3: distance 453 > 150'
+- unitid: 150534
+  reasons:
+  - 'H2: net price 14,498 > 12,000'
+  - 'H3: distance 228 > 150'
+- unitid: 162061
+  reasons:
+  - 'H3: distance 616 > 150'
+- unitid: 176035
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 176336
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 253 > 150'
+- unitid: 182564
+  reasons:
+  - 'H2: out-of-state estimate 18,270 > 12,000'
+  - 'H3: distance 1846 > 150'
+- unitid: 184782
+  reasons:
+  - 'H2: out-of-state estimate 27,055 > 12,000'
+  - 'H3: distance 719 > 150'
+- unitid: 190512
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 804 > 150'
+- unitid: 190576
+  reasons:
+  - 'H2: out-of-state estimate 12,716 > 12,000'
+  - 'H3: distance 805 > 150'
+- unitid: 190655
+  reasons:
+  - 'H3: distance 803 > 150'
+- unitid: 193900
+  reasons:
+  - 'H2: net price 16,349 > 12,000'
+  - 'H3: distance 803 > 150'
+  - 'H4: admission rate < 15%'
+- unitid: 196024
+  reasons:
+  - 'H2: out-of-state estimate 17,225 > 12,000'
+  - 'H3: distance 818 > 150'
+- unitid: 211440
+  reasons:
+  - 'H2: net price 14,468 > 12,000'
+  - 'H3: distance 537 > 150'
+  - 'H4: admission rate < 15%'
+- unitid: 216366
+  reasons:
+  - 'H2: net price 20,022 > 12,000'
+  - 'H3: distance 725 > 150'
+- unitid: 220701
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 221661
+  reasons:
+  - 'H2: net price 21,055 > 12,000'
+- unitid: 229027
+  reasons:
+  - 'H2: out-of-state estimate 20,672 > 12,000'
+  - 'H3: distance 786 > 150'
+- unitid: 230038
+  reasons:
+  - 'H3: distance 1418 > 150'
+- unitid: 230737
+  reasons:
+  - 'H2: out-of-state estimate 27,934 > 12,000'
+  - 'H3: distance 1422 > 150'
+- unitid: 366252
+  reasons:
+  - 'H2: out-of-state estimate 27,342 > 12,000'
+  - 'H3: distance 688 > 150'
+n_sampled: 1
+n_system_only: 0
+seed: 20261119
+runs:
+- /Users/allen/Desktop/college-matcher/evals/results/live-full-1
+candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
+criteria_commit: ee31239af7170f4219e02b510a356cee57174605
+generated_at: '2026-11-20T03:21:13+00:00'
+topup:
+  date: '2026-11-20'
+  rows_added: 0
+  auto_judged_added: 0
+  reason: retriever fix (no silent relaxation, bracket default budget, far-reach cap);
+    new top-10 picks labeled blind

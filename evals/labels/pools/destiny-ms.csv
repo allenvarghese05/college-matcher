@@ -1,0 +1,7 @@
+unitid,name,city,state,control,undergrad_size,locale,net_price,out_of_state_estimate,admission_rate,sat_range,act_range,programs,distance_miles
+442569,University of Arkansas Grantham,LIttle Rock,AR,public,2833,city,9940,9940,,,,"Registered Nursing, Nursing Administration, Nursing Research and Clinical Nursing",151
+176017,University of Mississippi,University,MS,public,21473,town,10536,,0.97,1000-1200,21-29,"Health Services/Allied Health/Health Sciences, General; Registered Nursing, Nursing Administration, Nursing Research and Clinical Nursing (earnings $87,701)",59
+219639,Baptist Health Sciences University,Memphis,TN,private nonprofit,770,city,10409,,0.82,,17-22,"Registered Nursing, Nursing Administration, Nursing Research and Clinical Nursing (earnings $82,135)",103
+106342,Lyon College,Batesville,AR,private nonprofit,648,town,10853,,0.63,,,"Registered Nursing, Nursing Administration, Nursing Research and Clinical Nursing",171
+176035,Mississippi University for Women,Columbus,MS,public,1605,town,11320,,0.90,,17-24,"Registered Nursing, Nursing Administration, Nursing Research and Clinical Nursing (earnings $91,522)",96
+220701,The University of Tennessee Southern,Pulaski,TN,public,864,town,6773,6773,0.87,905-1110,18-24,"Registered Nursing, Nursing Administration, Nursing Research and Clinical Nursing (earnings $45,980)",204

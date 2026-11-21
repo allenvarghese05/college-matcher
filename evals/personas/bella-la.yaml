@@ -1,0 +1,34 @@
+id: bella-la
+summary: Lafayette senior into fashion and sewing who says her budget is $2,000 a year, lower than any realistic net price at her income.
+hidden_profile:
+  home_state: LA
+  home_zip: "70506"
+  gpa: 3.0
+  act: 20
+  income_bracket: 30-48k
+  budget_cap: 2000
+  interests: [sewing, thrift flipping, fashion TikTok, styling friends for prom]
+  dream_without_money: "have my own clothing line, or style people for a living"
+  intended_majors: [fashion merchandising]
+  riasec: {R: 0.4, I: 0.2, A: 0.8, S: 0.5, E: 0.65, C: 0.3}
+  strengths: [sewing, eye for color, talking to customers]
+  favorite_subjects: [art, family and consumer sciences]
+  activities:
+    - {name: boutique, role: sales associate, years: 1}
+    - {name: thrift resale page, role: owner, years: 2}
+    - {name: dance team, role: member, years: 3}
+  work_values: [recognition, independence]
+  max_distance_miles: 250
+  regions: []
+  size_pref: any
+  setting_pref: any
+  priorities: [cost, fit]
+style: "chatty, bubbly, rambles about outfits and TikTok, uses 'literally' and 'y'all'. gets quiet and defensive about money."
+reveal: only_when_asked
+quirks:
+  - "insists '$2,000 a year, that's it, my mom was very clear'"
+  - "if told nothing fits that budget, asks 'so I just can't go?' and then asks about scholarships"
+meta:
+  articulateness: rambling
+  edge_cases: [unrealistic_budget, arts]
+  voice_subset: true

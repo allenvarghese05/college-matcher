@@ -1,0 +1,43 @@
+# Pass 1 of evals/labels/criteria.md: the LABEL MAJOR SET per persona, chosen by the
+# labeler BEFORE any candidate pool exists and without looking at the system's Stage A
+# output. 2-8 CIP-4 codes (up to 10 for undecided personas), e.g. ["50.04", "14.19"].
+# Pick from the persona YAML (intended_majors, interests, dream, strengths) and the CIP
+# list (data/raw/cip/CIPCode2020.csv). The comment after each id is a reminder copied
+# from the persona file. `make pool` skips personas whose list is empty.
+
+aaliyah-ga: ["26.01", "26.02", "51.11", "26.09", "51.00", "51.10"]  # majors: biology, biomedical sciences; interests: how the body works, sickle cell research, volunteering at the clinic, braiding hair; dream: be a doctor in my neighborhood. like an actual doctor people here can see
+ana-nv: []  # majors: health information management, health administration; interests: healthcare, organizing records, medical TV shows, helping patients check in; dream: work in a hospital but not like surgery. making sure everything runs right
+austin-ok: []  # majors: agribusiness; interests: Air Force, cattle, flying drones, FFA, leading people; dream: be an Air Force officer, then come home and run the family farm better than anyone
+bella-la: ["52.19", "50.04", "19.09", "52.18", "52.14"]  # majors: fashion merchandising; interests: sewing, thrift flipping, fashion TikTok, styling friends for prom; dream: have my own clothing line, or style people for a living
+brandon-tn: []  # majors: business, entrepreneurship; interests: reselling sneakers, investing podcasts, college football, running a business; dream: own a bunch of businesses. be my own boss
+claire-ma: []  # majors: economics; interests: economics, Model UN, investing club, field hockey, writing op-eds; dream: run a central bank or a big policy think tank
+destiny-ms: ["51.38", "51.00"]  # majors: nursing; interests: taking care of people, medicine, gospel choir, cooking for family; dream: be a nurse. help people when they're scared, like the nurses who helped my grandma
+diego-tx: []  # majors: mechanical engineering; interests: cars, JROTC drill, fixing things around the house, military history; dream: be an officer and lead people. maybe work on vehicles or aircraft
+dylan-wv: []  # majors: cybersecurity, computer science; interests: cybersecurity, capture-the-flag competitions, fixing computers, networking; dream: hack stuff legally. like a pentester
+emily-pa: []  # majors: elementary education, special education; interests: working with kids, soccer, special olympics, crafts, reading to her cousins; dream: teach second grade forever honestly, or work with kids with disabilities
+ethan-vt: ["40.08", "40.02", "40.06", "40.04", "03.01", "30.38", "40.01"]  # majors: physics, earth science; interests: astronomy, climate science, sci-fi novels, stargazing, rock climbing; dream: study the universe or the climate. something where you figure out how the whole system works
+grace-ks: []  # majors: exercise science, kinesiology; interests: swimming, sports injuries, anatomy, helping teammates recover, baking; dream: help athletes come back from injuries, like a physical therapist
+hannah-mt: ["01.09", "03.06", "51.08", "26.07"]  # majors: animal science; interests: horses, calving season, wildlife, being outside, 4-H; dream: work with animals outside all day. vet tech or something with wildlife, I don't know
+harper-ut: []  # majors: actuarial science, statistics; interests: statistics, sudoku and logic puzzles, baseball analytics, board games; dream: figure out probabilities for a living. like an actuary or a sports analytics person
+isabella-fl: []  # majors: public health, biology; interests: global health, Spanish-language health outreach, debate, epidemiology podcasts; dream: work for the WHO or run health programs in Latin America
+jamal-md: []  # majors: -; interests: basketball, mentoring younger kids, music, helping friends through stuff; dream: run a rec center. keep kids off the street
+jasmine-ny: []  # majors: animation, illustration; interests: drawing comics, anime, character design, digital art on her tablet, making stickers; dream: draw characters for animated shows. like be the person who designs how they look
+jose-nm: ["03.05", "03.06", "03.01", "03.02", "43.02", "26.13"]  # majors: forestry; interests: hiking, camping, wildfire, desert plants, trucks; dream: be out in the mountains, like a ranger or on a hotshot crew
+kaitlyn-nd: []  # majors: aviation, professional pilot; interests: flying, weather, airplanes, maps; dream: fly. honestly just fly planes forever
+kenji-hi: ["50.06", "09.07", "50.01", "09.01"]  # majors: film; interests: filmmaking, editing surf videos, cinematography, Studio Ghibli, skateboarding; dream: direct films. or be a cinematographer on big productions
+kevin-mn: []  # majors: accounting; interests: spreadsheets, personal finance, hockey stats, doing taxes with his dad; dream: honestly I'd still do finance stuff. maybe run the books for a hockey team
+lin-ca: []  # majors: electrical engineering; interests: circuits, soldering kits, drones, smart home gadgets; dream: design chips or hardware. I'd tinker with electronics for free honestly
+luis-il: ["52.02", "52.13", "14.35", "15.06", "52.12"]  # majors: supply chain management; interests: how warehouses work, trucks and shipping, video games, soccer, fixing his cousin's car; dream: run a big operation, like the person who makes the whole warehouse work
+malik-sc: []  # majors: nursing; interests: JROTC, first aid, helping people, football, the Navy; dream: be a Navy nurse. serve and help people at the same time
+marcus-al: ["52.20", "15.10", "04.02", "04.09", "14.08", "46.04"]  # majors: -; interests: building houses, power tools, drawing floor plans, basketball; dream: build houses for people. my own company one day
+maya-oh: ["50.04", "14.19", "14.01", "04.02", "15.13", "50.07"]  # majors: -; interests: drawing, fixing bikes, how things are built; dream: design things people use every day
+megan-ne: ["51.07", "44.07", "13.12", "19.07", "42.28", "52.02", "51.00"]  # majors: -; interests: baking, volleyball, keeping the yearbook organized, true crime podcasts, babysitting; dream: I honestly don't know. maybe something where I help people but also it's organized? that's so vague, sorry
+noah-wa: []  # majors: computer science; interests: making games in Godot, modding, Linux, speedrunning; dream: make indie games with a couple friends
+oliver-or: []  # majors: music production, audio engineering; interests: music production, synthesizers, mixing, live sound at shows, guitar; dream: make records. produce for other artists, run a studio
+priya-nj: ["11.07", "11.01", "14.09", "30.70", "30.08"]  # majors: computer science; interests: machine learning, competitive programming, building apps, chess; dream: research how to make AI actually understand things. or start a company
+riley-nh: []  # majors: hospitality management; interests: planning events, theme parks, cooking shows, travel vlogs, running fundraisers; dream: plan huge events. weddings, festivals, maybe work at Disney
+sam-ia: []  # majors: -; interests: cooking, chemistry experiments, baking bread, why food tastes the way it does; dream: invent new foods. like work in a test kitchen or lab
+sofia-az: []  # majors: political science; interests: debate, immigration law, student government, true crime, mock trial; dream: be an immigration lawyer. fight for families like mine
+tyler-wy: []  # majors: construction management; interests: diesel engines, welding, building sheds and decks, heavy equipment; dream: run my own crew building stuff. houses, shops, whatever
+tyrell-mi: []  # majors: sports management; interests: football, sports business, fantasy football, sneakers, motivating teammates; dream: work for an NFL front office. or be an agent
+zoe-co: []  # majors: creative writing, English; interests: writing short stories, making zines, poetry, old movies, hiking with her dog; dream: write books. or edit them. something with words

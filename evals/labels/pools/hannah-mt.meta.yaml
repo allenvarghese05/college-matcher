@@ -1,0 +1,84 @@
+persona: hannah-mt
+major_cip4s:
+- 0109
+- '0306'
+- '2607'
+- '5108'
+pool_size: 10
+relaxed: []
+shown: 10
+auto_judged:
+- unitid: 106467
+  reasons:
+  - 'H3: distance 1284 > 600'
+- unitid: 149222
+  reasons:
+  - 'H3: distance 1329 > 600'
+- unitid: 150941
+  reasons:
+  - 'H3: distance 1372 > 600'
+- unitid: 153001
+  reasons:
+  - 'H3: distance 876 > 600'
+- unitid: 156620
+  reasons:
+  - 'H3: distance 1542 > 600'
+- unitid: 157401
+  reasons:
+  - 'H3: distance 1415 > 600'
+- unitid: 159717
+  reasons:
+  - 'H3: distance 1561 > 600'
+- unitid: 173124
+  reasons:
+  - 'H3: distance 783 > 600'
+- unitid: 174075
+  reasons:
+  - 'H3: distance 700 > 600'
+- unitid: 180595
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 180692
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 187648
+  reasons:
+  - 'H3: distance 1033 > 600'
+- unitid: 200059
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 200280
+  reasons:
+  - 'H3: distance 678 > 600'
+- unitid: 204936
+  reasons:
+  - 'H3: distance 1515 > 600'
+- unitid: 213251
+  reasons:
+  - 'H3: distance 1729 > 600'
+- unitid: 217013
+  reasons:
+  - 'H3: distance 1764 > 600'
+- unitid: 236887
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 237109
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 479956
+  reasons:
+  - 'H3: distance 1727 > 600'
+n_sampled: 10
+n_system_only: 0
+seed: 20261119
+runs:
+- /Users/allen/Desktop/college-matcher/evals/results/live-full-1
+candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
+criteria_commit: ee31239af7170f4219e02b510a356cee57174605
+generated_at: '2026-11-20T03:21:13+00:00'
+topup:
+  date: '2026-11-20'
+  rows_added: 0
+  auto_judged_added: 0
+  reason: retriever fix (no silent relaxation, bracket default budget, far-reach cap);
+    new top-10 picks labeled blind

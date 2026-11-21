@@ -1,0 +1,84 @@
+unitid,name,city,state,control,undergrad_size,locale,net_price,out_of_state_estimate,admission_rate,sat_range,act_range,programs,distance_miles
+157951,Western Kentucky University,Bowling Green,KY,public,12155,city,8394,23322,0.94,840-1050,16-21,"Mechanical Engineering (earnings $86,624); Fine and Studio Arts (earnings $45,957)",282
+201104,Ashland University,Ashland,OH,private nonprofit,2199,town,19280,,0.76,1035-1208,20-25,Design and Applied Arts; Fine and Studio Arts,67
+151102,Purdue University Fort Wayne,Fort Wayne,IN,public,5484,city,9817,23858,0.84,970-1220,22-29,"Engineering, General; Mechanical Engineering (earnings $85,075); Design and Applied Arts (earnings $44,227); Fine and Studio Arts (earnings $37,718)",131
+131469,George Washington University,Washington,DC,private nonprofit,11182,city,21338,,0.47,1350-1500,31-34,"Engineering, General; Mechanical Engineering (earnings $101,196); Design and Applied Arts; Fine and Studio Arts (earnings $34,734)",329
+217013,Wilson College,Chambersburg,PA,private nonprofit,865,city,13725,,0.92,930-1180,,Design and Applied Arts,285
+204820,Ohio University-Chillicothe Campus,Chillicothe,OH,public,833,town,5487,,,,,"Engineering, General; Mechanical Engineering (earnings $91,285); Design and Applied Arts (earnings $49,553); Fine and Studio Arts (earnings $39,055)",51
+490805,Purdue University Northwest,Hammond,IN,public,5671,suburb,2692,10594,0.72,890-1140,16-24,"Mechanical Engineering (earnings $91,229)",255
+232089,Ferrum College,Ferrum,VA,private nonprofit,699,rural,16341,,0.89,,,Design and Applied Arts; Fine and Studio Arts,271
+151379,Indiana University-Southeast,New Albany,IN,public,3170,suburb,7045,21653,0.84,970-1180,20-25,"Fine and Studio Arts (earnings $42,084)",191
+479956,Pennsylvania State University-World Campus,University Park,PA,public,7877,city,11566,11566,0.91,1090-1335,26-32,"Mechanical Engineering (earnings $87,997); Fine and Studio Arts (earnings $40,036)",276
+204635,Ohio Northern University,Ada,OH,private nonprofit,2489,town,18913,,0.74,1175-1400,24-29,"Mechanical Engineering (earnings $85,802); Design and Applied Arts; Fine and Studio Arts",64
+204024,Miami University-Oxford,Oxford,OH,public,16656,town,21499,,0.75,1220-1390,25-30,"Architecture (earnings $61,466); Engineering, General; Mechanical Engineering (earnings $87,343); Design and Applied Arts (earnings $67,981); Fine and Studio Arts (earnings $55,891)",98
+204264,Muskingum University,New Concord,OH,private nonprofit,1376,rural,15695,,0.82,910-1105,17-22,"Engineering, General; Fine and Studio Arts",69
+157447,Northern Kentucky University,Highland Heights,KY,public,8246,suburb,8734,19990,0.68,953-1150,18-25,"Design and Applied Arts (earnings $52,703); Fine and Studio Arts (earnings $42,684)",105
+156408,Centre College,Danville,KY,private nonprofit,1400,town,13123,,0.54,1160-1450,25-32,Fine and Studio Arts,192
+147703,Northern Illinois University,Dekalb,IL,public,11301,suburb,13387,13387,0.70,,,"Mechanical Engineering (earnings $86,999); Fine and Studio Arts (earnings $44,202)",326
+237899,West Virginia State University,Institute,WV,public,1321,suburb,14317,19737,0.96,760-1040,15-20,"Engineering, General; Fine and Studio Arts (earnings $22,764)",135
+151801,Indiana Wesleyan University-Marion,Marion,IN,private nonprofit,1974,town,17466,,0.89,960-1180,19-28,Design and Applied Arts; Fine and Studio Arts,142
+202480,University of Dayton,Dayton,OH,private nonprofit,7682,city,21370,,0.65,1200-1380,25-31,"Mechanical Engineering (earnings $88,339); Design and Applied Arts (earnings $66,679); Fine and Studio Arts",65
+212656,Geneva College,Beaver Falls,PA,private nonprofit,1096,suburb,15542,,,,,"Engineering, General (earnings $75,535); Design and Applied Arts",151
+145600,University of Illinois Chicago,Chicago,IL,public,22170,city,8493,24595,0.77,1130-1350,25-31,"Architecture (earnings $56,975); Mechanical Engineering (earnings $87,384); Design and Applied Arts (earnings $59,188); Fine and Studio Arts (earnings $41,924)",271
+215947,Seton Hill University,Greensburg,PA,private nonprofit,1492,suburb,17771,,0.80,1020-1240,19-27,Design and Applied Arts; Fine and Studio Arts,184
+144740,DePaul University,Chicago,IL,private nonprofit,14090,city,24864,,0.76,1140-1330,25-31,"Design and Applied Arts (earnings $55,213); Fine and Studio Arts (earnings $37,085)",271
+203085,Heidelberg University,Tiffin,OH,private nonprofit,915,town,18782,,0.86,,,Design and Applied Arts,73
+147679,North Park University,Chicago,IL,private nonprofit,1818,city,13469,,0.69,,,Mechanical Engineering; Fine and Studio Arts,277
+204200,Mount St. Joseph University,Cincinnati,OH,private nonprofit,1129,suburb,13203,,0.59,930-1140,20-28,Design and Applied Arts; Fine and Studio Arts,109
+144962,Elmhurst University,Elmhurst,IL,private nonprofit,3006,suburb,20828,,0.74,990-1260,23-30,Design and Applied Arts; Fine and Studio Arts,286
+414878,Trine University-Regional/Non-Traditional Campuses,Angola,IN,private nonprofit,607,town,20064,,0.40,,,"Drafting/Design Engineering Technologies/Technicians (earnings $77,517)",150
+171571,Oakland University,Rochester Hills,MI,public,12351,suburb,8905,15679,0.88,1030-1230,,"Mechanical Engineering (earnings $97,444); Design and Applied Arts (earnings $47,432); Fine and Studio Arts (earnings $44,270)",181
+215655,Robert Morris University,Moon Township,PA,private nonprofit,2896,suburb,18392,,0.90,,,"Engineering, General (earnings $86,444); Design and Applied Arts (earnings $43,698)",152
+169910,Ferris State University,Big Rapids,MI,public,8106,town,4055,4055,0.91,890-1120,20-24,"Design and Applied Arts (earnings $50,658); Fine and Studio Arts (earnings $39,165)",280
+147776,Northeastern Illinois University,Chicago,IL,public,3982,city,8933,18771,0.75,,,"Design and Applied Arts; Fine and Studio Arts (earnings $44,312)",278
+498571,Pennsylvania Western University,California,PA,public,7451,town,14350,19281,0.94,940-1140,17-25,"Design and Applied Arts (earnings $40,854); Fine and Studio Arts (earnings $37,684)",166
+198598,Greensboro College,Greensboro,NC,private nonprofit,708,city,16013,,0.70,,,Design and Applied Arts; Fine and Studio Arts,327
+203128,Hiram College,Hiram,OH,private nonprofit,777,rural,17183,,0.94,,,Design and Applied Arts; Fine and Studio Arts,131
+196006,SUNY College of Technology at Alfred,Alfred,NY,public,3563,rural,14048,21993,0.76,990-1200,20-24,"Architecture (earnings $64,658); Design and Applied Arts; Fine and Studio Arts",312
+162760,Hood College,Frederick,MD,private nonprofit,1194,city,22353,,0.78,,,"Fine and Studio Arts (earnings $44,411)",301
+156745,Georgetown College,Georgetown,KY,private nonprofit,1097,town,9946,,0.91,960-1160,20-25,Fine and Studio Arts,152
+232672,Mary Baldwin University,Staunton,VA,private nonprofit,1090,city,17927,,,,,Fine and Studio Arts,250
+157076,Kentucky Wesleyan College,Owensboro,KY,private nonprofit,842,city,13216,,0.72,890-1130,16-23,Design and Applied Arts; Fine and Studio Arts,272
+156295,Berea College,Berea,KY,private nonprofit,1513,town,6084,,0.19,1156-1335,23-28,"Fine and Studio Arts (earnings $29,013)",185
+202170,Columbus College of Art & Design,Columbus,OH,private nonprofit,882,city,22186,,0.68,,,"Design and Applied Arts (earnings $48,204); Fine and Studio Arts (earnings $32,061)",7
+169716,University of Detroit Mercy,Detroit,MI,private nonprofit,2438,city,10990,,0.75,1030-1260,22-28,"Engineering, General; Mechanical Engineering (earnings $104,683)",162
+145813,Illinois State University,Normal,IL,public,19057,suburb,12488,24554,0.88,990-1210,21-27,"Design and Applied Arts (earnings $61,628); Fine and Studio Arts (earnings $51,386)",316
+170037,Cornerstone University,Grand Rapids,MI,private nonprofit,1298,city,14853,,0.78,,,"Engineering, General; Design and Applied Arts",241
+201654,Cedarville University,Cedarville,OH,private nonprofit,4024,rural,17536,,0.65,1130-1360,22-29,"Mechanical Engineering (earnings $86,062); Design and Applied Arts (earnings $51,813); Fine and Studio Arts",47
+152336,University of Saint Francis-Fort Wayne,Fort Wayne,IN,private nonprofit,1567,city,14369,,0.96,870-1070,17-24,"Design and Applied Arts (earnings $40,619); Fine and Studio Arts",133
+212009,Dickinson College,Carlisle,PA,private nonprofit,2273,city,14531,,0.42,1310-1460,30-33,Fine and Studio Arts,308
+188641,Alfred University,Alfred,NY,private nonprofit,1423,rural,18752,,0.74,1095-1310,24-29,"Mechanical Engineering (earnings $79,452); Fine and Studio Arts (earnings $38,877)",312
+237525,Marshall University,Huntington,WV,public,7266,city,4552,15554,0.96,910-1150,19-24,"Engineering, General (earnings $72,922); Mechanical Engineering; Fine and Studio Arts (earnings $32,723)",118
+204796,Ohio State University-Main Campus,Columbus,OH,public,45638,city,9708,,0.61,1310-1480,28-32,"Architecture (earnings $66,131); Mechanical Engineering (earnings $96,418); Design and Applied Arts (earnings $68,151); Fine and Studio Arts (earnings $46,899)",5
+150677,Grace College and Theological Seminary,Winona Lake,IN,private nonprofit,1464,town,12974,,0.82,1000-1200,21-27,"Mechanical Engineering; Design and Applied Arts (earnings $51,338); Fine and Studio Arts",167
+211431,Carlow University,Pittsburgh,PA,private nonprofit,1348,city,18447,,0.87,960-1168,,Fine and Studio Arts,164
+148627,Saint Xavier University,Chicago,IL,private nonprofit,3096,city,7951,,0.84,,,Design and Applied Arts; Fine and Studio Arts,270
+199102,North Carolina A & T State University,Greensboro,NC,public,12182,city,8492,22552,0.50,1020-1190,17-23,"Mechanical Engineering (earnings $85,463); Design and Applied Arts (earnings $46,077); Fine and Studio Arts (earnings $31,202)",328
+201371,Bluffton University,Bluffton,OH,private nonprofit,582,rural,19398,,0.67,860-1130,16-22,Design and Applied Arts; Fine and Studio Arts,73
+172699,Western Michigan University,Kalamazoo,MI,public,12568,city,10093,14047,0.85,,,"Mechanical Engineering (earnings $87,477); Drafting/Design Engineering Technologies/Technicians (earnings $84,622); Design and Applied Arts (earnings $58,634); Fine and Studio Arts (earnings $36,615)",204
+211556,Chatham University,Pittsburgh,PA,private nonprofit,1232,city,19056,,0.62,1070-1295,21-30,Design and Applied Arts; Fine and Studio Arts,166
+237969,West Virginia Wesleyan College,Buckhannon,WV,private nonprofit,954,town,14759,,0.93,892-1160,16-23,Design and Applied Arts; Fine and Studio Arts,167
+152567,Trine University,Angola,IN,private nonprofit,2324,town,18540,,0.85,,,"Mechanical Engineering (earnings $86,997); Drafting/Design Engineering Technologies/Technicians (earnings $77,517)",150
+169080,Calvin University,Grand Rapids,MI,private nonprofit,3193,city,14984,,0.71,1083-1330,24-30,"Engineering, General (earnings $82,326); Design and Applied Arts; Fine and Studio Arts",238
+203517,Kent State University at Kent,Kent,OH,public,19320,suburb,16382,,0.86,1010-1240,18-25,"Architecture (earnings $59,299); Design and Applied Arts (earnings $56,540); Fine and Studio Arts (earnings $35,710)",116
+237330,Concord University,Athens,WV,public,1504,rural,8748,20084,0.93,830-1090,17-24,Design and Applied Arts; Fine and Studio Arts,213
+148496,Dominican University,River Forest,IL,private nonprofit,2561,suburb,11690,,0.90,880-1100,16-26,"Design and Applied Arts (earnings $47,930); Fine and Studio Arts",280
+239105,Marquette University,Milwaukee,WI,private nonprofit,7660,city,23377,,0.81,1200-1360,26-31,"Engineering, General; Mechanical Engineering (earnings $93,764)",326
+233611,Southern Virginia University,Buena Vista,VA,private nonprofit,936,town,22337,,0.96,,,Design and Applied Arts,255
+239309,Milwaukee Institute of Art & Design,Milwaukee,WI,private nonprofit,837,city,23554,,0.61,,,"Design and Applied Arts (earnings $43,944); Fine and Studio Arts (earnings $40,952)",325
+215798,Saint Vincent College,Latrobe,PA,private nonprofit,1259,suburb,15722,,0.62,1020-1230,20-27,"Engineering, General (earnings $84,180); Mechanical Engineering; Design and Applied Arts; Fine and Studio Arts",192
+239318,Milwaukee School of Engineering,Milwaukee,WI,private nonprofit,2654,city,15923,,0.59,,,"Engineering, General; Mechanical Engineering (earnings $85,791)",326
+144005,Chicago State University,Chicago,IL,public,1384,city,6137,6137,0.43,,,Fine and Studio Arts,265
+150941,Huntington University,Huntington,IN,private nonprofit,1082,town,14668,,0.76,930-1150,18-26,Design and Applied Arts; Fine and Studio Arts,142
+169798,Eastern Michigan University,Ypsilanti,MI,public,10055,suburb,14056,14056,0.80,920-1170,18-27,"Mechanical Engineering; Drafting/Design Engineering Technologies/Technicians; Design and Applied Arts; Fine and Studio Arts (earnings $41,225)",154
+212674,Gettysburg College,Gettysburg,PA,private nonprofit,2099,town,21037,,0.39,1270-1460,29-32,Fine and Studio Arts,307
+201885,University of Cincinnati-Main Campus,Cincinnati,OH,public,29882,city,20592,,0.85,1160-1370,24-29,"Architecture (earnings $65,449); Mechanical Engineering (earnings $86,331); Design and Applied Arts (earnings $71,605); Fine and Studio Arts (earnings $37,025)",102
+240374,University of Wisconsin-Parkside,Kenosha,WI,public,2844,rural,8676,18293,0.75,,17-25,"Design and Applied Arts (earnings $40,410); Fine and Studio Arts (earnings $31,577)",307
+204848,Ohio University-Lancaster Campus,Lancaster,OH,public,691,rural,4080,,,,,"Engineering, General; Mechanical Engineering (earnings $91,285); Design and Applied Arts (earnings $49,553); Fine and Studio Arts (earnings $39,055)",33
+169248,Central Michigan University,Mount Pleasant,MI,public,10035,town,13598,13598,0.90,960-1200,21-27,"Mechanical Engineering (earnings $85,196); Drafting/Design Engineering Technologies/Technicians (earnings $84,064); Design and Applied Arts (earnings $54,254); Fine and Studio Arts (earnings $40,181)",260
+201441,Bowling Green State University-Main Campus,Bowling Green,OH,public,12812,town,18793,,0.81,1000-1210,19-26,"Design and Applied Arts (earnings $54,274); Fine and Studio Arts (earnings $36,036)",96
+152600,Valparaiso University,Valparaiso,IN,private nonprofit,2083,suburb,15101,,0.89,1060-1280,23-31,"Mechanical Engineering (earnings $90,583); Fine and Studio Arts",231
+220516,King University,Bristol,TN,private nonprofit,908,city,20055,,1.00,,,"Engineering, General",245
+131399,University of the District of Columbia,Washington,DC,public,3351,city,10549,19093,,,,Architecture; Mechanical Engineering; Design and Applied Arts; Fine and Studio Arts,327
+215284,University of Pittsburgh-Johnstown,Johnstown,PA,public,1808,suburb,11590,23582,0.95,985-1220,22-27,"Mechanical Engineering (earnings $90,768)",222
+202523,Denison University,Granville,OH,private nonprofit,2380,suburb,15569,,0.17,1320-1490,30-33,Fine and Studio Arts,27

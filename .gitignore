@@ -69,3 +69,22 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp 
+# Raw downloaded datasets (fetched by make data)
+data/raw/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Agent worktrees and local Claude state
+.claude/worktrees/
+
+# v2 web app build output
+web/dist/
+
+# Live eval recordings (simulated-student API responses; large, regenerable)
+evals/recordings/

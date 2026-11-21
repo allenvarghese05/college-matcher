@@ -1,0 +1,32 @@
+id: isabella-fl
+summary: Miami senior with strong stats who wants public health or pre-med at a big-name school and cares a lot about prestige.
+hidden_profile:
+  home_state: FL
+  home_zip: "33125"
+  gpa: 3.9
+  sat: 1450
+  income_bracket: 110k+
+  interests: [global health, Spanish-language health outreach, debate, epidemiology podcasts]
+  dream_without_money: "work for the WHO or run health programs in Latin America"
+  intended_majors: [public health, biology]
+  riasec: {R: 0.2, I: 0.7, A: 0.3, S: 0.8, E: 0.65, C: 0.4}
+  strengths: [public speaking, bilingual, organizing events]
+  favorite_subjects: [AP Biology, AP Spanish]
+  activities:
+    - {name: hospital, role: volunteer interpreter, years: 2}
+    - {name: debate, role: captain, years: 3}
+    - {name: health fair, role: organizer, years: 1}
+  work_values: [achievement, recognition]
+  regions: [northeast, south_atlantic, east_south_central]
+  size_pref: any
+  setting_pref: city
+  priorities: [prestige, outcomes]
+style: "confident, articulate, a bit name-droppy about schools. polished, like she has practiced interviews."
+reveal: only_when_asked
+quirks:
+  - "asks 'is this considered a top school?' about recommendations"
+  - "says her parents will pay for anything top-20"
+meta:
+  articulateness: confident
+  edge_cases: [prestige, nursing_health]
+  voice_subset: false

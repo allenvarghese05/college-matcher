@@ -1,0 +1,59 @@
+persona: maya-oh
+major_cip4s:
+- '0402'
+- '1401'
+- '1419'
+- '1513'
+- '5004'
+- '5007'
+pool_size: 245
+relaxed: []
+shown: 83
+auto_judged:
+- unitid: 144050
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 147536
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 149329
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 152080
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 163532
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 337 > 300'
+- unitid: 196440
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 353 > 300'
+- unitid: 211440
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 247773
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+- unitid: 488305
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H3: distance 342 > 300'
+- unitid: 491525
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+n_sampled: 60
+n_system_only: 22
+seed: 20261119
+runs:
+- /Users/allen/Desktop/college-matcher/evals/results/live-full-1
+candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
+criteria_commit: ee31239af7170f4219e02b510a356cee57174605
+generated_at: '2026-11-20T03:21:13+00:00'
+topup:
+  date: '2026-11-20'
+  rows_added: 1
+  auto_judged_added: 0
+  reason: retriever fix (no silent relaxation, bracket default budget, far-reach cap);
+    new top-10 picks labeled blind

@@ -1,0 +1,69 @@
+persona: luis-il
+major_cip4s:
+- '1435'
+- '1506'
+- '5202'
+- '5212'
+- '5213'
+pool_size: 22
+relaxed: []
+shown: 22
+auto_judged:
+- unitid: 144740
+  reasons:
+  - 'H2: net price 21,638 > 15,000'
+- unitid: 145637
+  reasons:
+  - 'H3: distance 126 > 100'
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 145813
+  reasons:
+  - 'H3: distance 117 > 100'
+- unitid: 146339
+  reasons:
+  - 'H2: net price 15,354 > 15,000'
+- unitid: 146427
+  reasons:
+  - 'H3: distance 155 > 100'
+- unitid: 146719
+  reasons:
+  - 'H2: net price 31,498 > 15,000'
+- unitid: 147244
+  reasons:
+  - 'H3: distance 156 > 100'
+- unitid: 147767
+  reasons:
+  - 'H4: far below 25th percentile at a <50% school'
+- unitid: 149505
+  reasons:
+  - 'H2: net price 15,313 > 15,000'
+- unitid: 240189
+  reasons:
+  - 'H2: out-of-state estimate 18,517 > 15,000'
+- unitid: 243780
+  reasons:
+  - 'H2: out-of-state estimate 24,420 > 15,000'
+- unitid: 448673
+  reasons:
+  - 'H2: net price 18,719 > 15,000'
+- unitid: 482477
+  reasons:
+  - 'H2: net price 36,182 > 15,000'
+- unitid: 144050
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H4: far below 25th percentile at a <50% school'
+n_sampled: 22
+n_system_only: 0
+seed: 20261119
+runs:
+- /Users/allen/Desktop/college-matcher/evals/results/live-full-1
+candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
+criteria_commit: ee31239af7170f4219e02b510a356cee57174605
+generated_at: '2026-11-20T03:21:13+00:00'
+topup:
+  date: '2026-11-20'
+  rows_added: 0
+  auto_judged_added: 1
+  reason: retriever fix (no silent relaxation, bracket default budget, far-reach cap);
+    new top-10 picks labeled blind

@@ -1,0 +1,13 @@
+persona: megan-ne
+n_extra: 1
+n_pass_h1_h4: 0
+relaxed: []
+passing: []
+auto_judged:
+- unitid: 173142
+  name: Bethany Lutheran College
+  reasons:
+  - 'H3: distance 336 > 250'
+picked_by:
+  173142:
+  - hybrid/e2e

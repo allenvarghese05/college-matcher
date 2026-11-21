@@ -1,0 +1,65 @@
+persona: aaliyah-ga
+n_extra: 8
+n_pass_h1_h4: 0
+relaxed: []
+passing: []
+auto_judged:
+- unitid: 153384
+  name: Grinnell College
+  reasons:
+  - 'H2: net price 8,161 > 5,750'
+  - 'H4: admission rate < 15%'
+- unitid: 156082
+  name: Washburn University
+  reasons:
+  - 'H2: out-of-state estimate 9,829 > 5,750'
+- unitid: 190415
+  name: Cornell University
+  reasons:
+  - 'H2: net price 6,371 > 5,750'
+  - 'H4: admission rate < 15%'
+- unitid: 190594
+  name: CUNY Hunter College
+  reasons:
+  - 'H2: out-of-state estimate 9,001 > 5,750'
+- unitid: 190725
+  name: Daemen University
+  reasons:
+  - 'H2: net price 9,053 > 5,750'
+- unitid: 193973
+  name: Niagara University
+  reasons:
+  - 'H2: net price 7,865 > 5,750'
+- unitid: 216287
+  name: Swarthmore College
+  reasons:
+  - 'H2: net price 6,966 > 5,750'
+  - 'H4: admission rate < 15%'
+- unitid: 479956
+  name: Pennsylvania State University-World Campus
+  reasons:
+  - 'H2: out-of-state estimate 10,210 > 5,750'
+picked_by:
+  153384:
+  - sql_only/gold
+  - sql_only/e2e
+  156082:
+  - sql_only/gold
+  - sql_only/e2e
+  190415:
+  - sql_only/gold
+  - sql_only/e2e
+  190594:
+  - sql_only/gold
+  190725:
+  - sql_only/gold
+  - sql_only/e2e
+  193973:
+  - sql_only/gold
+  - sql_only/e2e
+  216287:
+  - sql_only/gold
+  - sql_only/e2e
+  479956:
+  - sql_only/gold
+  - sql_only/e2e

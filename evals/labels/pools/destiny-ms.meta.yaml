@@ -1,0 +1,95 @@
+persona: destiny-ms
+major_cip4s:
+- '5100'
+- '5138'
+pool_size: 6
+relaxed: []
+shown: 6
+auto_judged:
+- unitid: 100663
+  reasons:
+  - 'H2: out-of-state estimate 26,945 > 12,000'
+- unitid: 100751
+  reasons:
+  - 'H2: out-of-state estimate 40,925 > 12,000'
+- unitid: 101116
+  reasons:
+  - 'H2: net price 23,872 > 12,000'
+  - 'H3: distance 241 > 200'
+- unitid: 102094
+  reasons:
+  - 'H2: out-of-state estimate 22,003 > 12,000'
+  - 'H3: distance 232 > 200'
+- unitid: 136473
+  reasons:
+  - 'H2: out-of-state estimate 15,125 > 12,000'
+  - 'H3: distance 276 > 200'
+- unitid: 138354
+  reasons:
+  - 'H2: out-of-state estimate 22,337 > 12,000'
+  - 'H3: distance 272 > 200'
+- unitid: 159373
+  reasons:
+  - 'H2: no net price'
+  - 'H3: distance 255 > 200'
+- unitid: 159966
+  reasons:
+  - 'H2: out-of-state estimate 12,786 > 12,000'
+  - 'H3: distance 269 > 200'
+- unitid: 160038
+  reasons:
+  - 'H2: out-of-state estimate 23,548 > 12,000'
+- unitid: 160065
+  reasons:
+  - 'H3: distance 258 > 200'
+- unitid: 160074
+  reasons:
+  - 'H2: net price 13,363 > 12,000'
+  - 'H3: distance 232 > 200'
+- unitid: 160658
+  reasons:
+  - 'H2: out-of-state estimate 25,848 > 12,000'
+  - 'H3: distance 263 > 200'
+- unitid: 175342
+  reasons:
+  - 'H2: net price 14,547 > 12,000'
+- unitid: 175421
+  reasons:
+  - 'H2: net price 14,602 > 12,000'
+- unitid: 175616
+  reasons:
+  - 'H2: net price 12,660 > 12,000'
+- unitid: 176479
+  reasons:
+  - 'H2: net price 12,083 > 12,000'
+- unitid: 219833
+  reasons:
+  - 'H2: net price 16,427 > 12,000'
+- unitid: 220862
+  reasons:
+  - 'H2: out-of-state estimate 14,814 > 12,000'
+- unitid: 221351
+  reasons:
+  - 'H1: no bachelor''s in the major set'
+  - 'H2: net price 17,430 > 12,000'
+- unitid: 440916
+  reasons:
+  - 'H2: no net price'
+  - 'H3: distance 225 > 200'
+- unitid: 487010
+  reasons:
+  - 'H2: no net price'
+n_sampled: 6
+n_system_only: 0
+seed: 20261119
+runs:
+- /Users/allen/Desktop/college-matcher/evals/results/live-full-1
+candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
+criteria_commit: ee31239af7170f4219e02b510a356cee57174605
+generated_at: '2026-11-20T03:21:12+00:00'
+topup:
+  date: '2026-11-20'
+  rows_added: 0
+  auto_judged_added: 0
+  reason: retriever fix (no silent relaxation, bracket default budget, far-reach cap);
+    new top-10 picks labeled blind

@@ -1,0 +1,43 @@
+persona: priya-nj
+major_cip4s:
+- '1101'
+- '1107'
+- '1409'
+- '3008'
+- '3070'
+pool_size: 401
+relaxed: []
+shown: 79
+auto_judged:
+- unitid: 110404
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 110635
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 168342
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 187046
+  reasons:
+  - 'H2: no net price'
+- unitid: 190150
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 190415
+  reasons:
+  - 'H4: admission rate < 15%'
+n_sampled: 60
+n_system_only: 19
+seed: 20261119
+runs:
+- /Users/allen/Desktop/college-matcher/evals/results/live-full-1
+candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
+criteria_commit: ee31239af7170f4219e02b510a356cee57174605
+generated_at: '2026-11-20T03:21:13+00:00'
+topup:
+  date: '2026-11-20'
+  rows_added: 0
+  auto_judged_added: 0
+  reason: retriever fix (no silent relaxation, bracket default budget, far-reach cap);
+    new top-10 picks labeled blind

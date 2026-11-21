@@ -1,0 +1,85 @@
+unitid,name,city,state,control,undergrad_size,locale,net_price,out_of_state_estimate,admission_rate,sat_range,act_range,programs,distance_miles
+215691,Rosemont College,Rosemont,PA,private nonprofit,486,suburb,19636,,0.76,,,Communication and Media Studies,4823
+187745,Institute of American Indian and Alaska Native Culture and Arts Development,Santa Fe,NM,public,334,rural,10156,10156,0.97,,,"Visual and Performing Arts, General; Film/Video and Photographic Arts",3161
+232256,Hampden-Sydney College,Hampden-Sydney,VA,private nonprofit,946,rural,19695,,0.41,1030-1250,23-28,"Visual and Performing Arts, General",4686
+171146,University of Michigan-Flint,Flint,MI,public,4411,city,4586,18862,0.70,970-1243,19-24,"Communication and Media Studies (earnings $47,959); Radio, Television, and Digital Communication",4372
+191205,Five Towns College,Dix Hills,NY,private for-profit,547,suburb,17630,,0.54,,,Communication and Media Studies; Film/Video and Photographic Arts,4916
+484473,University of Florida-Online,Gainesville,FL,public,4627,city,3309,16012,0.61,1250-1410,27-31,"Radio, Television, and Digital Communication (earnings $62,227); Visual and Performing Arts, General (earnings $47,546)",4550
+190549,CUNY Brooklyn College,Brooklyn,NY,public,10543,city,3802,11752,0.58,950-1340,,"Communication and Media Studies (earnings $57,024); Radio, Television, and Digital Communication (earnings $51,404); Film/Video and Photographic Arts (earnings $44,032)",4888
+192749,Manhattanville University,Purchase,NY,private nonprofit,1362,suburb,17958,,0.87,,,"Communication and Media Studies (earnings $60,523); Radio, Television, and Digital Communication (earnings $56,117); Film/Video and Photographic Arts",4895
+147536,National Louis University,Chicago,IL,private nonprofit,4406,city,9462,,0.95,,,Communication and Media Studies,4174
+203465,Kent State University at Stark,North Canton,OH,public,2692,suburb,9354,19598,,,,"Communication and Media Studies (earnings $49,375); Visual and Performing Arts, General",4497
+173665,Hamline University,Saint Paul,MN,private nonprofit,1776,city,16933,,0.88,1133-1391,19-28,"Communication and Media Studies (earnings $59,557); Visual and Performing Arts, General",3904
+108092,University of Arkansas-Fort Smith,Fort Smith,AR,public,4091,city,8023,12343,0.80,,18-23,"Communication and Media Studies (earnings $35,760)",3813
+159568,Louisiana Christian University,Pineville,LA,private nonprofit,672,suburb,17159,,0.77,,,"Communication and Media Studies; Radio, Television, and Digital Communication",3938
+226587,McMurry University,Abilene,TX,private nonprofit,1176,city,18731,,0.57,950-1160,18-24,Communication and Media Studies,3506
+214759,Pennsylvania State University-Penn State Fayette- Eberly,Lemont Furnace,PA,public,402,rural,5538,15500,0.95,1120-1250,,"Communication and Media Studies (earnings $55,505)",4597
+206695,Youngstown State University,Youngstown,OH,public,7961,city,6505,6865,0.84,1010-1230,19-25,"Radio, Television, and Digital Communication (earnings $41,630); Film/Video and Photographic Arts",4537
+230038,Brigham Young University,Provo,UT,private nonprofit,32952,city,9268,,0.68,1270-1460,28-32,"Communication and Media Studies (earnings $68,843); Film/Video and Photographic Arts (earnings $53,695)",2922
+157076,Kentucky Wesleyan College,Owensboro,KY,private nonprofit,842,city,13216,,0.72,890-1130,16-23,Communication and Media Studies,4210
+229887,Wiley University,Marshall,TX,private nonprofit,712,town,7185,,,,,Communication and Media Studies,3819
+169910,Ferris State University,Big Rapids,MI,public,8106,town,4055,4055,0.91,890-1120,20-24,Film/Video and Photographic Arts,4280
+207971,University of Tulsa,Tulsa,OK,private nonprofit,2813,city,8648,,0.62,1223-1530,25-34,"Communication and Media Studies (earnings $44,090); Film/Video and Photographic Arts",3725
+140696,Oglethorpe University,Atlanta,GA,private nonprofit,1352,suburb,17951,,0.88,1090-1310,22-31,Communication and Media Studies; Film/Video and Photographic Arts,4390
+232672,Mary Baldwin University,Staunton,VA,private nonprofit,1090,city,17927,,,,,Communication and Media Studies,4644
+213996,Messiah University,Mechanicsburg,PA,private nonprofit,2259,suburb,19156,,0.79,1110-1350,26-31,"Communication and Media Studies; Radio, Television, and Digital Communication (earnings $45,522); Film/Video and Photographic Arts",4735
+169080,Calvin University,Grand Rapids,MI,private nonprofit,3193,city,14984,,0.71,1083-1330,24-30,"Communication and Media Studies (earnings $43,138); Radio, Television, and Digital Communication; Film/Video and Photographic Arts",4276
+190512,CUNY Bernard M Baruch College,New York,NY,public,16154,city,3285,11235,0.48,1100-1400,,"Communication and Media Studies (earnings $59,756)",4885
+156392,Bluegrass Community and Technical College,Lexington,KY,public,8244,city,702,2502,,,,Film/Video and Photographic Arts,4351
+239017,Lawrence University,Appleton,WI,private nonprofit,1396,city,15274,,0.64,1200-1420,24-31,Film/Video and Photographic Arts,4135
+227368,The University of Texas Rio Grande Valley,Edinburg,TX,public,28666,city,4614,14334,0.94,880-1090,15-21,"Communication and Media Studies (earnings $39,940)",3620
+176044,Mississippi Valley State University,Itta Bena,MS,public,1439,rural,14129,14129,0.92,,13-17,"Visual and Performing Arts, General",4048
+167288,Massachusetts College of Liberal Arts,North Adams,MA,public,713,town,5327,14272,0.90,,,"Communication and Media Studies; Visual and Performing Arts, General",4907
+190691,CUNY York College,Jamaica,NY,public,4345,city,5177,13127,0.64,790-960,,Communication and Media Studies,4895
+154855,Central Christian College of Kansas,McPherson,KS,private nonprofit,380,town,11595,,0.53,,,Communication and Media Studies,3637
+145372,Greenville University,Greenville,IL,private nonprofit,955,town,18838,,0.97,771-1230,16-28,"Visual and Performing Arts, General",4083
+188641,Alfred University,Alfred,NY,private nonprofit,1423,rural,18752,,0.74,1095-1310,24-29,Communication and Media Studies,4675
+213826,Marywood University,Scranton,PA,private nonprofit,1784,city,16869,,0.61,1060-1250,18-30,"Radio, Television, and Digital Communication; Film/Video and Photographic Arts",4793
+189088,Bard College,Annandale-On-Hudson,NY,private nonprofit,2414,rural,18767,,0.52,1270-1450,28-32,Film/Video and Photographic Arts,4874
+190664,CUNY Queens College,Queens,NY,public,12550,city,3302,11252,0.64,1010-1290,,"Communication and Media Studies (earnings $61,501); Film/Video and Photographic Arts",4894
+174844,St Olaf College,Northfield,MN,private nonprofit,3093,town,10968,,0.48,1300-1470,28-32,Film/Video and Photographic Arts,3900
+120883,University of the Pacific,Stockton,CA,private nonprofit,3204,city,19519,,0.71,1183-1480,23-32,"Communication and Media Studies (earnings $60,666); Radio, Television, and Digital Communication; Film/Video and Photographic Arts",2382
+131399,University of the District of Columbia,Washington,DC,public,3351,city,10549,19093,,,,"Communication and Media Studies; Radio, Television, and Digital Communication",4743
+190594,CUNY Hunter College,New York,NY,public,16289,city,3335,11285,0.54,1100-1420,,"Communication and Media Studies (earnings $55,182); Film/Video and Photographic Arts (earnings $46,545)",4886
+227331,Our Lady of the Lake University,San Antonio,TX,private nonprofit,1066,city,15176,,,,,"Radio, Television, and Digital Communication",3582
+156213,Asbury University,Wilmore,KY,private nonprofit,1420,town,16592,,0.63,,,"Communication and Media Studies; Radio, Television, and Digital Communication (earnings $46,016)",4344
+213321,King's College,Wilkes-Barre,PA,private nonprofit,1484,city,18296,,0.93,1070-1270,,"Communication and Media Studies (earnings $49,930)",4782
+211468,Cedar Crest College,Allentown,PA,private nonprofit,834,city,18054,,0.84,,,"Communication and Media Studies; Radio, Television, and Digital Communication",4807
+200226,Mayville State University,Mayville,ND,public,733,rural,10795,14233,,,,Communication and Media Studies,3730
+213668,Lycoming College,Williamsport,PA,private nonprofit,996,city,13736,,0.74,1080-1300,,"Communication and Media Studies (earnings $33,916); Radio, Television, and Digital Communication; Film/Video and Photographic Arts",4724
+190567,CUNY City College,New York,NY,public,12505,city,3795,11745,0.60,1070-1430,,"Communication and Media Studies (earnings $69,948); Radio, Television, and Digital Communication (earnings $72,068); Film/Video and Photographic Arts (earnings $46,801)",4886
+110608,California State University-Northridge,Northridge,CA,public,32691,city,5948,19268,0.93,,,"Communication and Media Studies (earnings $57,138); Radio, Television, and Digital Communication (earnings $49,359); Film/Video and Photographic Arts (earnings $46,913)",2447
+205957,Franciscan University of Steubenville,Steubenville,OH,private nonprofit,2901,city,18185,,0.58,1110-1350,22-29,"Communication and Media Studies (earnings $42,188)",4543
+177551,Harris-Stowe State University,Saint Louis,MO,public,960,city,8898,13530,,,,Communication and Media Studies,4040
+445267,Central Methodist University-College of Graduate and Extended Studies,Fayette,MO,private nonprofit,2092,rural,16532,,0.88,,19-25,Communication and Media Studies,3907
+191676,Houghton University,Houghton,NY,private nonprofit,753,rural,15196,,0.89,1170-1375,26-31,"Communication and Media Studies (earnings $45,134)",4655
+147660,North Central College,Naperville,IL,private nonprofit,2428,city,17572,,0.77,1055-1310,24-29,"Communication and Media Studies; Radio, Television, and Digital Communication (earnings $45,838)",4147
+170037,Cornerstone University,Grand Rapids,MI,private nonprofit,1298,city,14853,,0.78,,,"Communication and Media Studies (earnings $48,923); Radio, Television, and Digital Communication (earnings $54,344); Film/Video and Photographic Arts",4276
+153108,Central College,Pella,IA,private nonprofit,1070,town,17397,,0.86,1056-1120,20-26,"Communication and Media Studies (earnings $51,671)",3900
+483124,Arizona State University Digital Immersion,Scottsdale,AZ,public,53782,city,11594,13692,0.67,,,"Communication and Media Studies (earnings $61,193); Radio, Television, and Digital Communication (earnings $58,974); Visual and Performing Arts, General (earnings $48,589); Film/Video and Photographic Arts (earnings $49,759)",2808
+168430,Worcester State University,Worcester,MA,public,3930,city,9825,15905,0.88,1026-1283,,"Communication and Media Studies (earnings $50,511); Visual and Performing Arts, General (earnings $39,037)",4975
+190558,College of Staten Island CUNY,Staten Island,NY,public,9657,city,4890,12840,0.92,890-1250,,"Communication and Media Studies (earnings $61,691); Film/Video and Photographic Arts (earnings $51,363)",4878
+127060,University of Denver,Denver,CO,private nonprofit,6025,city,19505,,0.78,1240-1410,28-33,"Communication and Media Studies (earnings $63,374); Radio, Television, and Digital Communication; Film/Video and Photographic Arts",3259
+166124,College of the Holy Cross,Worcester,MA,private nonprofit,3106,city,18565,,0.18,1240-1410,27-32,"Radio, Television, and Digital Communication; Visual and Performing Arts, General; Film/Video and Photographic Arts",4978
+217776,Southern Wesleyan University,Central,SC,private nonprofit,747,suburb,12598,,1.00,1040-1210,22-28,Communication and Media Studies,4471
+217633,Anderson University,Anderson,SC,private nonprofit,3183,city,18976,,0.55,1100-1280,22-29,"Communication and Media Studies; Radio, Television, and Digital Communication (earnings $44,648); Film/Video and Photographic Arts",4480
+190576,CUNY Graduate School and University Center,New York,NY,public,3254,city,4766,12716,0.68,,,"Communication and Media Studies (earnings $72,564); Radio, Television, and Digital Communication; Visual and Performing Arts, General; Film/Video and Photographic Arts",4885
+175342,Alcorn State University,Alcorn State,MS,public,2363,rural,16221,16221,0.45,670-998,15-19,Communication and Media Studies,4010
+133526,Edward Waters University,Jacksonville,FL,private nonprofit,1087,city,12376,,0.85,,,Communication and Media Studies,4578
+498571,Pennsylvania Western University,California,PA,public,7451,town,14350,19281,0.94,940-1140,17-25,"Communication and Media Studies (earnings $48,116); Film/Video and Photographic Arts",4584
+197142,Villa Maria College,Buffalo,NY,private nonprofit,603,city,11973,,0.87,,,"Radio, Television, and Digital Communication; Film/Video and Photographic Arts",4619
+190725,Daemen University,Amherst,NY,private nonprofit,1643,suburb,14431,,0.68,,,"Communication and Media Studies; Visual and Performing Arts, General",4619
+150941,Huntington University,Huntington,IN,private nonprofit,1082,town,14668,,0.76,930-1150,18-26,"Communication and Media Studies; Radio, Television, and Digital Communication; Film/Video and Photographic Arts (earnings $46,073)",4286
+210571,Albright College,Reading,PA,private nonprofit,1217,city,17423,,0.76,,,"Communication and Media Studies (earnings $50,531); Radio, Television, and Digital Communication; Visual and Performing Arts, General",4789
+141361,Young Harris College,Young Harris,GA,private nonprofit,755,rural,9046,,0.63,,,Communication and Media Studies,4409
+216278,Susquehanna University,Selinsgrove,PA,private nonprofit,2163,town,19822,,0.81,1100-1300,21-29,"Communication and Media Studies; Radio, Television, and Digital Communication",4735
+206491,Wilberforce University,Wilberforce,OH,private nonprofit,822,rural,16221,,0.41,,,Communication and Media Studies,4376
+170082,Grand Valley State University,Allendale,MI,public,18854,town,12816,19532,0.83,940-1190,22-30,"Communication and Media Studies (earnings $46,938); Radio, Television, and Digital Communication (earnings $43,011); Film/Video and Photographic Arts (earnings $39,082)",4261
+447689,Georgia Gwinnett College,Lawrenceville,GA,public,11344,suburb,9667,19243,0.95,,,Film/Video and Photographic Arts,4407
+135717,Miami Dade College,Miami,FL,public,46182,city,5098,11921,,,,"Film/Video and Photographic Arts (earnings $35,402)",4728
+214175,Muhlenberg College,Allentown,PA,private nonprofit,1727,city,15397,,0.72,1250-1410,29-33,"Communication and Media Studies (earnings $58,473); Film/Video and Photographic Arts",4808
+130590,Trinity College,Hartford,CT,private nonprofit,2146,city,17524,,0.29,1298-1470,30-34,Film/Video and Photographic Arts,4939
+236577,Seattle Pacific University,Seattle,WA,private nonprofit,1762,city,16952,,0.83,,,"Communication and Media Studies (earnings $62,411); Visual and Performing Arts, General; Film/Video and Photographic Arts",2659
+135726,University of Miami,Coral Gables,FL,private nonprofit,12913,suburb,19695,,0.19,1320-1480,30-33,"Communication and Media Studies; Radio, Television, and Digital Communication (earnings $62,053); Film/Video and Photographic Arts (earnings $52,032)",4723
+190637,CUNY Lehman College,Bronx,NY,public,10696,city,3967,11917,0.57,850-1150,,"Communication and Media Studies (earnings $50,265); Visual and Performing Arts, General",4888
+212577,Franklin and Marshall College,Lancaster,PA,private nonprofit,1799,city,14636,,0.28,1310-1463,30-33,Film/Video and Photographic Arts,4771

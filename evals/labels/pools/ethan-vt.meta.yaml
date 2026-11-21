@@ -1,0 +1,54 @@
+persona: ethan-vt
+major_cip4s:
+- '0301'
+- '3038'
+- '4001'
+- '4002'
+- '4004'
+- '4006'
+- '4008'
+pool_size: 828
+relaxed: []
+shown: 94
+auto_judged:
+- unitid: 144050
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 166027
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 166683
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 168342
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 182670
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 190099
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 190415
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 193900
+  reasons:
+  - 'H4: admission rate < 15%'
+- unitid: 215062
+  reasons:
+  - 'H4: admission rate < 15%'
+n_sampled: 60
+n_system_only: 21
+seed: 20261119
+runs:
+- /Users/allen/Desktop/college-matcher/evals/results/live-full-1
+candidate_tool_version: ee31239af7170f4219e02b510a356cee57174605
+criteria_commit: ee31239af7170f4219e02b510a356cee57174605
+generated_at: '2026-11-20T03:21:12+00:00'
+topup:
+  date: '2026-11-20'
+  rows_added: 13
+  auto_judged_added: 0
+  reason: retriever fix (no silent relaxation, bracket default budget, far-reach cap);
+    new top-10 picks labeled blind
